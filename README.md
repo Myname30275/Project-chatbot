@@ -1,0 +1,103 @@
+# AI Chatbot (FastAPI + Vercel)
+
+Chatbot ที่คุยกับโมเดล AI ผ่าน OpenAI-compatible Chat Completions API
+ค่าเริ่มต้นตั้งไว้ใช้ [Typhoon](https://opentyphoon.ai) (โมเดลภาษาไทย มี free tier)
+แต่สลับไปผู้ให้บริการอื่นที่เป็น OpenAI-compatible ได้โดยไม่ต้องแก้โค้ด
+
+## โครงสร้างโปรเจกต์
+
+```
+api/index.py                entrypoint ที่ Vercel เรียกใช้ (import app จาก main.py)
+main.py                      สร้าง FastAPI app, mount static/templates
+config.py                    อ่านค่าตั้งค่าจาก environment variables
+routers/chat.py              endpoint ของ /api/v1/* (แชต + ไฟล์แนบ)
+services/llm_client.py       โค้ดคุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
+services/conversation_store.py  ที่เก็บประวัติบทสนทนา + ไฟล์แนบ (in-memory หรือ Redis/Vercel KV)
+services/documents.py        ดึงข้อความจากไฟล์ที่แนบ (pymupdf + typhoon-ocr + Gemini)
+static/, templates/          หน้าเว็บ (HTML/CSS/JS)
+```
+
+## รันในเครื่องตัวเอง
+
+```bash
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env             # แล้วใส่ค่า LLM_API_KEY ของตัวเอง
+uvicorn main:app --reload
+```
+
+เปิด http://127.0.0.1:8000
+
+ขอ API key ฟรีของ Typhoon ได้ที่ [opentyphoon.ai](https://opentyphoon.ai) →
+เข้าสู่ระบบ → Playground → API Keys
+
+## ตั้งค่า .env
+
+| ตัวแปร | ตัวอย่าง | หมายเหตุ |
+|---|---|---|
+| `LLM_BASE_URL` | `https://api.opentyphoon.ai/v1` | ต้องจบด้วย `/v1` |
+| `LLM_API_KEY` | (จาก dashboard ผู้ให้บริการ) | อย่า commit ค่านี้ขึ้น git |
+| `LLM_MODEL` | `typhoon-v2.5-30b-a3b-instruct` | หรือ `typhoon-v2.1-12b-instruct` |
+| `SYSTEM_PROMPT` | (ข้อความ system prompt) | มีค่า default ให้แล้วถ้าไม่ตั้ง |
+| `LLM_TEMPERATURE` | `0.7` | ไม่ตั้ง = ใช้ค่า default ของผู้ให้บริการ |
+| `LLM_MAX_TOKENS` | `16384` | ความยาวคำตอบสูงสุด; **ถ้าไม่ตั้ง Typhoon จะ default แค่ 512** (คำตอบยาวจะถูกตัด) — 16384 คือเพดานของ Typhoon |
+| `KV_REST_API_URL` | (จาก Vercel KV) | ดูหัวข้อ "ความจำบทสนทนา" ด้านล่าง |
+| `KV_REST_API_TOKEN` | (จาก Vercel KV) | |
+| `ALLOWED_ORIGINS` | `https://myapp.com` | ตั้งเมื่อมี frontend คนละโดเมน (คั่นด้วย `,`) |
+| `VISION_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai` | ดูหัวข้อ "แนบไฟล์" ด้านล่าง |
+| `VISION_API_KEY` | (Gemini key จาก aistudio.google.com) | ไม่ตั้ง = รูปอ่านได้แค่ข้อความ (OCR) |
+| `VISION_MODEL` | `gemini-flash-latest` | โมเดล vision (alias ตัวล่าสุด) |
+
+### สลับไปผู้ให้บริการอื่น
+
+โค้ดคุยด้วยฟอร์แมต OpenAI-compatible Chat Completions ล้วนๆ จึงสลับได้แค่แก้ `.env`:
+
+- **LM Studio (รันในเครื่อง):** `LLM_BASE_URL=http://127.0.0.1:1234/v1` แล้วเปิด local server
+- **OpenRouter:** `LLM_BASE_URL=https://openrouter.ai/api/v1`, `LLM_MODEL=openai/gpt-4o-mini`
+
+> Typhoon ไม่มี endpoint `GET /v1/models` — หน้า `/api/v1/models` จึงจะคืนแค่โมเดล
+> ตัวที่ตั้งใน `LLM_MODEL` (fallback อัตโนมัติ ไม่ error)
+
+## ความจำบทสนทนา (สำคัญตอน deploy)
+
+`services/conversation_store.py` เลือกที่เก็บประวัติอัตโนมัติจาก environment:
+
+- **ไม่ตั้ง `KV_REST_API_*`** → เก็บใน dict ในหน่วยความจำของโปรเซส
+  ใช้ได้ตอนรันในเครื่อง (process เดียว) แต่บน Vercel serverless แต่ละ request อาจ
+  ตกคนละ instance ทำให้ AI "ลืม" บทสนทนาก่อนหน้าแบบไม่สม่ำเสมอ
+- **ตั้ง `KV_REST_API_URL` + `KV_REST_API_TOKEN`** → เก็บที่ Redis (Upstash REST API
+  ตัวเดียวกับที่ Vercel KV ให้มา) ทุก instance อ่าน/เขียนร่วมกัน บอทจึงจำได้จริง
+  key ใช้ `conv:<session_id>` มีอายุ 7 วัน (`CONVERSATION_TTL_SECONDS`)
+
+วิธีเปิด Vercel KV และ deploy ทั้งหมดอยู่ใน [DEPLOY_STEPS.md](DEPLOY_STEPS.md)
+
+## แนบไฟล์ (PDF / รูปภาพ / ข้อความ)
+
+ปุ่ม 📎 ในแถบพิมพ์ → อัปโหลดไฟล์ → ระบบดึงข้อความมาแปะใน context ของโมเดลแชต
+(ไม่ใช่ RAG — ยัดข้อความตรงๆ) ไฟล์อยู่กับ session จนกด ✕ หรือ "เริ่มใหม่"
+
+- **PDF ที่เป็นข้อความ** → `pymupdf` ดึงตรงๆ (ฟรี ไม่เรียก AI)
+- **PDF สแกน / รูปภาพ** → `typhoon-ocr` ถอดข้อความ (ใช้ `LLM_API_KEY` เดิม)
+- **รูปภาพ + `VISION_API_KEY`** → Gemini บรรยายภาพเพิ่ม (กราฟ/ไดอะแกรม/รูปถ่าย)
+  ขอ key ฟรีที่ [aistudio.google.com](https://aistudio.google.com) (ไม่ต้องผูกบัตร)
+
+จำกัด: 8 MB/ไฟล์, PDF อ่าน 12 หน้าแรก (`config.py`), รวมข้อความทุกไฟล์ 80k ตัวอักษร
+บน Vercel: `typhoon-ocr` จำกัด 20 req/นาที และ PDF สแกนหน้าเยอะอาจใช้เวลานาน —
+ถ้าโดน timeout ให้ตั้ง Max Duration เป็น 60s ที่ Vercel Settings → Functions
+
+## โหมดเสียงและการทดลอง Cartesia
+
+เลือกเสียงตอบกลับได้ใน Settings: Browser, เสียงโคลน Colab หรือ Cartesia
+Cartesia รับเสียงแบบ PCM streaming ผ่าน backend โดยเก็บคีย์ใน `CARTESIA_API_KEY`
+และใช้เสียงสำเร็จรูป Suda สำหรับแพ็กเกจ Free (ยังไม่ใช่เสียงโคลน)
+ผลทดลองล่าสุด: ความเร็วพอใช้ แต่ผู้ใช้ยังไม่พอใจกับการอ่านภาษาไทย
+ดู [การตั้งค่า ผลทดสอบ และงานค้าง](docs/cartesia-trial.md)
+
+## Deploy ขึ้น Vercel
+
+ย่อ: push ขึ้น GitHub → New Project บน Vercel → ใส่ Environment Variables →
+(ถ้าอยากให้จำบทสนทนา) เปิด Vercel KV แล้ว connect → Deploy
+
+ขั้นตอนเต็มพร้อมเช็คลิสต์ทดสอบ: [DEPLOY_STEPS.md](DEPLOY_STEPS.md)

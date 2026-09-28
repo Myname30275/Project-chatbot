@@ -1,0 +1,610 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Test System Architecture</title>
+<meta name="description" content="สถาปัตยกรรมของแชตบอต Test System — FastAPI บน Vercel, Typhoon LLM, อัปโหลดไฟล์, ประวัติหลายบทสนทนา และค้นเว็บอัตโนมัติ" />
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+  :root {
+    --ground: #f3f6fb;
+    --surface: #ffffff;
+    --surface-2: #eef3fa;
+    --ink: #14243a;
+    --muted: #5c7288;
+    --faint: #8a9db2;
+    --accent: #2563cf;
+    --accent-wash: #e9f1fd;
+    --rule: #d8e3ef;
+    --amber: #a96a12;
+    --amber-wash: #fbf0dc;
+    --ok: #1c7a53;
+    --shadow: 0 1px 2px rgba(20, 36, 58, .04), 0 8px 24px -16px rgba(20, 36, 58, .22);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0d151e;
+      --surface: #172230;
+      --surface-2: #1e2c3d;
+      --ink: #e7eef8;
+      --muted: #97acc2;
+      --faint: #6d829a;
+      --accent: #6ba6f6;
+      --accent-wash: #1a2c45;
+      --rule: #27374b;
+      --amber: #e0a54a;
+      --amber-wash: #33280f;
+      --ok: #57c79a;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -18px rgba(0, 0, 0, .6);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0d151e;
+    --surface: #172230;
+    --surface-2: #1e2c3d;
+    --ink: #e7eef8;
+    --muted: #97acc2;
+    --faint: #6d829a;
+    --accent: #6ba6f6;
+    --accent-wash: #1a2c45;
+    --rule: #27374b;
+    --amber: #e0a54a;
+    --amber-wash: #33280f;
+    --ok: #57c79a;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -18px rgba(0, 0, 0, .6);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1160px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 64px);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  @media (min-width: 1080px) {
+    .wrap { grid-template-columns: 210px minmax(0, 748px); gap: 56px; justify-content: center; }
+  }
+
+  /* ---- contents rail ---- */
+  .toc {
+    display: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .74rem;
+  }
+  @media (min-width: 1080px) {
+    .toc { display: block; position: sticky; top: 0; align-self: start; padding-top: 96px; }
+  }
+  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+  .toc a {
+    display: block; padding: 5px 10px; border-radius: 6px;
+    color: var(--muted); text-decoration: none; border-left: 2px solid transparent;
+  }
+  .toc a:hover { color: var(--accent); background: var(--accent-wash); }
+  .toc .n { color: var(--faint); margin-right: 8px; }
+
+  main { min-width: 0; padding-bottom: 120px; }
+
+  /* ---- header ---- */
+  header.masthead {
+    padding: 88px 0 40px;
+    animation: rise .5s ease both;
+  }
+  @media (prefers-reduced-motion: reduce) { header.masthead { animation: none; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); margin: 0 0 14px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 2.9rem);
+    font-weight: 600; line-height: 1.08; letter-spacing: -.02em;
+    margin: 0 0 18px; text-wrap: balance;
+  }
+  .lede {
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 1.16rem; color: var(--muted); margin: 0; max-width: 60ch;
+  }
+  .stack {
+    margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--rule);
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+
+  /* ---- chips ---- */
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: .72rem; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--rule); color: var(--muted); white-space: nowrap;
+  }
+  .chip--ext { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-wash); }
+  .chip--todo { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-wash); }
+
+  /* ---- sections ---- */
+  section { padding: 48px 0 0; scroll-margin-top: 24px; }
+  h2 {
+    font-size: 1.42rem; font-weight: 600; letter-spacing: -.01em;
+    margin: 0 0 6px; display: flex; align-items: baseline; gap: 12px;
+  }
+  h2 .s-num {
+    font-family: "IBM Plex Mono", monospace; font-size: .8rem; font-weight: 400;
+    color: var(--accent); flex: none;
+  }
+  .section-note { color: var(--muted); margin: 0 0 26px; max-width: 62ch; }
+  h3 {
+    font-size: 1rem; font-weight: 600; margin: 30px 0 8px;
+    font-family: "IBM Plex Mono", monospace; color: var(--ink);
+  }
+  p { max-width: 65ch; }
+  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+  code {
+    font-family: "IBM Plex Mono", monospace; font-size: .86em;
+    background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
+  }
+  pre {
+    margin: 18px 0; padding: 18px 20px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--rule);
+    box-shadow: var(--shadow); overflow-x: auto;
+  }
+  pre code { background: none; padding: 0; font-size: .82rem; line-height: 1.7; color: var(--ink); }
+  .tok-key { color: var(--accent); }
+  .tok-com { color: var(--faint); font-style: italic; }
+
+  /* ---- diagram ---- */
+  .diagram {
+    margin: 8px 0 4px; padding: 22px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--rule); box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+  .diagram svg { display: block; min-width: 640px; width: 100%; height: auto; }
+  .d-box { fill: var(--surface-2); stroke: var(--rule); }
+  .d-box--core { fill: var(--accent-wash); stroke: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .d-label { fill: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 500; }
+  .d-sub { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+  .d-edge { stroke: var(--faint); stroke-width: 1.5; fill: none; }
+  .d-edge-label { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: .78rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--rule); flex: none; }
+  .sw--core { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .sw--ext { background: var(--surface-2); }
+
+  /* ---- flow list ---- */
+  ol.flow { counter-reset: step; list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 2px; }
+  ol.flow li {
+    position: relative; padding: 14px 0 14px 46px; border-top: 1px solid var(--rule);
+  }
+  ol.flow li:last-child { border-bottom: 1px solid var(--rule); }
+  ol.flow li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: .8rem;
+    width: 26px; height: 26px; display: grid; place-items: center;
+    border-radius: 7px; background: var(--accent-wash); color: var(--accent);
+    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  }
+  ol.flow b { font-weight: 600; }
+  ol.flow .muted { color: var(--muted); }
+
+  /* ---- definition blocks ---- */
+  .defs { margin: 22px 0 0; display: flex; flex-direction: column; }
+  .def { padding: 20px 0; border-top: 1px solid var(--rule); }
+  .def:last-child { border-bottom: 1px solid var(--rule); }
+  .def-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .def-head .path { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: .92rem; color: var(--ink); }
+  .def p { margin: 6px 0 0; color: var(--muted); }
+  .def ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+  .def li { margin: 3px 0; }
+
+  /* ---- tables ---- */
+  .table-scroll { overflow-x: auto; margin: 20px 0 0; border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; background: var(--surface); }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; background: var(--surface-2); }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: .82em; white-space: nowrap; }
+  td:first-child { white-space: nowrap; }
+
+  .callout {
+    margin: 22px 0 0; padding: 16px 20px; border-radius: 10px;
+    background: var(--amber-wash); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+    color: var(--ink);
+  }
+  .callout p { margin: 0; color: var(--ink); }
+  .callout strong { color: var(--amber); }
+
+  footer {
+    margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--rule);
+    font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--faint);
+  }
+</style>
+
+<div class="wrap">
+  <nav class="toc" aria-label="สารบัญ">
+    <ol>
+      <li><a href="#overview"><span class="n">01</span>ภาพรวม</a></li>
+      <li><a href="#map"><span class="n">02</span>แผนผังระบบ</a></li>
+      <li><a href="#flow"><span class="n">03</span>เส้นทางข้อความ</a></li>
+      <li><a href="#modules"><span class="n">04</span>โมดูล</a></li>
+      <li><a href="#state"><span class="n">05</span>โครงข้อมูล</a></li>
+      <li><a href="#search"><span class="n">06</span>ค้นเว็บ</a></li>
+      <li><a href="#voice"><span class="n">07</span>โหมดเสียง</a></li>
+      <li><a href="#api"><span class="n">08</span>API</a></li>
+      <li><a href="#deploy"><span class="n">09</span>Deploy</a></li>
+      <li><a href="#env"><span class="n">10</span>Env</a></li>
+      <li><a href="#open"><span class="n">11</span>งานค้าง</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <p class="kicker">สรุปสถาปัตยกรรม · feat/landing-ui</p>
+      <h1>Test System — โครงระบบแชตบอต</h1>
+      <p class="lede">
+        แชตบอตภาษาไทยที่รันบน FastAPI + Vercel serverless คุยกับโมเดล Typhoon ผ่าน
+        Chat Completions API แบบ OpenAI-compatible อ่านไฟล์แนบ จำได้หลายบทสนทนา
+        ค้นเว็บมาตอบเองเมื่อถูกถามข้อมูลล่าสุด และมีโหมดสนทนาด้วยเสียง
+      </p>
+      <div class="stack">
+        <span class="chip">FastAPI</span>
+        <span class="chip">Uvicorn</span>
+        <span class="chip">Jinja2 + vanilla JS</span>
+        <span class="chip">SSE streaming</span>
+        <span class="chip">Voice mode (บนเบราว์เซอร์)</span>
+        <span class="chip chip--ext">Typhoon LLM + OCR</span>
+        <span class="chip chip--ext">Gemini vision</span>
+        <span class="chip chip--ext">Tavily search</span>
+        <span class="chip chip--ext">Upstash Redis</span>
+        <span class="chip chip--ext">Vercel</span>
+      </div>
+    </header>
+
+    <section id="overview">
+      <h2><span class="s-num">01</span>ภาพรวม</h2>
+      <p class="section-note">หลักการออกแบบที่ยึดตลอดทั้งโปรเจกต์</p>
+      <p>
+        โค้ดฝั่งเซิร์ฟเวอร์ทั้งหมดอยู่ที่ <code>main.py</code> + <code>routers/</code> +
+        <code>services/</code> เหมือนกันหมดไม่ว่าจะรันในเครื่อง (<code>uvicorn main:app</code>)
+        หรือบน Vercel — ไฟล์ <code>api/index.py</code> เป็นแค่ตัวห่อ import <code>app</code> เข้ามา
+      </p>
+      <ul>
+        <li>
+          <b>ผู้ให้บริการ LLM ถูกแยกออกด้วยชื่อกลางๆ</b> (<code>LLM_BASE_URL</code>,
+          <code>LLM_API_KEY</code>, <code>LLM_MODEL</code>) — สลับจาก Typhoon ไป LM Studio หรือ
+          OpenRouter ได้โดยแก้แค่ <code>.env</code>
+        </li>
+        <li>
+          <b>ไม่มี RAG / vector store</b> — ทั้งเนื้อหาไฟล์แนบและผลค้นเว็บถูกแปลงเป็น
+          "ข้อความ" แล้วเสียบเป็น <code>system</code> message ก่อน history (กลไก
+          <code>context_blocks</code> เดียวกัน)
+        </li>
+        <li>
+          <b>Chat Completions เป็น stateless</b> — เซิร์ฟเวอร์ต้องส่ง history ทั้งก้อนไป
+          ทุกครั้ง ประวัติเก็บฝั่งเราแยกตาม cookie <code>session_id</code>
+        </li>
+        <li>
+          <b>ทุกบริการภายนอกออกแบบให้ "ไม่ล้ม"</b> — Redis ล่ม / Tavily timeout / vision
+          error ล้วนถูก log แล้วทำงานต่อแบบ degraded ไม่โยน 500
+        </li>
+      </ul>
+    </section>
+
+    <section id="map">
+      <h2><span class="s-num">02</span>แผนผังระบบ</h2>
+      <p class="section-note">เบราว์เซอร์คุย same-origin กับ FastAPI ตัวเดียว ซึ่งเป็นตัวเรียกบริการภายนอกทั้งหมด (ไม่มี API key รั่วไปฝั่งหน้าเว็บ)</p>
+      <div class="diagram">
+        <svg viewBox="0 0 820 400" role="img" aria-label="แผนผัง: เบราว์เซอร์ เชื่อมกับ FastAPI บน Vercel ซึ่งเรียก Typhoon, Gemini, Tavily และ Upstash Redis">
+          <defs>
+            <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--faint)" />
+            </marker>
+          </defs>
+
+          <rect class="d-box" x="14" y="146" width="168" height="112" rx="10" />
+          <text class="d-label" x="98" y="180" text-anchor="middle">Browser</text>
+          <text class="d-sub" x="98" y="200" text-anchor="middle">index.html · chat.js</text>
+          <text class="d-sub" x="98" y="215" text-anchor="middle">voice.js (STT/TTS)</text>
+          <text class="d-sub" x="98" y="230" text-anchor="middle">SSE reader</text>
+
+          <rect class="d-box d-box--core" x="292" y="104" width="234" height="196" rx="12" />
+          <text class="d-label" x="409" y="134" text-anchor="middle">Vercel · FastAPI</text>
+          <text class="d-sub" x="409" y="158" text-anchor="middle">api/index.py → main:app</text>
+          <text class="d-sub" x="409" y="176" text-anchor="middle">routers/chat.py</text>
+          <text class="d-sub" x="409" y="194" text-anchor="middle">services/llm_client · search</text>
+          <text class="d-sub" x="409" y="212" text-anchor="middle">documents · conversation_store</text>
+          <text class="d-sub" x="409" y="244" text-anchor="middle">truststore (corp TLS)</text>
+
+          <path class="d-edge" d="M182 196 L292 168" marker-end="url(#arw)" marker-start="url(#arw)" />
+          <text class="d-edge-label" x="237" y="176" text-anchor="middle">HTTPS · SSE</text>
+
+          <rect class="d-box" x="622" y="16" width="184" height="72" rx="10" />
+          <text class="d-label" x="714" y="46" text-anchor="middle">Typhoon</text>
+          <text class="d-sub" x="714" y="65" text-anchor="middle">chat · typhoon-ocr</text>
+
+          <rect class="d-box" x="622" y="104" width="184" height="72" rx="10" />
+          <text class="d-label" x="714" y="134" text-anchor="middle">Gemini</text>
+          <text class="d-sub" x="714" y="153" text-anchor="middle">อธิบายรูปภาพ (ถ้าตั้ง)</text>
+
+          <rect class="d-box" x="622" y="192" width="184" height="72" rx="10" />
+          <text class="d-label" x="714" y="222" text-anchor="middle">Tavily</text>
+          <text class="d-sub" x="714" y="241" text-anchor="middle">web search</text>
+
+          <rect class="d-box" x="622" y="280" width="184" height="72" rx="10" />
+          <text class="d-label" x="714" y="310" text-anchor="middle">Upstash Redis</text>
+          <text class="d-sub" x="714" y="329" text-anchor="middle">Vercel KV · ประวัติ</text>
+
+          <path class="d-edge" d="M526 150 C 575 120, 585 80, 622 58" marker-end="url(#arw)" />
+          <path class="d-edge" d="M526 176 C 570 165, 580 150, 622 142" marker-end="url(#arw)" />
+          <path class="d-edge" d="M526 226 C 570 235, 580 240, 622 234" marker-end="url(#arw)" />
+          <path class="d-edge" d="M526 256 C 575 285, 585 300, 622 320" marker-end="url(#arw)" />
+        </svg>
+        <div class="legend">
+          <span><span class="sw sw--core"></span> โค้ดของเรา</span>
+          <span><span class="sw sw--ext"></span> บริการภายนอก (REST / OpenAI-compatible)</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow">
+      <h2><span class="s-num">03</span>เส้นทางของข้อความหนึ่งครั้ง</h2>
+      <p class="section-note"><code>POST /api/v1/chat/stream</code> — เส้นทางหลักที่หน้าเว็บใช้ ตอบกลับเป็น Server-Sent Events</p>
+      <ol class="flow">
+        <li><b>resolve session</b> <span class="muted">— อ่าน cookie <code>session_id</code> (ไม่มีก็สร้างใหม่ + set-cookie 7 วัน)</span></li>
+        <li><b>โหลด context</b> <span class="muted">— ดึง history + ไฟล์แนบของบทสนทนาที่ active จาก store</span></li>
+        <li><b>เช็คว่าจะค้นเว็บไหม</b> <span class="muted">— <code>_search_should_try()</code> (regex ล้วน ไม่เรียก API)</span></li>
+        <li><b>เปิดสตรีม</b> <span class="muted">— ถ้าจะค้น: ส่ง event <code>{"search":""}</code> ทันที (หน้าเว็บโชว์ "กำลังตรวจสอบข้อมูล…")</span></li>
+        <li><b>วางแผนคำค้น + ยิง Tavily</b> <span class="muted">— <code>_search_run()</code>: fast-path หรือเรียก classifier แล้ว <code>search.run()</code>; สำเร็จ → <code>{"search": q}</code> + <code>{"sources":[…]}</code></span></li>
+        <li><b>เรียก LLM แบบสตรีม</b> <span class="muted">— <code>llm_client.chat_stream(history, message, context_blocks + ผลค้น)</code></span></li>
+        <li><b>ส่ง delta ทีละชิ้น</b> <span class="muted">— <code>{"delta": "…"}</code> ต่อเนื่อง; error กลางทาง → <code>{"error":true,"message":…}</code></span></li>
+        <li><b>ปิด</b> <span class="muted">— <code>{"done":true}</code> (Typhoon ไม่ส่ง <code>[DONE]</code> เอง จึง yield ตอน loop จบ)</span></li>
+        <li><b>บันทึกประวัติ</b> <span class="muted">— เฉพาะเมื่อสตรีมจบสมบูรณ์; กด "หยุด" กลางคัน = ไม่เก็บคำตอบครึ่งๆ</span></li>
+      </ol>
+      <p style="margin-top:22px">
+        <code>POST /api/v1/chat</code> ทำเหมือนกันแต่ไม่สตรีม (รอจนจบแล้วคืน <code>{"reply": …}</code>)
+        — ใช้เป็น fallback / โดยเทสต์ ไม่แสดงชิปแหล่งอ้างอิง
+      </p>
+    </section>
+
+    <section id="modules">
+      <h2><span class="s-num">04</span>โมดูลฝั่งเซิร์ฟเวอร์</h2>
+      <p class="section-note">แต่ละไฟล์ทำหน้าที่เดียว คุยกันผ่าน type ง่ายๆ (<code>list[dict]</code>, <code>str</code>)</p>
+      <div class="defs">
+        <div class="def">
+          <div class="def-head"><span class="path">main.py</span></div>
+          <p>สร้าง FastAPI app, inject <code>truststore</code> (แก้ TLS ในเครือข่ายองค์กร), ตั้ง logging กลาง, mount <code>/static</code>, เสิร์ฟ <code>/</code> (Jinja), <code>/health</code>, include <code>chat_router</code>. CORS เปิดเฉพาะเมื่อตั้ง <code>ALLOWED_ORIGINS</code></p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">config.py</span></div>
+          <p>pydantic-settings อ่านจาก <code>.env</code> ตัวเดียว รวมทุกค่า + property คำนวณ: <code>vision_enabled</code>, <code>search_enabled</code>, <code>redis_rest_url/token</code> (รับได้ทั้งชื่อ <code>KV_REST_API_*</code> และ <code>UPSTASH_REDIS_REST_*</code>)</p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">routers/chat.py</span></div>
+          <p>endpoint ทั้งหมดใต้ <code>/api/v1</code> — แชต, สตรีม, reset, ไฟล์แนบ, บทสนทนา (History), <code>/config</code>, <code>/models</code>. จัดการ cookie, clamp ค่า Settings จาก client, ประกอบ <code>context_blocks</code>, และร้อยเส้นทางค้นเว็บเข้ากับสตรีม</p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">services/llm_client.py</span></div>
+          <p>คุย <code>/chat/completions</code> + <code>/models</code> แบบ OpenAI-compatible</p>
+          <ul>
+            <li><code>_build_payload()</code> — ประกอบ messages: system prompt → context_blocks → history → ข้อความใหม่</li>
+            <li>retry อัตโนมัติเมื่อ 429 / 5xx (exponential backoff, เคารพ <code>Retry-After</code>) — สตรีม retry เฉพาะก่อน delta แรก</li>
+            <li>แปลง error เป็นข้อความไทยสุภาพ ไม่หลุด stack trace</li>
+            <li><code>list_models()</code> รองรับทั้ง <code>{"data":[…]}</code> และ list เปล่า (Typhoon), fallback เป็น <code>LLM_MODEL</code></li>
+          </ul>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">services/conversation_store.py</span></div>
+          <p>ABC <code>ConversationStore</code> + <code>InMemory…</code> / <code>Redis…</code> (Upstash REST API). <code>get_store()</code> เลือก backend จาก env ครั้งเดียว — มี KV = เก็บถาวร, ไม่มี = ในหน่วยความจำ process. เมธอด <code>get/set_history</code>, <code>*_attachments</code>, <code>reset</code> ทำงานบนบทที่ active; <code>list/new/activate/delete_conversation</code> สำหรับ History</p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">services/documents.py</span></div>
+          <p>แปลงไฟล์แนบเป็นข้อความ — ไม่มี AI ถ้าไม่จำเป็น</p>
+          <ul>
+            <li>PDF มีข้อความจริง → <code>pymupdf</code> ดึงตรงๆ · หน้าสแกน → render เป็น PNG → <code>typhoon-ocr</code> (ขนานกัน 2)</li>
+            <li>รูปภาพ → OCR + (ถ้าตั้ง <code>VISION_*</code>) Gemini บรรยายภาพ</li>
+            <li>ตัดที่ <code>ATTACHMENT_CONTEXT_CHAR_LIMIT</code> (80k), PDF สูงสุด 12 หน้า, ไฟล์ ≤ 8 MB</li>
+          </ul>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">services/search.py</span></div>
+          <p>ค้นเว็บอัตโนมัติด้วย Tavily — <code>maybe_needs_search()</code>, <code>plan_query()</code>, <code>run()</code>, <code>as_context_block()</code>, <code>sources_payload()</code> (รายละเอียดในหัวข้อ 06)</p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">templates/index.html · static/</span></div>
+          <p>หน้าเดียว 2 ฉาก (<code>#landing</code> / <code>#chat-screen</code>) สลับด้วยทรานสิชัน 3D "พุ่งผ่านพอร์ทัล". <code>chat.js</code> (vanilla, ไม่มี framework) อ่าน SSE ด้วย <code>response.body.getReader()</code>, markdown ผ่าน <code>marked</code> + <code>DOMPurify</code>. โลจิกทรานสิชัน / Settings popover / KV-dot อยู่ใน inline <code>&lt;script&gt;</code> ของ template</p>
+        </div>
+        <div class="def">
+          <div class="def-head"><span class="path">static/js/voice.js</span></div>
+          <p>โหมดสนทนาด้วยเสียง — overlay เต็มจอ (<code>#voice-overlay</code>) + โครงข่ายเซลล์ประสาทบน <code>&lt;canvas&gt;</code>. STT ในเบราว์เซอร์, เรียก <code>/chat/stream</code> เดิม, TTS เป็นเสียงเบราว์เซอร์หรือเซิร์ฟเวอร์เสียงโคลนภายนอกที่ผู้ใช้ตั้ง URL เอง (รายละเอียดหัวข้อ 07). ไม่แตะ backend ของโปรเจกต์นี้</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="state">
+      <h2><span class="s-num">05</span>โครงข้อมูลประวัติ</h2>
+      <p class="section-note">1 ก้อนต่อ session เก็บที่คีย์ <code>sess:{session_id}</code> (TTL 7 วัน) — เก็บทุกบทสนทนารวมกัน</p>
+      <pre><code><span class="tok-com"># GET sess:&lt;session_id&gt;  →  JSON:</span>
+{
+  <span class="tok-key">"active"</span>: <span class="tok-key">"a1b2c3d4e5f6"</span>,           <span class="tok-com"># cid ที่กำลังเปิด</span>
+  <span class="tok-key">"order"</span>:  [<span class="tok-key">"a1b2…"</span>, <span class="tok-key">"9f8e…"</span>, …],   <span class="tok-com"># ใหม่สุดอยู่หัว, สูงสุด 15</span>
+  <span class="tok-key">"conv"</span>: {
+    <span class="tok-key">"a1b2c3d4e5f6"</span>: {
+      <span class="tok-key">"title"</span>:       <span class="tok-key">"…"</span>,           <span class="tok-com"># 48 ตัวแรกของข้อความผู้ใช้แรก</span>
+      <span class="tok-key">"updated"</span>:     1735900000,
+      <span class="tok-key">"messages"</span>:    [{<span class="tok-key">"role"</span>, <span class="tok-key">"content"</span>}, …],
+      <span class="tok-key">"attachments"</span>: [{<span class="tok-key">"name"</span>, <span class="tok-key">"kind"</span>, <span class="tok-key">"text"</span>, <span class="tok-key">"meta"</span>}, …]
+    }
+  }
+}</code></pre>
+      <p>
+        <code>_trim()</code> ตัดบทเก่าสุดทิ้งเมื่อเกิน 15 บท หรือเมื่อ blob รวมเกิน ~900 KB.
+        <code>_ensure()</code> กันข้อมูลเพี้ยน — คืน state ที่มี <code>active/order/conv</code> ครบเสมอ
+      </p>
+    </section>
+
+    <section id="search">
+      <h2><span class="s-num">06</span>ค้นเว็บอัตโนมัติ</h2>
+      <p class="section-note">แนวทาง "จำแนก → ค้น → เสียบ context" ไม่ใช่ tool-calling loop — เพื่อให้สตรีมคำตอบทำงานปกติทุกกรณี</p>
+      <h3>2 ด่านต้องผ่านทั้งคู่</h3>
+      <ol class="flow">
+        <li><b>ด่าน heuristic</b> <span class="muted">— <code>maybe_needs_search()</code>: ตัดทักทาย / สั่งเขียน-แปล-สรุป / สมการล้วน / มีไฟล์แนบ ออก แล้วต้องเจอ "สัญญาณ" ข้อมูลสด (<code>_SIGNAL_RE</code>: วันนี้ · ตอนนี้ · ล่าสุด · ราคา · ข่าว · ปี 25xx/20xx · นายก · เปิดตัว · today · price …)</span></li>
+        <li><b>ด่าน classifier</b> <span class="muted">— <code>plan_query()</code>: fast-path ถ้าข้อความขึ้นต้นแบบคำค้นชัด (<code>ข่าว…</code> / <code>ราคา…</code> / <code>พยากรณ์อากาศ…</code>) มิฉะนั้นเรียก LLM 1 ครั้งด้วยโปรโตคอล <code>SEARCH: &lt;คำค้น&gt;</code> / <code>SKIP</code> — ค่าตั้งต้นคือ SKIP</span></li>
+      </ol>
+      <h3>แล้วจึง</h3>
+      <p>
+        <code>run()</code> ยิง <code>POST api.tavily.com/search</code> (<code>search_depth: basic</code>,
+        <code>include_answer: false</code> เพื่อความเร็ว) → <code>as_context_block()</code> จัดผลเป็น
+        <code>[1] ชื่อ / url / snippet</code> พร้อมคำสั่งให้โมเดลอ้างอิง <code>[n]</code> → เสียบเป็น context block
+        เพิ่มจากไฟล์แนบ
+      </p>
+      <p>
+        SSE ที่เพิ่มมาสำหรับหน้าเว็บ: <code>{"search": q}</code> (โชว์แถบสถานะในบับเบิล),
+        <code>{"sources": […]}</code> (ชิปใต้คำตอบ), <code>{"search_done": true}</code>
+        (เคลียร์สถานะเมื่อ classifier ตัดสินไม่ค้น)
+      </p>
+      <p>ปิดทั้งฟีเจอร์ได้ 2 ทาง: ไม่ตั้ง <code>SEARCH_API_KEY</code> (ปิดถาวร) หรือสวิตช์ในหน้า Settings (ต่อผู้ใช้, <code>localStorage["ts.search"]</code>)</p>
+    </section>
+
+    <section id="voice">
+      <h2><span class="s-num">07</span>โหมดสนทนาด้วยเสียง</h2>
+      <p class="section-note">ปุ่ม 🎙️ ในแถบพิมพ์ → overlay เต็มจอ · ช่อง "เสียงพูด" เดียวเลือกได้ทั้งเสียงโคลน Cartesia (ใช้เครดิต, ผ่าน backend) หรือเสียง <code>speechSynthesis</code> ของเบราว์เซอร์ (ฟรี, fallback อัตโนมัติเมื่อ Cartesia ล้มเหลว/ไม่ได้ตั้งค่า)</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>ชิ้นส่วน</th><th>ใช้อะไร</th></tr></thead>
+          <tbody>
+            <tr><td>เสียง → ข้อความ</td><td>Web Speech API (<code>SpeechRecognition</code>, <code>th-TH</code>) — <strong>Chrome / Edge / Chrome-Android</strong> เท่านั้น (เบราว์เซอร์อื่นขึ้นข้อความว่าไม่รองรับ)</td></tr>
+            <tr><td>สมอง</td><td><code>/api/v1/chat/stream</code> เดิม — ประวัติ / ค้นเว็บ / ค่า Settings ใช้ต่อได้หมด</td></tr>
+            <tr><td>ข้อความ → เสียง</td><td>เลือกจากช่องเดียว <code>&lt;select id="opt-voice"&gt;</code> (<code>localStorage["ts.voice"]</code>) — optgroup "เสียงโคลน (Cartesia)" มาจาก `CARTESIA_VOICES` ที่ต้น <code>voice.js</code> (ค่า option = <code>cartesia:&lt;voice id&gt;</code>) ต่อด้วยเสียง <code>speechSynthesis</code> ของเบราว์เซอร์ (เสียงไทยขึ้นก่อน — รายชื่อมาจาก OS)<br><b>สตรีมทีละท่อน</b> เหมือนกันทั้งสองทาง: ตัดคำตอบเป็นท่อน (ท่อนแรกตัดไวสุด ~40 ตัวอักษร, ถัดไปตัดท้ายประโยคหรือทุก 160 ตัวอักษร) ยิงคำขอ TTS ทันทีที่ตัดท่อนได้ระหว่าง LLM ยังพิมพ์อยู่ (prefetch ล่วงหน้าได้สูงสุด 2 ท่อน) แล้วต่อคิวเล่นแบบไม่มีช่องว่างเวลา (gapless) บน <code>AudioContext</code> เดียว พร้อม fade 10ms ที่รอยต่อระหว่างประโยค (<code>scheduleBuffer()</code> — กันเสียง "ตึ๊ด" คลิกตรงขอบที่มาจากคนละ synthesis call)<br>เลือกเสียงโคลน → สตรีม PCM 24kHz จาก <code>POST /api/v1/tts/stream</code> (backend proxy คีย์ Cartesia ไว้ฝั่งเซิร์ฟเวอร์ ดู <code>routers/tts.py</code>); ท่อนไหนล้มเหลว → fallback <code>speechSynthesis</code> ทันที (ท่อนที่เหลือของคำตอบนี้ใช้เบราว์เซอร์ต่อ กันสลับเสียงไปมา)</td></tr>
+            <tr><td>ภาพ</td><td>โครงข่ายเซลล์ประสาทบน <code>&lt;canvas&gt;</code> — ขยับตามระดับเสียงจริงจากไมค์ (<code>AnalyserNode</code>) ตอนฟัง; ตอนพูดด้วยเสียงโคลนป้อน RMS จาก <code>AnalyserNode</code> ที่ต่อรวมทุกท่อนในคิวเดียว ทำให้พัลส์ตรงกับคำพูดจริงตลอดทั้งคำตอบ (เสียงเบราว์เซอร์ยังใช้พัลส์จาก <code>onboundary</code>), นิ่งเมื่อ <code>prefers-reduced-motion</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>ลูปสนทนา (state machine ใน voice.js)</h3>
+      <ol class="flow">
+        <li><b>listening</b> <span class="muted">— <code>SpeechRecognition</code> เก็บเสียง; ผลชั่วคราวโชว์เป็นคำบรรยาย</span></li>
+        <li><b>thinking</b> <span class="muted">— เมื่อได้ผลสุดท้าย → POST <code>/chat/stream</code> (พร้อม <code>chatOptions()</code> + <code>voice: true</code>) อ่าน SSE; ทุกครั้งที่ตัดท่อนคำตอบได้ → <code>enqueueSpeech()</code> ทันที ไม่รอสตรีมจบ</span></li>
+        <li><b>speaking</b> <span class="muted">— <code>pumpSpeakQueue()</code> ดึงท่อนถัดไปมาพูดทีละท่อน (เสียงโคลน: <code>speakCartesiaChunk()</code> → <code>scheduleBuffer()</code> ต่อคิว gapless / เสียงเบราว์เซอร์: <code>speakBrowserChunk()</code>) จนกว่าคิวจะว่างและสตรีมจบ</span></li>
+        <li><b>→ listening</b> <span class="muted">— ท่อนสุดท้ายเล่นจบ (<code>source.onended</code> / <code>utterance.onend</code>) แล้วไม่มีท่อนค้าง → เริ่มฟังใหม่อัตโนมัติ</span></li>
+      </ol>
+      <p>
+        แตะที่วงกลม = พูดแทรก (<code>speakSession++</code> ทำให้งาน async ของคิวเก่าทั้งหมดเห็นว่าถูกยกเลิก แล้ว
+        <code>stopAllTts()</code> หยุดทุก source ที่กำลังเล่น/รอเล่น + abort คำขอ <code>/tts</code> ที่ค้างอยู่ แล้วกลับไปฟัง) ·
+        ปุ่ม ✕ หรือ <code>Esc</code> = ปิด overlay แล้วเรียก <code>window.voiceSyncChat</code>
+        (เพิ่มใน <code>chat.js</code>) เพื่อรีเฟรชแชต + รายการบทสนทนา
+      </p>
+      <p>ต้องเป็น <strong>HTTPS</strong> (Vercel เป็นอยู่แล้ว) ไมโครโฟนถึงจะใช้ได้ · คำบรรยายสลับเปิด/ปิดได้ (<code>localStorage["ts.captions"]</code>)</p>
+    </section>
+
+    <section id="api">
+      <h2><span class="s-num">08</span>Endpoint</h2>
+      <p class="section-note">ทั้งหมดขึ้นต้น <code>/api/v1</code> · ผูก session ด้วย cookie <code>session_id</code></p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Method + path</th><th>ทำอะไร</th></tr></thead>
+          <tbody>
+            <tr><td><code>POST /chat/stream</code></td><td>แชตแบบสตรีม (SSE) — เส้นทางหลัก</td></tr>
+            <tr><td><code>POST /chat</code></td><td>แชตแบบไม่สตรีม คืน <code>{"reply"}</code></td></tr>
+            <tr><td><code>POST /chat/reset</code></td><td>ล้างเนื้อหาบทที่ active (ไม่ออก session ใหม่)</td></tr>
+            <tr><td><code>GET /history</code></td><td>ข้อความของบทที่ active (โหลดตอนเปิดหน้า)</td></tr>
+            <tr><td><code>GET /conversations</code></td><td>รายการบทสนทนาทั้งหมด (id, title, updated, count, active)</td></tr>
+            <tr><td><code>POST /conversations</code></td><td>เริ่มบทใหม่ ("แชตใหม่")</td></tr>
+            <tr><td><code>POST /conversations/{cid}/activate</code></td><td>สลับไปบทนั้น คืน messages + attachments</td></tr>
+            <tr><td><code>DELETE /conversations/{cid}</code></td><td>ลบบทสนทนา</td></tr>
+            <tr><td><code>GET/POST /attachments</code>, <code>DELETE /attachments/{i}</code></td><td>รายการ / อัปโหลด / ลบไฟล์แนบของบทที่ active</td></tr>
+            <tr><td><code>GET /config</code></td><td>ค่าตั้งต้นหน้า Settings: <code>temperature</code>, <code>max_tokens</code>, <code>model</code>, <code>kv</code>, <code>web_search</code></td></tr>
+            <tr><td><code>GET /tts/config</code></td><td>โหมดเสียง — <code>{"enabled"}</code> บอกว่าตั้งค่า Cartesia ไว้ไหม (ไม่หลุด API key)</td></tr>
+            <tr><td><code>POST /tts/stream</code></td><td>โหมดเสียง — proxy ไป Cartesia เก็บ API key ไว้ฝั่งเซิร์ฟเวอร์เท่านั้น รับ <code>{"text","voice_id"?}</code> สตรีม PCM 24kHz mono กลับ (ดู <code>routers/tts.py</code>) — ไม่ผูก <code>session_id</code></td></tr>
+            <tr><td><code>GET /models</code></td><td>proxy รายชื่อโมเดล (ไม่หลุด API key)</td></tr>
+            <tr><td><code>GET /health</code></td><td>เช็คว่าเซิร์ฟเวอร์ยังรัน (นอก <code>/api/v1</code>)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="deploy">
+      <h2><span class="s-num">09</span>Deploy</h2>
+      <p class="section-note">Vercel Python serverless · repo <code>github.com/Myname30275/chatbot-typhoon</code> (private)</p>
+      <ul>
+        <li><code>api/index.py</code> = entrypoint เดียว — เพิ่ม project root เข้า <code>sys.path</code> แล้ว <code>from main import app</code></li>
+        <li>
+          <code>vercel.json</code> <b>ต้องเป็นฟอร์แมต <code>builds</code> / <code>routes</code></b> —
+          ฟอร์แมตใหม่ (<code>functions</code> / <code>rewrites</code>) จะ rewrite ทุก path ไป
+          <code>/api/index</code> ทำให้ FastAPI routing พังทั้งหน้า (เจอ 404/ขาว)
+        </li>
+        <li><code>maxDuration</code> ตั้งใน Dashboard (Settings → Functions → 60s) ไม่ใช่ใน <code>vercel.json</code> — จำเป็นเพราะ OCR หลายหน้า และรอบที่ค้นเว็บใช้เวลาเกิน default 10s</li>
+        <li>แก้ env ต้อง <b>Redeploy</b> ถึงจะมีผล</li>
+        <li>สาขา <code>feat/landing-ui</code> อยู่ใน Vercel Preview — ยังไม่ merge เข้า <code>main</code> / production</li>
+      </ul>
+    </section>
+
+    <section id="env">
+      <h2><span class="s-num">10</span>Environment variables</h2>
+      <p class="section-note"><code>.env</code> ถูก gitignore — บน Vercel ตั้งใน Settings → Environment Variables</p>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Key</th><th>บทบาท</th></tr></thead>
+          <tbody>
+            <tr><td><code>LLM_BASE_URL</code></td><td>ปลายทาง OpenAI-compatible — <code>https://api.opentyphoon.ai/v1</code></td></tr>
+            <tr><td><code>LLM_API_KEY</code></td><td>Typhoon key (ใช้กับ <code>typhoon-ocr</code> ด้วย)</td></tr>
+            <tr><td><code>LLM_MODEL</code></td><td><code>typhoon-v2.5-30b-a3b-instruct</code></td></tr>
+            <tr><td><code>LLM_MAX_TOKENS</code></td><td><code>16384</code> — ถ้าไม่ตั้ง Typhoon default แค่ 512</td></tr>
+            <tr><td><code>SYSTEM_PROMPT</code></td><td>โทนการตอบ (ภาษาไทย เป็นมิตร)</td></tr>
+            <tr><td><code>VISION_BASE_URL / API_KEY / MODEL</code></td><td>Gemini สำหรับบรรยายภาพ — ไม่ตั้ง = อ่านได้แค่ข้อความในรูป (OCR)</td></tr>
+            <tr><td><code>SEARCH_API_KEY</code></td><td>Tavily — ไม่ตั้ง = ปิดค้นเว็บ. ปรับเสริม: <code>SEARCH_MAX_RESULTS</code>, <code>WEB_SEARCH_ENABLED</code></td></tr>
+            <tr><td><code>KV_REST_API_URL / TOKEN</code></td><td>Upstash / Vercel KV — ไม่ตั้ง = ประวัติเก็บในหน่วยความจำ (หายเมื่อ instance ปิด)</td></tr>
+            <tr><td><code>ALLOWED_ORIGINS</code></td><td>เปิด CORS ข้ามโดเมน (ปกติไม่ต้อง — หน้าเว็บเป็น same-origin)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="open">
+      <h2><span class="s-num">11</span>งานที่ยังค้าง</h2>
+      <p class="section-note">สถานะ ณ สาขา <code>feat/landing-ui</code></p>
+      <div class="stack" style="border:none;padding:0;margin-top:0">
+        <span class="chip chip--todo">ยืนยัน Vercel KV</span>
+        <span class="chip chip--todo">merge → main</span>
+        <span class="chip chip--todo">rotate Tavily key</span>
+      </div>
+      <div class="callout">
+        <p>
+          <strong>Vercel KV</strong> — โค้ดพร้อมแล้ว แต่ต้องเชื่อม database ใน Vercel
+          (Storage → Create → KV → Connect ทุก environment → Redeploy) ประวัติ / History
+          จึงจะอยู่ถาวรบน production/preview · จุดสีในแถบ sidebar (<code>#kv-dot</code>) เขียว = ต่อแล้ว
+        </p>
+      </div>
+      <div class="callout">
+        <p><strong>merge เข้า main</strong> — รอรีวิว Preview แล้วอนุมัติ (เชื่อม KV ก่อน)</p>
+      </div>
+      <div class="callout">
+        <p><strong>rotate Tavily key</strong> — key ตัวปัจจุบันเคยพิมพ์ในแชต ควร Regenerate ที่ tavily.com แล้วอัปเดตทั้ง <code>.env</code> และ Vercel</p>
+      </div>
+    </section>
+
+    <footer>
+      Test System · FastAPI + Typhoon · อ้างอิงจากโค้ดสาขา feat/landing-ui
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>
