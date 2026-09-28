@@ -415,7 +415,7 @@
     const u = new SpeechSynthesisUtterance(text);
     // ตอนเลือกเสียงโคลน (Cartesia) ไว้ v จะเป็น null เสมอ — เดิม fallback เคยฟิกซ์ lang="th-TH"
     // ทุกครั้ง ถ้าข้อความที่หลุดมาเป็นภาษาอังกฤษ (เช่น Cartesia ล้มกลางทาง) จะขอเสียงไทยมาพูดอังกฤษ
-    // เพี้ยนๆ แทน ต้องเดาภาษาจากตัวข้อความจริงให้ตรงกับที่ backend ใช้ตัดสินใจส่ง Cartesia (routers/tts.py)
+    // เพี้ยนๆ แทน ต้องเดาภาษาจากตัวข้อความจริงให้ตรงกับที่ backend ใช้ตัดสินใจส่ง Cartesia (channels/tts.py)
     if (v) { u.voice = v; u.lang = v.lang; }
     else u.lang = /[฀-๿]/.test(text) ? "th-TH" : "en-US";
     u.rate = 1;

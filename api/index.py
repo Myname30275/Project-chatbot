@@ -2,7 +2,7 @@
 
 Vercel's Python runtime มองหาไฟล์ในโฟลเดอร์ api/ แล้วรันแต่ละไฟล์เป็น serverless
 function หนึ่งตัว ไฟล์นี้แค่ import FastAPI app ตัวจริงจาก main.py (ที่อยู่นอก
-โฟลเดอร์ api/) มาเปิดใช้งาน — โค้ดแอปจริงทั้งหมดยังอยู่ที่ main.py/routers/services
+โฟลเดอร์ api/) มาเปิดใช้งาน — โค้ดแอปจริงทั้งหมดยังอยู่ที่ main.py และโฟลเดอร์ channels/chatbot/vision
 เหมือนตอนรันในเครื่องทุกประการ ไม่ต้องเขียนซ้ำ
 """
 

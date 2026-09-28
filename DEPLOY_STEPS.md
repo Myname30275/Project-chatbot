@@ -109,7 +109,7 @@ git push -u origin main
 
 ## 4. เปิด Vercel KV (จำเป็นสำหรับ History / จำบทสนทนา)
 
-`services/conversation_store.py` เก็บบทสนทนาในหน่วยความจำ process ถ้าไม่เจอ
+`chatbot/conversation_store.py` เก็บบทสนทนาในหน่วยความจำ process ถ้าไม่เจอ
 `KV_REST_API_URL` / `KV_REST_API_TOKEN` — บน serverless แต่ละ request ตกคนละ
 instance และ instance ถูกปิดทิ้งได้ตลอด **ประวัติ + History จะหาย** ต้องมี Redis กลาง:
 
@@ -194,7 +194,7 @@ instance และ instance ถูกปิดทิ้งได้ตลอด 
 
 - แก้ env ทีหลังต้องกด **Redeploy** ใน Vercel ถึงจะมีผล
 - Typhoon free tier ตอบ `429` เมื่อยิงถี่เกิน — แอปมี retry + exponential backoff
-  ให้อัตโนมัติ (`services/llm_client.py`) ถ้ายังไม่ผ่านจะขึ้นข้อความไทยสุภาพแทน error ดิบ
+  ให้อัตโนมัติ (`chatbot/llm_client.py`) ถ้ายังไม่ผ่านจะขึ้นข้อความไทยสุภาพแทน error ดิบ
 - ถ้าต้อง throughput สูง Typhoon แนะนำให้ใช้ผ่าน Together AI (ดู docs.opentyphoon.ai)
 
 ### ไฟล์แนบ + `vercel.json`

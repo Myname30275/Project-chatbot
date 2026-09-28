@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """ค่าตั้งค่าทั้งหมดของแอปอ่านจากไฟล์ .env (ผ่าน pydantic-settings)
     ตัวแปรฝั่ง LLM ตั้งชื่อแบบกลางๆ ไม่ผูกกับผู้ให้บริการรายใดรายหนึ่ง เพราะโค้ดฝั่ง
-    services/llm_client.py คุยด้วยฟอร์แมต OpenAI-compatible Chat Completions ซึ่ง
+    chatbot/llm_client.py คุยด้วยฟอร์แมต OpenAI-compatible Chat Completions ซึ่ง
     Typhoon (opentyphoon.ai), LM Studio (รันในเครื่อง) และ OpenRouter รองรับเหมือนกัน
     — ตอนจะสลับผู้ให้บริการจึงแค่แก้ค่าใน .env โดยไม่ต้องแตะโค้ดเลย
     """
@@ -23,14 +23,14 @@ class Settings(BaseSettings):
     SYSTEM_PROMPT: str = "คุณคือผู้ช่วย AI ที่เป็นมิตรและตอบเป็นภาษาไทย"
 
     # ปุ่มปรับพฤติกรรมโมเดล — ไม่ตั้งก็ได้ (ปล่อยให้ผู้ให้บริการใช้ค่า default ของตัวเอง)
-    # ใส่ลง payload เฉพาะเมื่อมีค่า (ดู services/llm_client.py::_build_payload)
+    # ใส่ลง payload เฉพาะเมื่อมีค่า (ดู chatbot/llm_client.py::_build_payload)
     LLM_TEMPERATURE: float | None = None
     LLM_MAX_TOKENS: int | None = None
 
     # อายุของประวัติบทสนทนาใน store ภายนอก (วินาที) ตั้งให้เท่าอายุ cookie = 7 วัน
     CONVERSATION_TTL_SECONDS: int = 60 * 60 * 24 * 7
 
-    # --- อ่านเอกสาร/รูปภาพที่ผู้ใช้แนบมา (services/documents.py) ---
+    # --- อ่านเอกสาร/รูปภาพที่ผู้ใช้แนบมา (vision/documents.py) ---
     # OCR ใช้ผู้ให้บริการเดียวกับแชต (Typhoon) — โมเดล typhoon-ocr เรียกผ่าน
     # LLM_BASE_URL + LLM_API_KEY เดิม ไม่ต้องตั้ง key เพิ่ม
     OCR_MODEL: str = "typhoon-ocr"
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     ATTACHMENT_MAX_PDF_PAGES: int = 12                 # หน้าเกินนี้ไม่อ่าน
     ATTACHMENT_CONTEXT_CHAR_LIMIT: int = 80_000        # รวมทุกไฟล์ต่อ session ตัดส่วนเกิน
 
-    # --- ค้นเว็บอัตโนมัติ (services/search.py) ---
+    # --- ค้นเว็บอัตโนมัติ (chatbot/search.py) ---
     # เวลาผู้ใช้ถามข้อมูลล่าสุด (ข่าว/ราคา/เหตุการณ์ปัจจุบัน) โมเดลจะสั่งให้ไปค้นเว็บ
     # มาก่อนตอบ — ขอ key ฟรีที่ tavily.com (ไม่ตั้ง SEARCH_API_KEY = ปิดฟีเจอร์นี้)
     WEB_SEARCH_ENABLED: bool = True

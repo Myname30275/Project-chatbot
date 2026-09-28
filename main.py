@@ -17,8 +17,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from config import settings
-from routers.chat import router as chat_router
-from routers.tts import router as tts_router
+from channels.tts import router as tts_router
+from channels.web_chat import router as chat_router
 
 # หาโฟลเดอร์ static/templates จาก path ของไฟล์นี้เอง แทนที่จะพึ่ง current working
 # directory ตอนรัน เพราะบน serverless (เช่น Vercel) ไม่การันตีว่า process จะเริ่ม

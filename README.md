@@ -6,15 +6,29 @@ Chatbot ที่คุยกับโมเดล AI ผ่าน OpenAI-compat
 
 ## โครงสร้างโปรเจกต์
 
+แบ่งโฟลเดอร์ตามชั้นของสถาปัตยกรรม (โฟลเดอร์ที่มีเครื่องหมาย * ยังว่าง จะเพิ่มในเฟสถัดไป)
+
 ```
-api/index.py                entrypoint ที่ Vercel เรียกใช้ (import app จาก main.py)
-main.py                      สร้าง FastAPI app, mount static/templates
-config.py                    อ่านค่าตั้งค่าจาก environment variables
-routers/chat.py              endpoint ของ /api/v1/* (แชต + ไฟล์แนบ)
-services/llm_client.py       โค้ดคุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
-services/conversation_store.py  ที่เก็บประวัติบทสนทนา + ไฟล์แนบ (in-memory หรือ Redis/Vercel KV)
-services/documents.py        ดึงข้อความจากไฟล์ที่แนบ (pymupdf + typhoon-ocr + Gemini)
-static/, templates/          หน้าเว็บ (HTML/CSS/JS)
+api/index.py                   entrypoint ที่ Vercel เรียกใช้ (import app จาก main.py)
+main.py                        สร้าง FastAPI app, mount static/templates, รวม router
+config.py                      อ่านค่าตั้งค่าจาก environment variables
+
+channels/        ① ช่องทางเข้า (API layer)
+  web_chat.py                  /api/v1/* ของหน้าเว็บ (แชต, สตรีม, History, ไฟล์แนบ)
+  tts.py                       /api/v1/tts/* — proxy เสียง Cartesia สำหรับโหมดเสียง
+  line_webhook.py*             LINE OA (แชตอย่างเดียว)
+chatbot/         ② แกนกลางที่ทุกช่องทางใช้ร่วมกัน
+  llm_client.py                คุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
+  conversation_store.py        ประวัติบทสนทนา + ไฟล์แนบ (in-memory หรือ Redis/Vercel KV)
+  search.py                    ค้นเว็บอัตโนมัติ (Tavily) — พักไว้สำหรับร้าน
+guardrails/*     ③ ความปลอดภัย: blocklist, Llama Guard, ตรวจขาเข้า/ขาออก
+vision/          ④ OCR + อ่านรูป
+  documents.py                 ดึงข้อความจากไฟล์แนบ (pymupdf + typhoon-ocr + Gemini)
+shop/*           ⑤ ข้อมูลร้าน (ราคา นโยบาย) + logic ที่ไม่ให้ LLM ตัดสินเอง
+prompts/*        ⑥ system prompt แยกเป็นไฟล์
+static/, templates/  ⑦ UX/UI — หน้าเว็บ, โหมดเสียง, อวตาร 3D
+tests/                         unit tests
+docs/                          เอกสารออกแบบ/ผลทดลอง
 ```
 
 ## รันในเครื่องตัวเอง
@@ -62,7 +76,7 @@ uvicorn main:app --reload
 
 ## ความจำบทสนทนา (สำคัญตอน deploy)
 
-`services/conversation_store.py` เลือกที่เก็บประวัติอัตโนมัติจาก environment:
+`chatbot/conversation_store.py` เลือกที่เก็บประวัติอัตโนมัติจาก environment:
 
 - **ไม่ตั้ง `KV_REST_API_*`** → เก็บใน dict ในหน่วยความจำของโปรเซส
   ใช้ได้ตอนรันในเครื่อง (process เดียว) แต่บน Vercel serverless แต่ละ request อาจ

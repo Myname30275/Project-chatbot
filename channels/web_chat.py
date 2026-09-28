@@ -7,11 +7,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from config import settings
-from services import documents, llm_client, search
-from services.conversation_store import get_store
-from services.documents import DocumentError
-from services.search import SearchError
-from services.llm_client import LLMConnectionError
+from chatbot import llm_client, search
+from chatbot.conversation_store import get_store
+from chatbot.llm_client import LLMConnectionError
+from chatbot.search import SearchError
+from vision import documents
+from vision.documents import DocumentError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1")
@@ -21,7 +22,7 @@ router = APIRouter(prefix="/api/v1")
 # ไม่ตั้ง = เก็บในหน่วยความจำ process (พอสำหรับรันในเครื่อง)
 #
 # Chat Completions API เป็นแบบ stateless ผู้ให้บริการไม่จำบทสนทนาให้ ต้องส่ง history
-# ทั้งหมดไปเองทุกครั้ง (ดู services/llm_client.py::_build_payload)
+# ทั้งหมดไปเองทุกครั้ง (ดู chatbot/llm_client.py::_build_payload)
 store = get_store()
 
 SESSION_COOKIE = "session_id"

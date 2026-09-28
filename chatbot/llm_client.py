@@ -59,7 +59,7 @@ def _build_payload(
     ปล่อยให้ผู้ให้บริการใช้ค่า default ของตัวเอง
 
     context_blocks = ข้อความที่ดึงมาจากไฟล์ที่ผู้ใช้แนบ (PDF/รูป) ส่งเป็น system message
-    เพิ่มก่อน history เพื่อให้โมเดลตอบโดยอ้างอิงไฟล์ได้ (ดู services/documents.py)
+    เพิ่มก่อน history เพื่อให้โมเดลตอบโดยอ้างอิงไฟล์ได้ (ดู vision/documents.py)
 
     extra_system = system message เสริมเฉพาะ request นี้ (เช่น "ตอบสั้นสำหรับโหมดเสียง")
     แยกจาก context_blocks เพราะไม่ใช่เนื้อหาอ้างอิง แต่เป็นคำสั่งปรับพฤติกรรมการตอบ

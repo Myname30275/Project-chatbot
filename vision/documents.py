@@ -1,7 +1,7 @@
 """ดึงข้อความจากไฟล์ที่ผู้ใช้แนบ (PDF / รูปภาพ / ข้อความ)
 
 แนวคิด: ไม่ทำ RAG/vector — แปลงไฟล์เป็น "ข้อความ" แล้วให้ router เอาไปยัดใน context
-ของโมเดลแชตตรงๆ (ดู services/llm_client.py::_build_payload)
+ของโมเดลแชตตรงๆ (ดู chatbot/llm_client.py::_build_payload)
 
 - PDF ที่มีข้อความจริง  -> pymupdf ดึงตรงๆ (ฟรี ไม่เรียก AI)
 - PDF หน้าที่เป็นสแกน    -> เรนเดอร์เป็นรูป -> typhoon-ocr
@@ -21,7 +21,7 @@ import httpx
 import pymupdf
 
 from config import settings
-from services.llm_client import _post_with_retry
+from chatbot.llm_client import _post_with_retry
 
 logger = logging.getLogger(__name__)
 

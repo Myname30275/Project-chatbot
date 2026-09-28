@@ -19,7 +19,7 @@ Browser/Colab) กับช่อง "URL เซิร์ฟเวอร์เ�
 
 เตรียมรองรับเพิ่มเสียงโคลนอื่นในอนาคต (เช่น ถ้าจะโคลน Kirito ด้วย): เติมรายการใน
 `CARTESIA_VOICES` ที่ต้นไฟล์ `static/js/voice.js` (`{id, name}`) — ฝั่ง client ส่ง `voice_id`
-ที่เลือกไปกับทุก request ของ `POST /api/v1/tts/stream`, `routers/tts.py` ใช้ค่านั้นแทน
+ที่เลือกไปกับทุก request ของ `POST /api/v1/tts/stream`, `channels/tts.py` ใช้ค่านั้นแทน
 `CARTESIA_VOICE_ID` ของ `.env` ถ้ามีส่งมา (ไม่ส่ง = ใช้ค่า default ของเซิร์ฟเวอร์เหมือนเดิม)
 
 path ของ Colab/Kaggle (`voice_server.ipynb`) ยังอยู่ในโค้ด/repo `Voice chatbot` เหมือนเดิม

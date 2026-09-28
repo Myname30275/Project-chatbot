@@ -18,7 +18,7 @@ class TTSTests(unittest.TestCase):
         def factory(**kwargs):
             return real_client(transport=httpx.MockTransport(upstream))
         with patch.object(settings, "CARTESIA_API_KEY", "test-only"), patch(
-            "routers.tts.httpx.AsyncClient", side_effect=factory
+            "channels.tts.httpx.AsyncClient", side_effect=factory
         ), TestClient(app) as client:
             for text, lang in [("สวัสดีค่ะ", "th"), ("Hello", "en")]:
                 response = client.post("/api/v1/tts/stream", json={"text": text})
@@ -38,7 +38,7 @@ class TTSTests(unittest.TestCase):
             return real_client(transport=httpx.MockTransport(upstream))
         with patch.object(settings, "CARTESIA_API_KEY", "test-only"), patch.object(
             settings, "CARTESIA_VOICE_ID", "default-voice"
-        ), patch("routers.tts.httpx.AsyncClient", side_effect=factory), TestClient(app) as client:
+        ), patch("channels.tts.httpx.AsyncClient", side_effect=factory), TestClient(app) as client:
             import json
             client.post("/api/v1/tts/stream", json={"text": "Hi", "voice_id": "picked-voice"})
             self.assertEqual(json.loads(requests[-1].content)["voice"], "picked-voice")
@@ -56,7 +56,7 @@ class TTSTests(unittest.TestCase):
             return real_client(transport=httpx.MockTransport(
                 lambda request: httpx.Response(401, text="private-provider-detail")))
         with patch.object(settings, "CARTESIA_API_KEY", "test-only"), patch(
-            "routers.tts.httpx.AsyncClient", side_effect=factory
+            "channels.tts.httpx.AsyncClient", side_effect=factory
         ), TestClient(app) as client:
             response = client.post("/api/v1/tts/stream", json={"text":"Hello"})
             self.assertEqual(response.status_code, 502)

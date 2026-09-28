@@ -1,6 +1,6 @@
 """ค้นเว็บอัตโนมัติ — เวลาผู้ใช้ถามข้อมูลล่าสุด ให้ไปค้นมาก่อนตอบ
 
-flow (ดู routers/chat.py::_search_context):
+flow (ดู channels/web_chat.py::_search_context):
 1. maybe_needs_search()  — heuristic กรองข้อความที่ชัดว่าไม่ต้องค้นทิ้งก่อน (เร็ว ไม่เรียก API)
 2. plan_query()          — เรียก LLM สั้นๆ 1 ครั้งให้ตัดสินใจ + สร้าง search query (หรือ NONE)
 3. run()                 — ยิง Tavily
@@ -17,7 +17,7 @@ from typing import Any
 import httpx
 
 from config import settings
-from services import llm_client
+from chatbot import llm_client
 
 logger = logging.getLogger(__name__)
 
