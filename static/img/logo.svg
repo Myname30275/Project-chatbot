@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Hom Hom Grooming">
+  <!-- สัญลักษณ์ร้าน: หน้าหมาหูตั้ง แถบขาวกลางหน้า แลบลิ้น (อิงจาก Theme color 2) + ฟองสบู่ = อาบน้ำตัวหอม -->
+  <g stroke="#5c3d2e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M14 33 12.5 9.5 29 21Z" fill="#e8a840" />
+    <path d="M50 33 51.5 9.5 35 21Z" fill="#e8a840" />
+  </g>
+  <path d="M16.5 26.5 15.8 14.8 24.5 20.8Z" fill="#f8dda8" />
+  <path d="M47.5 26.5 48.2 14.8 39.5 20.8Z" fill="#f8dda8" />
+  <path d="M32 19.5c10.2 0 17.5 6.8 17.5 16.5 0 10.4-7.6 17.5-17.5 17.5S14.5 46.4 14.5 36c0-9.7 7.3-16.5 17.5-16.5Z"
+        fill="#e8a840" stroke="#5c3d2e" stroke-width="2.4" />
+  <!-- แถบขาวกลางหน้า + ปาก -->
+  <path d="M29.6 21.2h4.8c.6 4.4 1.8 8.6 5.4 11.8 3.4 1.6 5.2 4.6 5.2 8 0 6-5.8 10.4-13 10.4S19 47 19 41c0-3.4 1.8-6.4 5.2-8 3.6-3.2 4.8-7.4 5.4-11.8Z"
+        fill="#fffbf3" />
+  <circle cx="24.5" cy="33.5" r="2.1" fill="#5c3d2e" />
+  <circle cx="39.5" cy="33.5" r="2.1" fill="#5c3d2e" />
+  <ellipse cx="32" cy="39.6" rx="3.4" ry="2.5" fill="#5c3d2e" />
+  <path d="M29.3 44.3c1 4.6 4.4 4.6 5.4 0Z" fill="#f28c8c" stroke="#5c3d2e" stroke-width="1.6" stroke-linejoin="round" />
+  <path d="M26.8 42.4c1.8 2.2 3.8 2.2 5.2 0 1.4 2.2 3.4 2.2 5.2 0" fill="none" stroke="#5c3d2e" stroke-width="2" stroke-linecap="round" />
+  <!-- ฟองสบู่ -->
+  <g fill="#ffffff" stroke="#5c3d2e" stroke-width="1.8">
+    <circle cx="54.5" cy="46" r="3.6" />
+    <circle cx="58.6" cy="38.2" r="2" />
+  </g>
+</svg>

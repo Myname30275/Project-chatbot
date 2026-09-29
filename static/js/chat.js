@@ -1,3 +1,6 @@
+const chatPanel = document.getElementById("chat-panel");
+const chatStatus = document.getElementById("chat-status");
+const launcher = document.getElementById("chat-launcher");
 const chatWindow = document.getElementById("chat-window");
 const emptyState = document.getElementById("empty-state");
 const loadingIndicator = document.getElementById("loading-indicator");
@@ -11,9 +14,13 @@ const attachmentsBar = document.getElementById("attachments");
 const attachButton = document.getElementById("attach-button");
 const fileInput = document.getElementById("file-input");
 
+// ข้อความที่ assistant บันทึกแทนการส่งรูป (chatbot/assistant.py: IMAGE_MARKER)
+const IMAGE_MARKER = "(ส่งรูปภาพ)";
+
 // เก็บ AbortController ของ request ที่กำลังทำงานอยู่ ไว้ให้ปุ่ม "หยุด" เรียกยกเลิกได้
-// (นี่คือส่วนที่เติมให้ตรงกับ Usability Heuristic "User Control & Freedom" ที่สอนในสไลด์)
+// (Usability Heuristic "User Control & Freedom")
 let activeAbortController = null;
+let lastMessage = "";
 
 function renderMarkdown(rawText) {
   // .trim() กัน trailing newline จากโมเดลบางตัว (เช่น Typhoon) ที่ทำให้บับเบิลสูงลอย
@@ -21,21 +28,56 @@ function renderMarkdown(rawText) {
   return DOMPurify.sanitize(html);
 }
 
-// ค่าจากหน้า Settings (temperature / ความยาวคำตอบ) เก็บใน localStorage — แนบไปกับทุกข้อความ
-function chatOptions() {
-  const opts = {};
-  try {
-    const t = localStorage.getItem("ts.temp");
-    const m = localStorage.getItem("ts.maxTokens");
-    if (t !== null && t !== "") opts.temperature = Number(t);
-    if (m !== null && m !== "") opts.max_tokens = Number(m);
-    opts.web_search = localStorage.getItem("ts.search") !== "0"; // ค่าเริ่มต้น = เปิด
-  } catch (err) {
-    /* localStorage ปิดอยู่ก็ไม่เป็นไร ใช้ค่า default ฝั่ง server */
-  }
-  return opts;
+// ============ เปิด/ปิดหน้าต่างแชท ============
+function openChat({ pickPhoto = false } = {}) {
+  chatPanel.hidden = false;
+  // เว้น 1 เฟรมให้ transition เลื่อนเข้าทำงาน (hidden → แสดง แล้วค่อยเติม is-open)
+  requestAnimationFrame(() => chatPanel.classList.add("is-open"));
+  document.body.classList.add("chat-open");
+  launcher.setAttribute("aria-expanded", "true");
+  if (pickPhoto) fileInput.click();
+  else setTimeout(() => messageInput.focus(), 250);
 }
 
+function closeChat() {
+  chatPanel.classList.remove("is-open");
+  document.body.classList.remove("chat-open");
+  launcher.setAttribute("aria-expanded", "false");
+  setTimeout(() => {
+    if (!chatPanel.classList.contains("is-open")) chatPanel.hidden = true;
+  }, 320);
+  launcher.focus();
+}
+
+document.addEventListener("click", (e) => {
+  const opener = e.target.closest("[data-open-chat]");
+  if (opener) {
+    openChat({ pickPhoto: opener.hasAttribute("data-pick-photo") });
+    return;
+  }
+  const picker = e.target.closest("[data-pick-photo]");
+  if (picker) fileInput.click();
+  const ask = e.target.closest("[data-ask]");
+  if (ask && !activeAbortController) sendMessage(ask.dataset.ask);
+});
+document.getElementById("chat-close").addEventListener("click", closeChat);
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && chatPanel.classList.contains("is-open")) closeChat();
+});
+if (location.hash === "#chat") openChat();
+
+// ============ สถานะของน้องหอม (หัวแชทขยับตาม) ============
+const STATUS_TEXT = {
+  idle: "พร้อมตอบ",
+  thinking: "กำลังพิมพ์…",
+  looking: "กำลังดูรูปน้อง…",
+};
+function setMascot(state) {
+  chatPanel.dataset.state = state;
+  chatStatus.textContent = STATUS_TEXT[state] || STATUS_TEXT.idle;
+}
+
+// ============ บับเบิลข้อความ ============
 function hideEmptyState() {
   emptyState.classList.add("hidden");
 }
@@ -54,9 +96,30 @@ function appendUserMessage(text) {
   wrapper.appendChild(bubble);
   chatWindow.insertBefore(wrapper, loadingIndicator);
   scrollToBottom();
+  return bubble;
+}
+
+// บับเบิลรูปที่ลูกค้าส่ง (ภาพย่อจากเครื่องลูกค้าเอง ไม่ได้โหลดกลับจากเซิร์ฟเวอร์)
+function appendPhotoMessage(file) {
+  const bubble = appendUserMessage("");
+  bubble.classList.add("bubble--photo");
+  if (file && file.type.startsWith("image/")) {
+    const img = document.createElement("img");
+    img.alt = "รูปที่ส่ง";
+    img.src = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(img.src);
+      scrollToBottom();
+    };
+    bubble.appendChild(img);
+  } else {
+    bubble.textContent = file ? `ส่งไฟล์ ${file.name}` : "ส่งรูปแล้ว";
+  }
+  return bubble;
 }
 
 function createAiBubble() {
+  hideEmptyState();
   const wrapper = document.createElement("div");
   wrapper.className = "message ai";
   const bubble = document.createElement("div");
@@ -71,75 +134,71 @@ function scrollToBottom() {
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
 
-// ---- ค้นเว็บ: แถบสถานะระหว่างค้น (อยู่ในบับเบิล) + ชิปแหล่งอ้างอิงใต้คำตอบ ----
-function showSearchStatus(bubble, query) {
-  const text = query ? `กำลังค้นเว็บ: ${query}` : "กำลังตรวจสอบข้อมูลล่าสุด…";
-  bubble.classList.add("bubble--searching");
-  bubble.innerHTML =
-    '<span class="search-status"><span class="search-status__spin"></span>' +
-    '<span class="search-status__text"></span></span>';
-  bubble.querySelector(".search-status__text").textContent = text;
-  scrollToBottom();
-}
-
-function clearSearchStatus(bubble) {
-  if (bubble.classList.contains("bubble--searching")) {
-    bubble.classList.remove("bubble--searching");
-    bubble.innerHTML = "";
-  }
-}
-
-function renderSources(bubble, sources) {
+// ชิ้นข้อมูลร้านที่ RAG ค้นมาใช้ตอบ — โชว์ใต้คำตอบให้ลูกค้าเห็นว่าอ้างอิงจากอะไร
+function renderKnowledge(bubble, items) {
   const wrapper = bubble.parentElement;
-  if (wrapper.querySelector(".sources")) return;
+  if (!items || !items.length || wrapper.querySelector(".sources")) return;
   const box = document.createElement("div");
   box.className = "sources";
-  sources.forEach((s, i) => {
-    const a = document.createElement("a");
-    a.className = "source-chip";
-    a.href = s.url;
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
-    a.title = s.title || s.url;
-    a.innerHTML = '<span class="source-chip__n"></span><span class="source-chip__t"></span>';
-    a.querySelector(".source-chip__n").textContent = `[${i + 1}]`;
-    a.querySelector(".source-chip__t").textContent = s.title || s.url;
-    box.appendChild(a);
-  });
+  const label = document.createElement("span");
+  label.className = "sources__label";
+  label.textContent = "ข้อมูลจากร้าน";
+  box.appendChild(label);
+  for (const s of items) {
+    const chip = document.createElement("span");
+    chip.className = "sources__chip";
+    chip.textContent = s.title;
+    box.appendChild(chip);
+  }
   wrapper.appendChild(box);
   scrollToBottom();
 }
 
-function showError(message) {
-  errorBanner.classList.remove("notice");
-  errorBanner.textContent = message;
+// ============ แจ้งเตือน ============
+function showError(message, { retry = false } = {}) {
+  errorBanner.classList.remove("alert--notice");
+  errorBanner.innerHTML = "";
+  const text = document.createElement("span");
+  text.textContent = message;
+  errorBanner.appendChild(text);
+  if (retry && lastMessage) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "alert__action";
+    btn.textContent = "ส่งอีกครั้ง";
+    btn.addEventListener("click", () => sendMessage(lastMessage));
+    errorBanner.appendChild(btn);
+  }
   errorBanner.classList.remove("hidden");
   console.error("[chat] error:", message);
 }
 
 function showNotice(message) {
-  errorBanner.classList.add("notice");
+  errorBanner.classList.add("alert--notice");
   errorBanner.textContent = message;
   errorBanner.classList.remove("hidden");
 }
 
 function clearError() {
   errorBanner.classList.add("hidden");
-  errorBanner.classList.remove("notice");
+  errorBanner.classList.remove("alert--notice");
   errorBanner.textContent = "";
 }
 
 function setBusy(isBusy) {
   messageInput.disabled = isBusy;
-  // ตอนกำลังตอบ: สลับปุ่ม "ส่ง" เป็นปุ่ม "หยุด" แทนที่จะปิดการใช้งานเฉยๆ
-  // ผู้ใช้จึงมีทางเลือกที่จะยกเลิกการรอได้เสมอ ไม่ใช่แค่ถูกบล็อกอย่างเดียว
+  // ตอนกำลังตอบ: สลับปุ่ม "ส่ง" เป็นปุ่ม "หยุด" ผู้ใช้จึงยกเลิกการรอได้เสมอ
   sendButton.classList.toggle("hidden", isBusy);
   stopButton.classList.toggle("hidden", !isBusy);
   loadingIndicator.classList.toggle("hidden", !isBusy);
+  setMascot(isBusy ? "thinking" : "idle");
+  if (isBusy) scrollToBottom();
 }
 
+// ============ ส่งข้อความ (สตรีม SSE) ============
 async function sendMessage(message) {
   clearError();
+  lastMessage = message;
   appendUserMessage(message);
   setBusy(true);
 
@@ -147,14 +206,13 @@ async function sendMessage(message) {
   const aiBubble = createAiBubble();
   let accumulatedText = "";
   let receivedDone = false;
-  let wasAborted = false;
-  let pendingSources = null;
+  let knowledge = null;
 
   try {
     const response = await fetch("/api/v1/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, ...chatOptions() }),
+      body: JSON.stringify({ message, web_search: false }),
       signal: activeAbortController.signal,
     });
 
@@ -175,9 +233,7 @@ async function sendMessage(message) {
       buffer = events.pop();
 
       for (const rawEvent of events) {
-        const dataLine = rawEvent
-          .split("\n")
-          .find((line) => line.startsWith("data:"));
+        const dataLine = rawEvent.split("\n").find((line) => line.startsWith("data:"));
         if (!dataLine) continue;
 
         let payload;
@@ -188,14 +244,12 @@ async function sendMessage(message) {
           continue;
         }
 
-        if (payload.search !== undefined) {
-          showSearchStatus(aiBubble, payload.search);
-        } else if (payload.search_done) {
-          clearSearchStatus(aiBubble);
-        } else if (payload.sources !== undefined) {
-          pendingSources = payload.sources;
+        if (payload.knowledge !== undefined) {
+          knowledge = payload.knowledge;
+        } else if (payload.blocked) {
+          // guardrails ปฏิเสธคำถามนี้ — ข้อความปฏิเสธตามมาใน delta
+          aiBubble.classList.add("bubble--refusal");
         } else if (payload.delta) {
-          clearSearchStatus(aiBubble);
           accumulatedText += payload.delta;
           aiBubble.innerHTML = renderMarkdown(accumulatedText);
           scrollToBottom();
@@ -203,63 +257,51 @@ async function sendMessage(message) {
           // output guard บล็อกคำตอบ — แทนข้อความทั้งหมดด้วยข้อความที่ปลอดภัยจากเซิร์ฟเวอร์
           accumulatedText = payload.replace;
           aiBubble.innerHTML = renderMarkdown(accumulatedText);
+          knowledge = null;
           scrollToBottom();
         } else if (payload.error) {
-          showError(payload.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+          showError(payload.message || "น้องหอมตอบไม่ได้ในตอนนี้ ลองส่งใหม่อีกครั้ง", { retry: true });
         } else if (payload.done) {
           receivedDone = true;
-          console.log("[chat] stream done");
         }
       }
     }
 
-    clearSearchStatus(aiBubble);
-
     if (!receivedDone) {
-      showError("การเชื่อมต่อถูกตัดกลางทาง กรุณาลองใหม่อีกครั้ง");
+      showError("การเชื่อมต่อหลุดระหว่างตอบ ลองส่งใหม่อีกครั้ง", { retry: true });
     }
 
     if (!accumulatedText) {
-      aiBubble.remove();
-    } else if (pendingSources && pendingSources.length) {
-      renderSources(aiBubble, pendingSources);
+      aiBubble.parentElement.remove();
+    } else if (!aiBubble.classList.contains("bubble--refusal")) {
+      renderKnowledge(aiBubble, knowledge);
     }
   } catch (err) {
-    clearSearchStatus(aiBubble);
     if (err.name === "AbortError") {
-      // ผู้ใช้กด "หยุด" เอง ไม่ถือเป็น error ของระบบ — เก็บข้อความบางส่วนที่ได้มาแล้วไว้
-      // (ไม่ลบทิ้ง) แล้วแจ้งเป็น notice เฉยๆ แทน error banner สีแดง
-      wasAborted = true;
-      console.log("[chat] ผู้ใช้กดหยุดการตอบกลับ");
-      showNotice("หยุดการตอบกลับแล้ว");
-      if (!accumulatedText) {
-        aiBubble.remove();
-      }
+      // ผู้ใช้กด "หยุด" เอง ไม่ใช่ error — เก็บข้อความบางส่วนที่ได้มาแล้วไว้
+      showNotice("หยุดตอบแล้ว");
     } else {
       console.error("[chat] sendMessage failed:", err);
-      showError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาตรวจสอบว่า backend และผู้ให้บริการ AI เปิดอยู่");
-      if (!accumulatedText) {
-        aiBubble.remove();
-      }
+      showError("ติดต่อน้องหอมไม่ได้ เช็กอินเทอร์เน็ตแล้วส่งใหม่อีกครั้ง", { retry: true });
     }
+    if (!accumulatedText) aiBubble.parentElement.remove();
   } finally {
     activeAbortController = null;
     setBusy(false);
     messageInput.focus();
-    refreshConversations(); // อัปเดตชื่อ/ลำดับบทสนทนาใน sidebar
   }
 }
 
-// วาดข้อความที่โหลดมาจาก backend ลงหน้าจอ (ตอนเปิดหน้า / สลับบทสนทนา)
+// วาดข้อความที่โหลดมาจาก backend ลงหน้าจอ (ตอนเปิดหน้า / กลับจากโหมดเสียง)
 function renderStored(messages) {
-  chatWindow.querySelectorAll(".message").forEach((el) => el.remove());
+  chatWindow.querySelectorAll(":scope > .message").forEach((el) => el.remove());
   const list = messages || [];
   for (const m of list) {
     if (m.role === "user") {
-      appendUserMessage(m.content);
+      if (m.content === IMAGE_MARKER) appendPhotoMessage(null);
+      else appendUserMessage(m.content);
     } else if (m.role === "assistant") {
-      const bubble = createAiBubble();
-      bubble.innerHTML = renderMarkdown(m.content || "");
+      createAiBubble().innerHTML = renderMarkdown(m.content || "");
     }
   }
   if (list.length) hideEmptyState();
@@ -278,91 +320,73 @@ async function startNewConversation() {
     clearError();
     messageInput.value = "";
     messageInput.focus();
-    refreshConversations();
   } catch (err) {
     console.error("[chat] startNewConversation failed:", err);
-    showError("เริ่มบทสนทนาใหม่ไม่สำเร็จ กรุณาลองอีกครั้ง");
+    showError("เริ่มแชทใหม่ไม่สำเร็จ ลองกดอีกครั้ง");
   } finally {
     newChatButton.disabled = false;
   }
 }
 
-// ============ ไฟล์แนบ (PDF / รูปภาพ / ข้อความ) ============
+// ============ ไฟล์แนบ (รูปน้อง / สลิป / PDF) ============
 // เก็บรายการไฟล์ที่อัปโหลดแล้ว (metadata อย่างเดียว เนื้อหาอยู่ที่ backend)
 let attachments = [];
-let pendingUpload = false;
 
-const KIND_ICON = { pdf: "📄", image: "🖼️", text: "📝" };
+const KIND_LABEL = { pdf: "PDF", image: "รูป", text: "ข้อความ" };
+const IMAGE_TYPE_LABEL = { pet: "รูปน้อง", slip: "สลิป" };
 
 function renderAttachments() {
   attachmentsBar.innerHTML = "";
-  const hasAny = attachments.length > 0 || pendingUpload;
-  attachmentsBar.classList.toggle("hidden", !hasAny);
+  attachmentsBar.classList.toggle("hidden", attachments.length === 0);
 
   attachments.forEach((att, index) => {
+    const meta = att.meta || {};
     const chip = document.createElement("div");
     chip.className = "attach-chip";
-    const meta = att.meta || {};
-    const bits = [`${att.chars.toLocaleString("th-TH")} ตัวอักษร`];
-    if (meta.ocr_pages) bits.push(`OCR ${meta.ocr_pages} หน้า`);
-    if (meta.vision_used) bits.push("อ่านภาพแล้ว");
-    if (meta.truncated) bits.push("ตัดบางส่วน");
     chip.innerHTML =
-      `<span class="attach-chip__icon">${KIND_ICON[att.kind] || "📎"}</span>` +
-      `<span class="attach-chip__body"><span class="attach-chip__name"></span>` +
-      `<span class="attach-chip__meta"></span></span>` +
-      `<button class="attach-chip__remove" type="button" title="เอาไฟล์ออก">✕</button>`;
+      '<span class="attach-chip__kind"></span><span class="attach-chip__name"></span>' +
+      '<button class="attach-chip__remove" type="button" aria-label="เอาไฟล์นี้ออก">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17" /></svg></button>';
+    chip.querySelector(".attach-chip__kind").textContent =
+      IMAGE_TYPE_LABEL[meta.image_type] || KIND_LABEL[att.kind] || "ไฟล์";
     chip.querySelector(".attach-chip__name").textContent = att.name;
-    chip.querySelector(".attach-chip__meta").textContent = bits.join(" · ");
-    chip.querySelector(".attach-chip__remove").addEventListener("click", () =>
-      deleteAttachment(index)
-    );
+    chip.querySelector(".attach-chip__remove").addEventListener("click", () => deleteAttachment(index));
     attachmentsBar.appendChild(chip);
   });
-
-  if (pendingUpload) {
-    const chip = document.createElement("div");
-    chip.className = "attach-chip is-pending";
-    chip.innerHTML =
-      `<span class="attach-chip__spin"></span>` +
-      `<span class="attach-chip__body"><span class="attach-chip__name">กำลังอ่านไฟล์…</span></span>`;
-    attachmentsBar.appendChild(chip);
-  }
-}
-
-function setAttachBusy(busy) {
-  pendingUpload = busy;
-  attachButton.disabled = busy;
-  renderAttachments();
 }
 
 async function uploadFile(file) {
   if (!file) return;
   clearError();
-  setAttachBusy(true);
+  hideEmptyState();
+  attachButton.disabled = true;
+  appendPhotoMessage(file);
+  setMascot("looking");
+  loadingIndicator.classList.remove("hidden");
+  scrollToBottom();
   try {
     const body = new FormData();
     body.append("file", file);
     const response = await fetch("/api/v1/attachments", { method: "POST", body });
     const payload = await response.json().catch(() => ({}));
     if (payload.error) {
-      showError(payload.message || "อัปโหลดไฟล์ไม่สำเร็จ");
+      showError(payload.message || "อ่านไฟล์นี้ไม่ได้ ลองส่งรูปใหม่อีกครั้ง");
     } else if (payload.ok && payload.attachment) {
       attachments.push(payload.attachment);
-      // รูปสัตว์/สลิป: เซิร์ฟเวอร์ตอบกลับทันที (ประเมินราคา / ตรวจสลิป) — แสดงเหมือนบอทตอบในแชต
-      if (payload.reply) {
-        appendUserMessage(`📷 ส่งรูป ${file.name}`);
-        createAiBubble().innerHTML = renderMarkdown(payload.reply);
-        scrollToBottom();
-      }
+      renderAttachments();
+      // รูปสัตว์/สลิป: เซิร์ฟเวอร์ตอบกลับทันที (ประเมินราคา / ตรวจสลิป)
+      if (payload.reply) createAiBubble().innerHTML = renderMarkdown(payload.reply);
     } else {
-      showError("อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่");
+      showError("ส่งรูปไม่สำเร็จ ลองส่งใหม่อีกครั้ง");
     }
   } catch (err) {
     console.error("[chat] uploadFile failed:", err);
-    showError("อัปโหลดไฟล์ไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อ");
+    showError("ส่งรูปไม่สำเร็จ เช็กอินเทอร์เน็ตแล้วลองใหม่");
   } finally {
-    setAttachBusy(false);
+    attachButton.disabled = false;
+    loadingIndicator.classList.add("hidden");
+    setMascot("idle");
+    scrollToBottom();
   }
 }
 
@@ -412,103 +436,6 @@ stopButton.addEventListener("click", () => {
 
 newChatButton.addEventListener("click", startNewConversation);
 
-// ============ ประวัติ (รายการบทสนทนาใน sidebar) ============
-const historyList = document.getElementById("history-list");
-
-function relativeTime(ts) {
-  const s = Math.max(0, Date.now() / 1000 - Number(ts));
-  if (s < 60) return "เมื่อสักครู่";
-  if (s < 3600) return `${Math.floor(s / 60)} นาทีที่แล้ว`;
-  if (s < 86400) return `${Math.floor(s / 3600)} ชม.ที่แล้ว`;
-  if (s < 172800) return "เมื่อวาน";
-  return `${Math.floor(s / 86400)} วันก่อน`;
-}
-
-function renderConversations(conversations) {
-  if (!historyList) return;
-  historyList.innerHTML = "";
-  if (!conversations || !conversations.length) {
-    historyList.innerHTML = '<p class="history-empty">ยังไม่มีบทสนทนา</p>';
-    return;
-  }
-  for (const c of conversations) {
-    const row = document.createElement("div");
-    row.className = "history-row" + (c.active ? " is-active" : "");
-    row.innerHTML =
-      '<button class="history-row__open" type="button">' +
-      '<span class="history-row__title"></span>' +
-      '<span class="history-row__meta"></span></button>' +
-      '<button class="history-row__del" type="button" title="ลบ">✕</button>';
-    row.querySelector(".history-row__title").textContent = c.title;
-    row.querySelector(".history-row__meta").textContent =
-      `${relativeTime(c.updated)} · ${c.count} ข้อความ`;
-    row.querySelector(".history-row__open").addEventListener("click", () => openConversation(c.id));
-    row.querySelector(".history-row__del").addEventListener("click", (e) => {
-      e.stopPropagation();
-      deleteConversation(c.id);
-    });
-    historyList.appendChild(row);
-    if (c.active) row.scrollIntoView({ block: "nearest" });
-  }
-}
-
-async function refreshConversations() {
-  try {
-    const r = await fetch("/api/v1/conversations");
-    if (!r.ok) return;
-    renderConversations((await r.json()).conversations);
-  } catch (err) {
-    console.warn("[chat] refreshConversations failed:", err);
-  }
-}
-
-async function openConversation(id) {
-  try {
-    const r = await fetch(`/api/v1/conversations/${id}/activate`, { method: "POST" });
-    const payload = await r.json().catch(() => ({}));
-    if (payload.error || !payload.ok) {
-      showError(payload.message || "เปิดบทสนทนาไม่สำเร็จ");
-      return;
-    }
-    renderStored(payload.messages);
-    attachments = payload.attachments || [];
-    renderAttachments();
-    clearError();
-    refreshConversations();
-    messageInput.focus();
-  } catch (err) {
-    console.error("[chat] openConversation failed:", err);
-    showError("เปิดบทสนทนาไม่สำเร็จ กรุณาลองใหม่");
-  }
-}
-
-async function deleteConversation(id) {
-  try {
-    const r = await fetch(`/api/v1/conversations/${id}`, { method: "DELETE" });
-    const payload = await r.json().catch(() => ({}));
-    renderConversations(payload.conversations);
-    // ถ้าเผลอลบบทที่กำลังเปิดอยู่ ให้โหลดบทที่ active ใหม่มาแสดง
-    const active = (payload.conversations || []).find((c) => c.active);
-    if (active) openConversation(active.id);
-  } catch (err) {
-    console.error("[chat] deleteConversation failed:", err);
-  }
-}
-
-// โหลดบทที่ active + รายการบทสนทนาใหม่จากเซิร์ฟเวอร์ — ใช้ตอนกลับจากโหมดเสียง
-// (โหมดเสียงคุยผ่าน /chat/stream เดิม ประวัติถูกบันทึกฝั่ง server แล้ว แค่ต้องรีเฟรชหน้า)
-async function reloadFromServer() {
-  try {
-    const r = await fetch("/api/v1/history");
-    if (r.ok) renderStored((await r.json()).messages);
-  } catch (err) {
-    console.warn("[chat] reloadFromServer failed:", err);
-  }
-  loadAttachments();
-  refreshConversations();
-}
-window.voiceSyncChat = reloadFromServer;
-
 // ============ โหลดสถานะเริ่มต้น ============
 (async function init() {
   loadAttachments();
@@ -518,5 +445,4 @@ window.voiceSyncChat = reloadFromServer;
   } catch (err) {
     console.warn("[chat] load history failed:", err);
   }
-  refreshConversations();
 })();

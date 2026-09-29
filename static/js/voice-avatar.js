@@ -1,27 +1,22 @@
-// โมดูลตัวละคร VRM สำหรับโหมดสนทนาด้วยเสียง — แทนที่ภาพโครงข่ายเซลล์ประสาทบน <canvas>
+// โมดูลตัวละคร VRM (พนักงานร้าน) สำหรับหน้า /avatar
 //
 // รับสัญญาณ level (0–1, ระดับเสียงจริง) กับ state (listening/thinking/speaking/...) จากลูป
-// render() เดิมใน voice.js ผ่าน window.voiceAvatar.onFrame() — ไม่ต้องสร้าง audio pipeline ใหม่
+// render() ใน voice.js ผ่าน window.voiceAvatar.onFrame() — ไม่ต้องสร้าง audio pipeline ใหม่
 //
-// ถ้าโหลดไฟล์ .vrm ไม่สำเร็จ (เช่น ยังไม่ได้วางไฟล์ / ไฟล์เสีย) จะไม่ทำอะไรเลย ปล่อยให้
-// #voice-canvas (โครงข่ายเซลล์ประสาทเดิม) ทำงานต่อตามปกติ — โหมดเสียงต้องใช้งานได้แม้ไม่มีโมเดล
+// ถ้าโหลดไฟล์ .vrm ไม่สำเร็จ จะติด class "is-failed" ที่เวทีให้หน้าเว็บแสดงข้อความแจ้ง —
+// โหมดเสียงยังคุยได้ตามปกติแม้ไม่มีตัวละคร
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
 import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 
-const VRM_URL = "/static/avatar/AvatarSample_B.vrm";
-const ANIM_TALK_URL = "/static/avatar/anim/talking.fbx";
-const ANIM_THINKING_URL = "/static/avatar/anim/thoughtful-head-nod.fbx";
-// ท่า "roam" — สลับกันวนแบบสุ่มตอนไม่มีการสนทนา/รอคำตอบ ให้ดูมีชีวิต
-const ANIM_ROAM_URLS = [
-  { name: "idle", url: "/static/avatar/anim/Idle.fbx" },
-  { name: "angry", url: "/static/avatar/anim/Angry.fbx" },
-  { name: "dance", url: "/static/avatar/anim/hip-hop-dancing.fbx" },
-  { name: "laugh", url: "/static/avatar/anim/laugh.fbx" },
-  { name: "boxing", url: "/static/avatar/anim/boxing.fbx" },
-  { name: "phone", url: "/static/avatar/anim/talking-on-phone.fbx" },
-];
+// ไฟล์ .vrm ที่ export จาก VRoid Studio (ไฟล์ .vroid เป็นไฟล์โปรเจกต์ เว็บโหลดตรงไม่ได้)
+const VRM_URL = "/static/avatar/Avatar%20grooming.vrm";
+// ใช้ท่า Idle ท่าเดียววนตลอดทุกสถานะ (ยืนรอ / ฟัง / คิด / พูด) — ปาก ตา กระพริบตา
+// ยังขยับตามเสียงจริงด้วยโค้ดเหมือนเดิม ไม่ได้มาจากไฟล์ท่าทาง
+const ANIM_TALK_URL = "/static/avatar/anim/Idle.fbx";
+const ANIM_THINKING_URL = null;
+const ANIM_ROAM_URLS = [];
 
 // Mixamo rig → VRM Humanoid bone names (มาตรฐานที่โปรเจกต์ VRM+Mixamo ทั่วไปใช้กัน)
 const MIXAMO_VRM_RIG_MAP = {
@@ -111,10 +106,10 @@ if (stageEl && fallbackCanvas) {
   camera.position.set(0, 1.4, 1.7);
 
   const scene = new THREE.Scene();
-  const keyLight = new THREE.DirectionalLight(0xcfe0ff, 2.4);
+  const keyLight = new THREE.DirectionalLight(0xfff3e4, 1.9); // แสงโทนอุ่นให้เข้ากับธีมร้าน
   keyLight.position.set(0.6, 1.8, 1.3);
   scene.add(keyLight);
-  scene.add(new THREE.AmbientLight(0x445577, 1.2));
+  scene.add(new THREE.AmbientLight(0xfff8f0, 1.2));
 
   let vrm = null;
   let expr = null;
@@ -151,7 +146,9 @@ if (stageEl && fallbackCanvas) {
   let blinkTimer = 2 + Math.random() * 2;
   let blinkValue = 0;
   let blinkClosing = false;
-  let running = false;
+  // หน้า /avatar: ตัวละครยืนอยู่ตลอดตั้งแต่เปิดหน้า ไม่ต้องรอกดเริ่มคุย
+  const alwaysOn = stageEl.hasAttribute("data-always-on");
+  let running = alwaysOn;
   let rafId = 0;
 
   // "เหลียวมอง" เป็นช่วงๆ (หันหัว/ส่ายตา) — ไม่ใช่แค่สั่นค้างนิ่งๆ แบบเดิม
@@ -174,7 +171,9 @@ if (stageEl && fallbackCanvas) {
 
   // จัดกล้องให้เห็นครึ่งตัว (หัวถึงเอว) โดยอิงตำแหน่งกระดูก "head"/"hips" จริง — ทำงานได้ไม่ว่า
   // โมเดลจะสัดส่วน/ท่ายืนแบบไหน เพราะคำนวณระยะจากขนาดจริงของตัวละคร ไม่ใช่ค่าคงที่เดา
-  function frameOnHead() {
+  // follow = 1 จัดกล้องทันที, น้อยกว่า 1 = ค่อย ๆ เลื่อนตาม (ใช้ทุกเฟรมตอนมี animation ไม่ให้กล้องสั่นตามท่า)
+  const _frameTarget = new THREE.Vector3();
+  function frameOnHead(follow = 1) {
     if (!vrm || !vrm.humanoid) return;
     vrm.scene.updateMatrixWorld(true);
     const head = vrm.humanoid.getNormalizedBoneNode("head");
@@ -196,8 +195,9 @@ if (stageEl && fallbackCanvas) {
     const margin = 1.18; // เผื่อขอบเฟรม ไม่ให้หัว/เอวชิดขอบจอเกินไป
     const distance = (extentY * margin) / (2 * Math.tan(fovRad / 2));
 
-    camera.position.set(headPos.x, centerY, headPos.z + distance);
-    camera.lookAt(headPos.x, centerY, headPos.z);
+    _frameTarget.set(headPos.x, centerY, headPos.z + distance);
+    camera.position.lerp(_frameTarget, follow);
+    camera.lookAt(camera.position.x, camera.position.y, headPos.z);
   }
 
   // แยกสเปกตรัมความถี่เป็น 3 ย่าน (ต่ำ/กลาง/สูง) แล้วเดารูปปากที่ใกล้เคียงที่สุด — วิธีนี้ไม่ใช่การ
@@ -295,7 +295,8 @@ if (stageEl && fallbackCanvas) {
     const to = actionForMode(targetMode);
     mode = targetMode;
     if (from && from !== to) from.fadeOut(0.4);
-    if (to) { to.reset(); to.fadeIn(0.4).play(); }
+    // ท่าเดียวกันอยู่แล้ว (มีแค่ Idle) — เล่นต่อไม่ต้อง reset กันท่าสะดุดกลับไปเฟรมแรก
+    if (to && to !== from) { to.reset(); to.fadeIn(0.4).play(); }
     frameOnHead(); // กลับไปใช้เฟรมกล้องนิ่งแบบเดิม (ไม่ต้องตามหัวทุกเฟรมแบบตอน roam)
   }
 
@@ -316,7 +317,7 @@ if (stageEl && fallbackCanvas) {
     talkAction = mixer.clipAction(talkClip);
     talkAction.setLoop(THREE.LoopRepeat);
 
-    const thinkingClip = await loadMixamoClip(ANIM_THINKING_URL);
+    const thinkingClip = ANIM_THINKING_URL ? await loadMixamoClip(ANIM_THINKING_URL) : null;
     if (thinkingClip) {
       thinkingAction = mixer.clipAction(thinkingClip);
       thinkingAction.setLoop(THREE.LoopRepeat);
@@ -344,6 +345,9 @@ if (stageEl && fallbackCanvas) {
 
     if (roamActions.length) playNextRoam();
     else applyMode("talk"); // ไม่มีท่า roam เลย ก็ใช้ท่าคุยเป็นค่าเริ่มต้นไปเลยเหมือนก่อนมีฟีเจอร์นี้
+    // จัดกล้องใหม่ตามท่าแรกของ animation (ท่า Idle ขยับตัวออกจากจุดเดิมของ T-pose ทำให้ตัวละครเยื้องข้าง)
+    mixer.update(0);
+    frameOnHead();
   }
 
   const loader = new GLTFLoader();
@@ -385,7 +389,8 @@ if (stageEl && fallbackCanvas) {
     },
     undefined,
     (err) => {
-      console.warn("[voice-avatar] โหลดโมเดล VRM ไม่สำเร็จ ใช้ภาพโครงข่ายเซลล์ประสาทแทน:", err);
+      console.warn("[voice-avatar] โหลดโมเดล VRM ไม่สำเร็จ:", err);
+      stageEl.classList.add("is-failed");
     }
   );
 
@@ -446,7 +451,8 @@ if (stageEl && fallbackCanvas) {
       mixer.update(dt);
       // ท่า roam (โดยเฉพาะท่าเต้น) เคลื่อนตัว/ก้มเงยแรงกว่าท่ายืนคุยเยอะ — กล้องที่จัดไว้ครั้งเดียว
       // ตอนเข้าโหมด talk จะตามไม่ทัน (หัวโผล่จนจอเต็มตอนก้ม) เลยต้องรีเฟรมทุกเฟรมระหว่าง roam
-      if (mode === "roam") frameOnHead();
+      // ท่า Idle ถ่ายน้ำหนักซ้าย-ขวา — ให้กล้องเลื่อนตามช้า ๆ ตัวละครจะอยู่กลางเฟรมเสมอ
+      frameOnHead(Math.min(1, dt * 2));
       // ตายังต้องคอยเล็งกล้องเองเสมอ เพราะ animation clip ไม่ได้ควบคุมกระดูกตา
       if (lookAtTarget) lookAtTarget.position.copy(camera.position);
     } else {
@@ -534,6 +540,8 @@ if (stageEl && fallbackCanvas) {
       if (vrm) startRenderLoop();
     },
     onClose() {
+      latestState = "off";
+      if (alwaysOn) return; // ยังยืนรอลูกค้าต่อ แค่เลิกฟัง/พูด
       running = false;
       stopRenderLoop();
     },
@@ -550,4 +558,11 @@ if (stageEl && fallbackCanvas) {
       lastSpectrumAt = performance.now();
     },
   };
+
+  if (alwaysOn) {
+    window.addEventListener("resize", () => {
+      resize();
+      frameOnHead();
+    });
+  }
 }

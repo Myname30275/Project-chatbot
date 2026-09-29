@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from config import settings
 from channels.tts import router as tts_router
 from channels.web_chat import router as chat_router
+from shop.pricing import load_catalog
 
 # หาโฟลเดอร์ static/templates จาก path ของไฟล์นี้เอง แทนที่จะพึ่ง current working
 # directory ตอนรัน เพราะบน serverless (เช่น Vercel) ไม่การันตีว่า process จะเริ่ม
@@ -32,8 +33,8 @@ logging.basicConfig(
 )
 
 app = FastAPI(
-    title="AI Chatbot",
-    description="Chatbot ที่คุยกับโมเดล AI ผ่าน OpenAI-compatible Chat Completions API",
+    title="Hom Hom Grooming",
+    description="น้องหอม ผู้ช่วยตอบแชทของร้านอาบน้ำ-ตัดขนสุนัขและแมว",
     version="0.1.0",
 )
 
@@ -54,15 +55,30 @@ if settings.allowed_origins:
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
 
+
+def _asset_version() -> str:
+    """เลขเวอร์ชันของ css/js (เวลาแก้ไฟล์ล่าสุด) ต่อท้าย URL เป็น ?v=... — แก้ไฟล์เมื่อไหร่
+    เบราว์เซอร์จะโหลดไฟล์ใหม่ทันที ไม่ค้างเวอร์ชันเก่าจาก cache"""
+    files = [f for d in ("css", "js") for f in (BASE_DIR / "static" / d).glob("*") if f.is_file()]
+    return str(int(max((f.stat().st_mtime for f in files), default=0)))
+
+
+templates.env.globals["asset_v"] = _asset_version
+
 app.include_router(chat_router)
 app.include_router(tts_router)
 
 
 @app.get("/")
 async def index(request: Request):
-    return templates.TemplateResponse(
-        request, "index.html", {"model_name": settings.LLM_MODEL}
-    )
+    # ราคาบนหน้าเว็บดึงจาก catalog.json ไฟล์เดียวกับที่บอทใช้ — ตัวเลขจึงตรงกันเสมอ
+    return templates.TemplateResponse(request, "index.html", {"catalog": load_catalog()})
+
+
+@app.get("/avatar")
+async def avatar(request: Request):
+    # โหมดเสียง: อวตารพนักงานร้าน คุยผ่าน /api/v1/chat/stream เดิม (session เดียวกับหน้าแชท)
+    return templates.TemplateResponse(request, "avatar.html", {"catalog": load_catalog()})
 
 
 @app.get("/health")

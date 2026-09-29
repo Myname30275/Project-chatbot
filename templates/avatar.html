@@ -1,0 +1,94 @@
+<!doctype html>
+{% set shop = catalog.shop %}
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>คุยกับ{{ shop.assistant_name }}ด้วยเสียง | {{ shop.name }}</title>
+    <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v() }}" />
+  </head>
+  <body class="page-avatar">
+    <header class="nav">
+      <a class="nav__back" href="/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6M11 6l-6 6 6 6" /></svg>
+        กลับหน้าร้าน
+      </a>
+      <span class="nav__brand">
+        <img src="/static/img/logo.svg" alt="" width="48" height="48" />
+        <span>{{ shop.name }}</span>
+      </span>
+    </header>
+
+    <main class="avatar">
+      <!-- เวทีอวตาร: พนักงานยืนหลังเคาน์เตอร์ตั้งแต่เปิดหน้า (voice-avatar.js ดู data-always-on) -->
+      <div class="avatar__stage">
+        <div class="voice__stage" id="voice-stage" data-always-on>
+          <canvas id="voice-canvas" class="voice__canvas"></canvas>
+          <p class="voice__loading">กำลังพา{{ shop.assistant_name }}มาที่เคาน์เตอร์…</p>
+          <p class="voice__failed">โหลดตัวละครไม่สำเร็จ แต่ยังคุยด้วยเสียงได้ตามปกติ</p>
+        </div>
+        <p class="avatar__nametag"><b>{{ shop.assistant_name }}</b> พนักงานต้อนรับ {{ shop.name }}</p>
+      </div>
+
+      <div class="avatar__side">
+      <!-- ก่อนเริ่ม: เบราว์เซอร์ต้องให้ผู้ใช้กดเองก่อนจึงเปิดไมค์/เล่นเสียงได้ -->
+      <section class="avatar__intro">
+        <h1>คุยกับ{{ shop.assistant_name }}ด้วยเสียง</h1>
+        <p>
+          กดเริ่มคุย แล้วพูดคำถามได้เลย {{ shop.assistant_name }}จะตอบเป็นเสียงพร้อมคำบรรยาย
+          เหมาะกับตอนที่อุ้มน้องอยู่ มือไม่ว่างพิมพ์
+        </p>
+        <button id="voice-button" class="btn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+          เริ่มคุย
+        </button>
+        <p class="avatar__fine">ใช้ได้บน Chrome และ Edge และต้องอนุญาตให้เว็บใช้ไมโครโฟน</p>
+        <div class="avatar__voice-pick">
+          <label for="opt-voice">เสียงของ{{ shop.assistant_name }}</label>
+          <select id="opt-voice"><option value="">เสียงเริ่มต้นของระบบ</option></select>
+          <small id="opt-voice-note"></small>
+        </div>
+      </section>
+
+      <!-- ระหว่างคุย (voice.js สลับ hidden เอง) -->
+      <div id="voice-overlay" class="voice hidden" aria-hidden="true">
+        <div class="voice__panel" role="region" aria-label="กำลังคุยด้วยเสียง">
+          <p id="voice-status" class="voice__status">กำลังเริ่ม…</p>
+
+          <div id="voice-cc-box" class="voice__captions">
+            <p id="voice-said" class="voice__said"></p>
+            <p id="voice-reply" class="voice__reply"></p>
+          </div>
+          <div id="voice-error" class="alert" hidden></div>
+
+          <div class="voice__controls">
+            <button id="voice-cc" class="btn btn--ghost btn--small" type="button" aria-pressed="true">คำบรรยาย</button>
+            <button id="voice-exit" class="btn btn--small" type="button">จบการคุย</button>
+          </div>
+          <p id="voice-hint" class="voice__hint">แตะที่ตัว{{ shop.assistant_name }}เพื่อพูดแทรก</p>
+        </div>
+      </div>
+      </div>
+    </main>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+          "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"
+        }
+      }
+    </script>
+    <script src="/static/js/voice.js?v={{ asset_v() }}"></script>
+    <script type="module" src="/static/js/voice-avatar.js?v={{ asset_v() }}"></script>
+  </body>
+</html>

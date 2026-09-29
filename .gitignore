@@ -10,3 +10,9 @@ __pycache__/
 
 # vercel
 .vercel/
+
+# design skills ที่โคลนมาอ้างอิง (repo แยก ไม่ commit)
+Example UI/Design skill/anthropic-skills/
+
+# ไฟล์โปรเจกต์ VRoid Studio (ใช้แก้โมเดล — เว็บใช้ไฟล์ .vrm ที่ export แล้ว)
+*.vroid

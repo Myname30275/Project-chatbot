@@ -4,7 +4,7 @@
  *   LLM : /api/v1/chat/stream เดิม (ประวัติ/ค้นเว็บ/Settings ใช้ต่อได้เลย)
  *   TTS : เลือกได้ในช่อง "เสียงพูด" — เสียงโคลน Cartesia (ผ่าน /api/v1/tts/stream, ใช้เครดิต)
  *         หรือเสียง speechSynthesis ของเบราว์เซอร์ (ฟรี, ใช้เมื่อ Cartesia ล้มเหลว/ไม่ได้ตั้งค่า)
- *   ภาพ : โครงข่ายเซลล์ประสาทบน <canvas> ที่ขยับตามระดับเสียงจริง
+ *   ภาพ : ตัวละคร VRM (voice-avatar.js) ขยับปาก/ท่าทางตามระดับเสียงจริง
  *
  * ลูป: ฟัง → [ผู้ใช้พูดจบ] → คิด (สตรีมจาก LLM) → พูด → กลับไปฟัง
  * แตะที่วงกลม = พูดแทรก (หยุดเสียง/ยกเลิกคำขอ แล้วฟังใหม่)
@@ -23,7 +23,6 @@
   const ccBtn = document.getElementById("voice-cc");
   const stageEl = document.getElementById("voice-stage");
   const statusEl = document.getElementById("voice-status");
-  const canvas = document.getElementById("voice-canvas");
   const ccBox = document.getElementById("voice-cc-box");
   const saidEl = document.getElementById("voice-said");
   const replyEl = document.getElementById("voice-reply");
@@ -42,18 +41,20 @@
   ];
   const CARTESIA_PREFIX = "cartesia:";
 
-  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const ls = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   };
   let cartesiaReady = false;
+  let cartesiaKnown = false; // รู้ผล /tts/config แล้วหรือยัง — ยังไม่รู้ก็อย่าเพิ่งบันทึกเสียงเริ่มต้น
   const cartesiaConfig = fetch("/api/v1/tts/config")
     .then(r => r.ok ? r.json() : {enabled:false})
-    .then(c => {
-      cartesiaReady = c.enabled;
-      populateVoices(); // ติดป้าย "(ยังไม่พร้อม)" ที่ตัวเลือกเสียงโคลนถ้า Cartesia ยังไม่ได้ตั้งค่า
-    }).catch(() => {});
+    .then(c => { cartesiaReady = !!c.enabled; })
+    .catch(() => {})
+    .finally(() => {
+      cartesiaKnown = true;
+      populateVoices(); // เซิร์ฟเวอร์ไม่มี CARTESIA_API_KEY = ไม่แสดงเสียงโคลนเลย ใช้เสียง browser แทน
+    });
 
   let state = "off";          // off | listening | thinking | speaking | error
   let rec = null;
@@ -94,16 +95,16 @@
 
     voiceSelect.innerHTML = "";
     const def = document.createElement("option");
-    def.value = ""; def.textContent = "— ค่าเริ่มต้นของระบบ —";
+    def.value = ""; def.textContent = "เสียงเริ่มต้นของระบบ";
     voiceSelect.appendChild(def);
 
-    if (CARTESIA_VOICES.length) {
+    if (cartesiaReady && CARTESIA_VOICES.length) {
       const g = document.createElement("optgroup");
       g.label = "เสียงโคลน (Cartesia)";
       CARTESIA_VOICES.forEach((v) => {
         const o = document.createElement("option");
         o.value = CARTESIA_PREFIX + v.id;
-        o.textContent = v.name + (cartesiaReady ? "" : " — ยังไม่พร้อม");
+        o.textContent = v.name;
         g.appendChild(o);
       });
       voiceSelect.appendChild(g);
@@ -125,14 +126,25 @@
     addGroup("อื่น ๆ", rest);
 
     let want = saved;
+    if (saved.startsWith(CARTESIA_PREFIX) && cartesiaKnown && !cartesiaReady) want = ""; // เคยเลือกเสียงโคลนไว้ แต่ตอนนี้ปิดอยู่
     if (!want) {
-      want = CARTESIA_VOICES.length ? CARTESIA_PREFIX + CARTESIA_VOICES[0].id : (th[0] ? th[0].voiceURI : "");
-      if (want) ls.set("ts.voice", want);
+      want = cartesiaReady && CARTESIA_VOICES.length
+        ? CARTESIA_PREFIX + CARTESIA_VOICES[0].id
+        : (th[0] ? th[0].voiceURI : "");
+      if (want && cartesiaKnown) ls.set("ts.voice", want);
     }
     // ค่าที่เคยบันทึกไว้อาจเป็นเสียงที่หายไปแล้ว (เช่น browser คนละเครื่อง) — เช็คว่ามีตัวเลือก
     // นั้นอยู่จริงก่อน ไม่งั้น <select> จะโชว์ตัวแรกเฉยๆ ทั้งที่ localStorage ยังเก็บค่าเดิมไว้
     const exists = [...voiceSelect.options].some((o) => o.value === want);
     voiceSelect.value = exists ? want : "";
+
+    // ไม่มีทั้งเสียงโคลนและเสียงไทยในเครื่อง (เช่น Chrome บน Windows ที่ไม่ได้ลงภาษาไทย) — บอกทางแก้
+    const note = document.getElementById("opt-voice-note");
+    if (note && cartesiaKnown && !cartesiaReady) {
+      note.textContent = th.length
+        ? ""
+        : "เบราว์เซอร์นี้ไม่มีเสียงภาษาไทย น้องหอมอาจตอบเป็นเสียงไม่ได้ ลองเปิดหน้านี้ด้วย Microsoft Edge";
+    }
   }
 
   populateVoices();
@@ -140,6 +152,7 @@
   voiceSelect && voiceSelect.addEventListener("change", () => ls.set("ts.voice", voiceSelect.value));
 
   function selectedCartesiaVoiceId() {
+    if (!cartesiaReady) return null; // ไม่ได้ตั้ง CARTESIA_API_KEY — พูดด้วยเสียง browser แทนการเงียบ
     const v = ls.get("ts.voice", "");
     return v.startsWith(CARTESIA_PREFIX) ? v.slice(CARTESIA_PREFIX.length) : null;
   }
@@ -147,7 +160,7 @@
   function chosenVoice() {
     if (!synth) return null;
     const uri = ls.get("ts.voice", "");
-    if (uri.startsWith(CARTESIA_PREFIX)) return null; // เลือกเสียงโคลนไว้ ไม่ใช่เสียง browser
+    if (uri.startsWith(CARTESIA_PREFIX) && cartesiaReady) return null; // เลือกเสียงโคลนไว้ ไม่ใช่เสียง browser
     const voices = synth.getVoices();
     return (
       voices.find((v) => v.voiceURI === uri) ||
@@ -293,7 +306,7 @@
   const STATUS = {
     listening: "กำลังฟัง…",
     thinking: "กำลังคิด…",
-    speaking: "กำลังพูด — แตะเพื่อพูดแทรก",
+    speaking: "กำลังพูด แตะเพื่อพูดแทรกได้",
   };
   function setState(s) {
     state = s;
@@ -696,92 +709,10 @@
     return Math.min(1, Math.sqrt(sum / timeBuf.length) * 3.4);
   }
 
-  /* ---------------- โครงข่ายเซลล์ประสาท (canvas) ---------------- */
-
-  const ctx = canvas.getContext("2d");
-  let W = 0, H = 0, DPR = 1, ox = 0, oy = 0, unit = 1, t0 = 0;
-  let nodes = [], edges = [], pulses = [], halos = [];
-
-  function readColor(name, fb) {
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fb;
-  }
-  const COL = {
-    node: readColor("--blue-deep", "#2563cf"),
-    node2: readColor("--blue-bright", "#7cc0f2"),
-    core: readColor("--blue", "#3b82f6"),
-    edge: "rgba(86,140,195,0.4)",
-    pulse: "#ffffff",
-  };
-
-  function resizeCanvas() {
-    const r = stageEl.getBoundingClientRect();
-    DPR = Math.min(2, window.devicePixelRatio || 1);
-    W = Math.max(1, r.width);
-    H = Math.max(1, r.height);
-    canvas.width = W * DPR;
-    canvas.height = H * DPR;
-    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ox = W / 2;
-    oy = H / 2;
-    unit = Math.min(W, H) / 2;
-  }
-
-  function angDiff(a, b) {
-    let d = a - b;
-    while (d > Math.PI) d -= 2 * Math.PI;
-    while (d < -Math.PI) d += 2 * Math.PI;
-    return d;
-  }
-
-  function buildNet() {
-    nodes = [{ r: 0, a: 0, ring: 0, jitter: 0 }];
-    const rings = [[0.27, 6], [0.5, 12], [0.74, 17]];
-    rings.forEach(([rad, count], ri) => {
-      const offset = ri * 0.45;
-      for (let i = 0; i < count; i++) {
-        nodes.push({
-          r: rad,
-          a: (i / count) * Math.PI * 2 + offset,
-          ring: ri + 1,
-          jitter: Math.random() * 6.283,
-        });
-      }
-    });
-
-    edges = [];
-    const byRing = (k) => nodes.map((n, i) => ({ n, i })).filter((o) => o.n.ring === k);
-    byRing(1).forEach((o) => edges.push([0, o.i]));
-    for (let ri = 1; ri <= 2; ri++) {
-      const cur = byRing(ri), nxt = byRing(ri + 1);
-      cur.forEach((o) => {
-        nxt
-          .map((m) => ({ i: m.i, d: Math.abs(angDiff(o.n.a, m.n.a)) }))
-          .sort((a, b) => a.d - b.d)
-          .slice(0, 2)
-          .forEach((m) => edges.push([o.i, m.i]));
-      });
-      for (let k = 0; k < cur.length; k++) {
-        edges.push([cur[k].i, cur[(k + 1) % cur.length].i]);
-      }
-    }
-    pulses = [];
-    halos = [];
-  }
-
-  function nodePos(n, time) {
-    const wob = n.ring ? Math.sin(time * 0.0011 + n.jitter) * unit * 0.016 : 0;
-    const rr = n.r * unit * 0.86 + wob;
-    return [ox + Math.cos(n.a) * rr, oy + Math.sin(n.a) * rr];
-  }
-
-  function spawnPulse() {
-    if (!edges.length) return;
-    let [from, to] = edges[(Math.random() * edges.length) | 0];
-    if (state === "listening" && nodes[from].ring < nodes[to].ring) [from, to] = [to, from];
-    else if (state === "speaking" && nodes[from].ring > nodes[to].ring) [from, to] = [to, from];
-    pulses.push({ from, to, t: 0, sp: 0.55 + Math.random() * 0.5 });
-  }
+  /* ---------------- ระดับเสียง → อวตาร ---------------- */
+  // วัดระดับเสียงทุกเฟรม (ไมค์ตอนฟัง / เสียงพูดตอนตอบ) แล้วส่งให้อวตารขยับปากและท่าทาง
+  // (เดิมใช้วาดภาพโครงข่ายเซลล์ประสาทบน canvas — เอาออกแล้ว เหลือแค่ตัวละคร VRM)
+  let t0 = 0;
 
   function render(now) {
     const time = now - t0;
@@ -820,83 +751,6 @@
     level += (targetLevel - level) * 0.16;
     if (window.voiceAvatar) window.voiceAvatar.onFrame(level, state);
 
-    ctx.clearRect(0, 0, W, H);
-
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = COL.edge;
-    for (const [a, b] of edges) {
-      const p = nodePos(nodes[a], time), q = nodePos(nodes[b], time);
-      ctx.globalAlpha = 0.22 + level * 0.28;
-      ctx.beginPath();
-      ctx.moveTo(p[0], p[1]);
-      ctx.lineTo(q[0], q[1]);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    if (!reduceMotion) {
-      const rate =
-        state === "listening" ? level * 0.55 :
-        state === "speaking" ? 0.22 + level * 0.4 :
-        state === "thinking" ? 0.24 : 0.03;
-      if (Math.random() < rate) spawnPulse();
-
-      pulses = pulses.filter((pp) => pp.t < 1);
-      for (const pp of pulses) {
-        pp.t += pp.sp * 0.02;
-        const p = nodePos(nodes[pp.from], time), q = nodePos(nodes[pp.to], time);
-        const x = p[0] + (q[0] - p[0]) * pp.t;
-        const y = p[1] + (q[1] - p[1]) * pp.t;
-        ctx.fillStyle = COL.pulse;
-        ctx.shadowColor = COL.core;
-        ctx.shadowBlur = 12;
-        ctx.beginPath();
-        ctx.arc(x, y, 2.4, 0, 6.283);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        if (pp.t >= 1 && pp.to === 0) halos.push({ r: unit * 0.05, a: 0.55 });
-      }
-
-      if (state === "speaking" && Math.random() < 0.05 + level * 0.12) {
-        halos.push({ r: unit * 0.13, a: 0.42 });
-      }
-    }
-
-    halos = halos.filter((h) => h.a > 0.015);
-    for (const h of halos) {
-      h.r += unit * 0.013;
-      h.a *= 0.95;
-      ctx.strokeStyle = COL.node2;
-      ctx.globalAlpha = h.a;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(ox, oy, h.r, 0, 6.283);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-
-    for (const n of nodes) {
-      const [x, y] = nodePos(n, time);
-      const breathe = 1 + Math.sin(time * 0.003 + n.jitter) * 0.12;
-      const base = n.ring === 0 ? 9 : n.ring === 1 ? 4.2 : n.ring === 2 ? 3.3 : 2.5;
-      const rad = base * breathe * (1 + level * (n.ring === 0 ? 0.95 : 0.5));
-
-      const g = ctx.createRadialGradient(x, y, 0, x, y, rad * 3);
-      g.addColorStop(0, n.ring === 0 ? COL.core : COL.node);
-      g.addColorStop(1, "rgba(124,192,242,0)");
-      ctx.fillStyle = g;
-      ctx.globalAlpha = 0.45 + level * 0.4;
-      ctx.beginPath();
-      ctx.arc(x, y, rad * 3, 0, 6.283);
-      ctx.fill();
-
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = n.ring === 0 ? "#ffffff" : COL.node2;
-      ctx.beginPath();
-      ctx.arc(x, y, rad, 0, 6.283);
-      ctx.fill();
-    }
-
     rafId = requestAnimationFrame(render);
   }
 
@@ -910,14 +764,6 @@
     rafId = 0;
   }
 
-  window.addEventListener("resize", () => {
-    if (!overlay.classList.contains("hidden")) {
-      resizeCanvas();
-      buildNet();
-      if (window.voiceAvatar) window.voiceAvatar.onResize();
-    }
-  });
-
   /* ---------------- เปิด / ปิด ---------------- */
 
   async function open() {
@@ -930,8 +776,6 @@
     applyCC();
     document.body.classList.add("voice-open");
 
-    resizeCanvas();
-    buildNet();
     startLoop();
     if (window.voiceAvatar) window.voiceAvatar.onOpen();
 
