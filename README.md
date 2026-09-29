@@ -14,10 +14,11 @@ main.py                        สร้าง FastAPI app, mount static/templat
 config.py                      อ่านค่าตั้งค่าจาก environment variables
 
 channels/        ① ช่องทางเข้า (API layer)
-  web_chat.py                  /api/v1/* ของหน้าเว็บ (แชต, สตรีม, History, ไฟล์แนบ)
+  web_chat.py                  /api/v1/* ของหน้าเว็บ (สตรีม SSE, History, ไฟล์แนบ) → เรียก assistant
   tts.py                       /api/v1/tts/* — proxy เสียง Cartesia สำหรับโหมดเสียง
   line_webhook.py*             LINE OA (แชตอย่างเดียว)
 chatbot/         ② แกนกลางที่ทุกช่องทางใช้ร่วมกัน
+  assistant.py                 pipeline กลาง: guardrails → RAG → LLM → ตรวจขาออก → บันทึกประวัติ
   llm_client.py                คุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
   conversation_store.py        ประวัติบทสนทนา + ไฟล์แนบ (in-memory หรือ Redis/Vercel KV)
   prompt_builder.py            ประกอบ system prompt จาก prompts/ + ข้อมูลหลักใน shop/

@@ -29,7 +29,7 @@ flowchart TB
     end
 
     subgraph CORE["② chatbot/ — แกนกลาง"]
-        AS["assistant.py 🚧"]
+        AS["assistant.py ✅<br/>pipeline กลาง"]
         PB["prompt_builder.py ✅"]
         LLMC["llm_client.py ✅"]
         STORE["conversation_store.py ✅"]
@@ -63,12 +63,11 @@ flowchart TB
     LINE --> LW
     WC --> AS
     LW --> AS
-    AS --> IG --> LLMC --> OG
-    WC --> IG
-    WC --> JG
-    WC --> OG
+    AS --> IG
+    AS --> JG
+    AS --> OG
+    AS --> LLMC
     JG --> LLMC
-    WC --> RAG
     AS --> RAG
     AS --> VI
     PB --> LLMC
@@ -78,7 +77,8 @@ flowchart TB
     CAT -->|ข้อมูลหลัก| PB
     PT --> PB
     PR --> PB
-    WC --> STORE
+    AS --> STORE
+    WC -->|History/ไฟล์แนบ| STORE
     RAG -->|embedding คำถาม| GM
 
     LLMC -->|แชต + OCR| TY[("Typhoon API")]
@@ -87,8 +87,8 @@ flowchart TB
     STORE --> KV[("Redis / Vercel KV")]
 ```
 
-> ตอนนี้ `web_chat.py` ยังเรียก `llm_client` ตรงๆ อยู่ `assistant.py` คือแกนกลางที่จะย้าย logic
-> มารวมไว้ เพื่อให้เว็บ, โหมดเสียง และ LINE ผ่าน guard และ prompt ชุดเดียวกันทั้งหมด
+> ทุกช่องทางเรียก `chatbot/assistant.py` ตัวเดียว เว็บ, โหมดเสียง และ LINE จึงผ่าน guardrails,
+> RAG และ prompt ชุดเดียวกันทั้งหมด — ช่องทางทำแค่รับ/ส่งข้อความในรูปแบบของตัวเอง
 
 ---
 
@@ -99,14 +99,14 @@ flowchart TB
 | — | `main.py` | สร้าง FastAPI app, รวม router, เสิร์ฟหน้าเว็บ | ✅ |
 | — | `config.py` | อ่านค่าตั้งค่าจาก `.env` (pydantic-settings) | ✅ |
 | — | `api/index.py` | จุดเข้าของ Vercel (import app จาก `main.py`) | ✅ |
-| ① | `channels/web_chat.py` | API ของหน้าเว็บ: แชต, สตรีม, History, ไฟล์แนบ | ✅ |
+| ① | `channels/web_chat.py` | ช่องทางหน้าเว็บ: session cookie, History, ไฟล์แนบ, แปลง event ของ assistant เป็น SSE | ✅ |
 | ① | `channels/tts.py` | proxy เสียง Cartesia (เก็บ key ไว้ฝั่งเซิร์ฟเวอร์) | ✅ |
 | ① | `channels/line_webhook.py` | รับข้อความ/รูปจาก LINE OA, ตรวจลายเซ็น, ตอบกลับ | 🚧 |
 | ② | `chatbot/llm_client.py` | เรียก LLM แบบ OpenAI-compatible, retry เมื่อ 429/5xx, แปล error เป็นไทย | ✅ |
 | ② | `chatbot/prompt_builder.py` | ประกอบ system prompt จาก `prompts/` + `shop/` | ✅ |
 | ② | `chatbot/conversation_store.py` | ประวัติแชตต่อ session (in-memory หรือ Redis) | ✅ |
 | ② | `chatbot/search.py` | ค้นเว็บ (Tavily) — **ปิดไว้** เพราะบอทร้านต้องตอบจากข้อมูลร้านเท่านั้น | ✅ (ปิด) |
-| ② | `chatbot/assistant.py` | pipeline กลาง: guard → เลือกงาน → LLM → guard | 🚧 |
+| ② | `chatbot/assistant.py` | pipeline กลางที่ทุกช่องทางเรียก: ด่าน 1 → (ด่าน 2 ∥ RAG) → LLM สตรีม → ด่าน 3 → บันทึกประวัติ · `respond_stream()` สำหรับเว็บ, `respond()` สำหรับ LINE//chat | ✅ |
 | RAG | `rag/chunker.py` | แบ่ง `shop/` เป็น 29 ชิ้นตามความหมาย (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น) | ✅ |
 | RAG | `rag/retriever.py` | ค้นแบบ hybrid: 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram, top 4 | ✅ |
 | RAG | `rag/embedder.py`, `build_index.py`, `index.json` | สร้าง embedding ล่วงหน้า (Gemini `gemini-embedding-001`, 768 มิติ) | ✅ |
@@ -138,7 +138,7 @@ sequenceDiagram
     autonumber
     actor C as ลูกค้า
     participant UI as chat.js
-    participant API as channels/web_chat.py
+    participant API as web_chat.py → assistant.py
     participant ST as conversation_store
     participant RAG as rag/retriever
     participant GM as Gemini embedding
