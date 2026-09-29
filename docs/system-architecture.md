@@ -1,6 +1,6 @@
 # สถาปัตยกรรมระบบ — แชทบอทร้าน Hom Hom Grooming
 
-> สถานะ ณ 28 ก.ย. 2569 · branch `refactor/folder-structure`
+> สถานะ ณ 30 ก.ย. 2569 · branch `refactor/folder-structure` (push ขึ้น GitHub แล้ว ยังไม่ merge เข้า `main`)
 > ✅ = ทำแล้ว · 🚧 = วางแผนแล้ว ยังไม่ได้ทำ
 
 แชทบอทตอบลูกค้าแทนเจ้าของร้าน ตามเงื่อนไขของโจทย์ 3 ข้อ:
@@ -17,8 +17,8 @@
 ```mermaid
 flowchart TB
     subgraph UI["⑦ UX/UI — static/ + templates/"]
-        WEB["หน้าเว็บแชต ✅"]
-        VOICE["โหมดเสียง + อวตาร 3D ✅"]
+        WEB["หน้า / : Landing page<br/>+ หน้าต่างแชท ✅"]
+        VOICE["หน้า /avatar : อวตารพนักงาน<br/>+ คุยด้วยเสียง ✅"]
     end
     LINE["แอป LINE 🚧"]
 
@@ -99,7 +99,7 @@ flowchart TB
 
 | ชั้น | โฟลเดอร์ / ไฟล์ | หน้าที่ | สถานะ |
 |---|---|---|---|
-| — | `main.py` | สร้าง FastAPI app, รวม router, เสิร์ฟหน้าเว็บ | ✅ |
+| — | `main.py` | สร้าง FastAPI app, รวม router, เสิร์ฟหน้า `/` และ `/avatar` (ส่ง `catalog.json` ให้ template) · ต่อท้าย URL ของ css/js ด้วย `?v=<เวลาแก้ไฟล์>` กันเบราว์เซอร์ใช้ไฟล์เก่า | ✅ |
 | — | `config.py` | อ่านค่าตั้งค่าจาก `.env` (pydantic-settings) | ✅ |
 | — | `api/index.py` | จุดเข้าของ Vercel (import app จาก `main.py`) | ✅ |
 | ① | `channels/web_chat.py` | ช่องทางหน้าเว็บ: session cookie, History, ไฟล์แนบ, แปลง event ของ assistant เป็น SSE | ✅ |
@@ -122,12 +122,15 @@ flowchart TB
 | ④ | `vision/pet_estimate.py`, `slip_check.py` | รูปสัตว์ → ราคาจาก `pricing.quote()` · รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ · สร้างคำตอบถึงลูกค้าทันทีด้วยโค้ด (ไม่ยืนยันการชำระเงินเอง) | ✅ |
 | ⑤ | `shop/catalog.json` | ข้อมูลร้าน + ราคาทั้งหมด (**แหล่งข้อมูลเดียว**) | ✅ |
 | ⑤ | `shop/policies.md`, `faq.md` | นโยบายร้าน, FAQ 10 ข้อ | ✅ |
-| ⑤ | `shop/pricing.py` | คำนวณราคาด้วยโค้ด + สร้างตารางราคาให้ prompt | ✅ |
-| ⑥ | `prompts/chat_system.txt` | บทบาท / แหล่งข้อมูลที่ใช้ได้ / ต้องทำ 8 ข้อ / ห้ามทำ 7 ข้อ / fallback + ข้อมูลหลักร้าน | ✅ |
+| ⑤ | `shop/pricing.py` | คำนวณราคาด้วยโค้ด (`quote()`) + ข้อความข้อมูลหลักร้านให้ prompt (`shop_info_text()`) | ✅ |
+| ⑥ | `prompts/chat_system.txt` | บทบาท / แหล่งข้อมูลที่ใช้ได้ 3 แหล่ง / ต้องทำ 10 ข้อ / ห้ามทำ 8 ข้อ / fallback + ข้อมูลหลักร้าน | ✅ |
 | ⑥ | `prompts/voice_hint.txt` | คำสั่งเสริมโหมดเสียง (ตอบสั้น ไม่มี markdown) | ✅ |
-| ⑦ | `templates/index.html`, `static/js/chat.js` | หน้าแชต, สตรีมข้อความ, History, แนบไฟล์ | ✅ |
-| ⑦ | `static/js/voice.js` | โหมดเสียง: STT (Web Speech API `th-TH`) → แชต → TTS | ✅ |
-| ⑦ | `static/js/voice-avatar.js`, `static/avatar/` | อวตาร VRM (three.js + three-vrm) ขยับปาก/ท่าทางตามเสียง | ✅ (ยังเป็นโมเดลตัวอย่าง) |
+| ⑦ | `templates/index.html` | Landing page: hero, ป้ายราคาตามไซส์ (render จาก `catalog.json`), วิธีจอง 3 ขั้น, บริการที่ร้านไม่มี, ติดต่อร้าน + หน้าต่างแชท (ปุ่มลอยมุมขวาล่าง → แผงเลื่อนออกจากขวา) | ✅ |
+| ⑦ | `static/js/chat.js` | เปิด/ปิดแผงแชท, ข้อความต้อนรับ + ปุ่มคำถามด่วน, สตรีม SSE, ชิป "ข้อมูลจากร้าน" (RAG), ส่งรูป → ภาพย่อในแชท + คำตอบทันที, สถานะน้องหอม (พร้อมตอบ / กำลังพิมพ์ / กำลังดูรูปน้อง), ปุ่มหยุด, ปุ่มส่งอีกครั้งเมื่อ error | ✅ |
+| ⑦ | `templates/avatar.html` | หน้าอวตาร: เวทีพนักงานหลังเคาน์เตอร์ (แสดงตั้งแต่เปิดหน้า) + การ์ดเริ่มคุย/เลือกเสียง + คำบรรยาย | ✅ |
+| ⑦ | `static/js/voice.js` | โหมดเสียง: STT (Web Speech API `th-TH`) → `/chat/stream` → TTS (Cartesia; ไม่ได้ตั้ง key = เสียงไทยของเบราว์เซอร์) · วัดระดับเสียงส่งให้อวตาร | ✅ |
+| ⑦ | `static/js/voice-avatar.js`, `static/avatar/` | อวตาร VRM `Avatar grooming.vrm` (VRoid, พนักงานหูแมว) · ท่า `Idle.fbx` ท่าเดียว · ปาก/ตาขยับตามเสียงด้วยโค้ด · กล้องตามตัวละคร · แสงโทนอุ่น | ✅ |
+| ⑦ | `static/css/style.css`, `static/img/` | ธีม "Anthropomorphic": น้ำผึ้ง `#E8A840` / ครีม / หมึกน้ำตาล `#5C3D2E`, ฟอนต์ Mali + Nunito + IBM Plex Sans Thai Looped · โลโก้ SVG, ภาพ hero, หน้าน้องหอม | ✅ |
 
 ---
 
@@ -168,26 +171,26 @@ sequenceDiagram
     LLM-->>API: สตรีมคำตอบทีละชิ้น (SSE)
     API->>API: ด่าน 3 guardrails: ตรวจทีละประโยค (ราคา/ส่วนลด/PII/กฎหลุด)
     API-->>UI: data: {"delta": ประโยคที่ผ่านแล้ว} (ไม่ผ่าน → data: {"replace": fallback})
-    UI-->>C: แสดงข้อความทีละคำ (+ อ่านออกเสียงถ้าอยู่โหมดเสียง)
+    UI-->>C: แสดงข้อความทีละคำ + ชิป "ข้อมูลจากร้าน" (+ อ่านออกเสียงถ้าอยู่หน้า /avatar)
     API->>ST: บันทึกคำถาม+คำตอบ (เฉพาะเมื่อสตรีมจบสมบูรณ์)
 ```
 
-### 3.2 เป้าหมาย 🚧
+### 3.2 ภาพรวมทุกเส้นทาง (รวมช่องทางที่ยังไม่ได้ทำ 🚧)
 
 ```mermaid
 flowchart LR
-    M["ข้อความ/รูป<br/>(เว็บ · เสียง · LINE)"] --> G1{"input guard<br/>ยาวเกิน? ถี่เกิน?<br/>blocklist? Llama Guard?"}
+    M["ข้อความ/รูป<br/>(เว็บ · เสียง · LINE)"] --> G1{"input guard ✅<br/>ด่าน 1 rules: ยาว/ถี่/blocklist/injection<br/>ด่าน 2 judge: Typhoon จำแนกเจตนา"}
     G1 -- ไม่ผ่าน --> R1["ข้อความปฏิเสธภาษาไทย"]
     G1 -- ผ่าน --> K{"เป็นรูป?"}
     K -- รูปสัตว์ --> P["vision ✅ → JSON ขนาด/ขนพัน<br/>→ pricing.quote() → ตอบทันที"]
     K -- รูปสลิป --> S["vision ✅ → JSON ยอด/ผู้รับ<br/>→ เทียบมัดจำ → รอแอดมินยืนยัน"]
     K -- ข้อความ --> Q["RAG ✅: ค้นบริการ/ราคา/นโยบาย/FAQ ที่เกี่ยวข้อง"]
-    P --> L["LLM (Typhoon)<br/>system prompt + ตารางราคา"]
+    P --> L["LLM (Typhoon) ✅<br/>system prompt + ข้อมูลที่ค้นได้"]
     S --> L
     Q --> L
-    L --> G2{"output guard<br/>ตัวเลขตรงตารางราคา?<br/>หลุดข้อมูลส่วนตัว?"}
-    G2 -- ไม่ผ่าน --> R2["fallback message<br/>(+ แจ้งแอดมินผ่าน LINE)"]
-    G2 -- ผ่าน --> OUT["ตอบลูกค้า<br/>ข้อความ / เสียง / LINE"]
+    L --> G2{"output guard ✅<br/>ราคา/ส่วนลดตรง catalog?<br/>หลุดข้อมูลส่วนตัว/กฎภายใน?"}
+    G2 -- ไม่ผ่าน --> R2["fallback message ✅<br/>(+ แจ้งแอดมินผ่าน LINE 🚧)"]
+    G2 -- ผ่าน --> OUT["ตอบลูกค้า<br/>ข้อความ ✅ / เสียง ✅ / LINE 🚧"]
 ```
 
 ---
@@ -196,7 +199,8 @@ flowchart LR
 
 | Method | Path | หน้าที่ | สถานะ |
 |---|---|---|---|
-| GET | `/` | หน้าเว็บแชต | ✅ |
+| GET | `/` | Landing page + หน้าต่างแชท | ✅ |
+| GET | `/avatar` | หน้าอวตารพนักงาน (คุยด้วยเสียง) | ✅ |
 | GET | `/health` | เช็คว่าเซิร์ฟเวอร์รันอยู่ | ✅ |
 | GET | `/api/v1/config` | ค่าเริ่มต้นให้หน้า Settings (ไม่หลุด API key) | ✅ |
 | POST | `/api/v1/chat` | แชตแบบรอคำตอบเต็ม | ✅ |
@@ -221,7 +225,7 @@ flowchart LR
 |---|---|---|---|
 | **Typhoon** (opentyphoon.ai) | แชต (`typhoon-v2.5-30b-a3b-instruct`) + OCR (`typhoon-ocr`) | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | ✅ จำเป็น |
 | **Gemini** (Google AI Studio) | Vision (`gemini-flash-latest` + สำรอง `gemini-flash-lite-latest`) + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
-| **Cartesia** | เสียงพนักงานในโหมดเสียง | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ไม่ตั้ง = ใช้เสียงเบราว์เซอร์ |
+| **Cartesia** | เสียงโคลนของน้องหอมในหน้า `/avatar` (6 เสียงในรายการ ค่าเริ่มต้น ASN) | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ✅ ตั้งแล้ว · ไม่ตั้ง = ใช้เสียงไทยของเบราว์เซอร์ (Chrome บน Windows อาจไม่มีเสียงไทย → ใช้ Edge) |
 | **Redis / Vercel KV** | เก็บประวัติแชตข้าม instance | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | จำเป็นบน Vercel |
 | **LINE Messaging API** 🚧 | ช่องทาง LINE OA | (จะเพิ่ม) | สำหรับ LINE |
 | Tavily | ค้นเว็บ — ปิดไว้ | `WEB_SEARCH_ENABLED`, `SEARCH_API_KEY` | ไม่ใช้ |
@@ -292,3 +296,40 @@ python -m unittest discover -s tests
 | `tests/test_guardrails.py` | โจมตี 9 แบบ, false positive 10 แบบ, rate limit, judge + fail policy, ตรวจขาออก, สตรีมทีละประโยค, endpoint ทั้งสองผ่านด่าน |
 | `tests/test_vision.py` | parse + whitelist, ข้อความซ่อนในรูปถูกตัด, พ.ศ.→ค.ศ., ราคาตามขนาด/แมว/ขนพัน, สัตว์อื่น/แผล/ไม่รู้ขนาดไม่บอกราคา, สลิปตรง/ไม่ตรง, Vision ล่มไม่เดา, คำตอบทันที + บันทึกประวัติ |
 | `docs/test-log.md` | ✅ ความปลอดภัย 5 กรณี + ✅ ปรับปรุง 3 จุด + ✅ ภาพ 10 ภาพ · 🚧 คำถาม 10 ข้อ (+ เวลาตอบ) |
+
+---
+
+## 9. UX/UI (ชั้น ⑦)
+
+อ้างอิงดีไซน์: `Example UI/design theme.md` (ธีม Anthropomorphic), `Example UI/Theme color 2.png` (ภาพหมา)
+และ skill `frontend-design` ของ Anthropic (`Example UI/Design skill/anthropic-skills/`, ไม่ขึ้น git)
+
+| หน้า | สิ่งที่ลูกค้าเห็น | สถานะที่ UI แสดง |
+|---|---|---|
+| `/` Landing page | หัวเรื่อง + คำโปรย + ปุ่ม "ส่งรูปน้องให้ประเมินราคา" / "คุยด้วยเสียง" · ภาพหมา 3 ตัว · ป้ายราคาตามไซส์ · วิธีจอง · ติดต่อร้าน | — |
+| หน้าต่างแชท (บนหน้า `/`) | น้องหอมทักทาย + ปุ่มคำถามด่วน 5 ปุ่ม · ปุ่มกล้องส่งรูป · ชิปแหล่งข้อมูลใต้คำตอบ | พร้อมตอบ · กำลังพิมพ์… (หัวน้องหอมเอียง) · กำลังดูรูปน้อง… (หัวผงก) · คำตอบถูกปฏิเสธ (บับเบิลเส้นประ) · error + ปุ่มส่งอีกครั้ง · หยุดตอบแล้ว |
+| `/avatar` | พนักงาน VRM ยืนหลังเคาน์เตอร์ + ป้ายชื่อ · การ์ดเริ่มคุย + เลือกเสียง · คำบรรยาย | กำลังโหลด… · กำลังฟัง (ขอบเวทีฟ้า) · กำลังคิด · กำลังพูด · โหลดตัวละครไม่สำเร็จ · ไม่มีเสียงไทยในเบราว์เซอร์ |
+
+หลักการ: ขอบเส้นหนาเท่ากันแทนเงาเบลอ · จุดเด่นจุดเดียวคือน้องหอม · motion เฉพาะตอนผู้ใช้กดหรือสถานะเปลี่ยน
+· ไม่ใช้อีโมจิใน UI (ไอคอน SVG) · รองรับมือถือ (แชทเต็มจอ) · `prefers-reduced-motion` ปิดแอนิเมชัน
+
+---
+
+## 10. สถานะงานและสิ่งที่เหลือ (ส่งงาน 17 ต.ค. 2569)
+
+| งาน | สถานะ |
+|---|---|
+| โครงโฟลเดอร์ตามชั้น, pipeline กลาง `assistant.py` | ✅ |
+| RAG ภาษาไทย (29 ชิ้น, hybrid) + คลังความรู้ ≥ 15 รายการ | ✅ |
+| Guardrails 3 ด่าน (ฟรี) + ทดสอบ safety 5 กรณี | ✅ |
+| Vision: รูปสัตว์ → ราคา, สลิป → ตรวจมัดจำ + ทดสอบ 10 ภาพ | ✅ |
+| ปรับปรุง 3 จุดพร้อม before/after (`docs/test-log.md`) | ✅ |
+| UI ใหม่: Landing page, หน้าต่างแชท, หน้าอวตาร, โลโก้ | ✅ |
+| เสียง Cartesia + อวตาร VRM พนักงานร้าน | ✅ (ต้องลองคุยด้วยไมค์จริงอีกรอบ) |
+| บอกชื่อร้านกับอาจารย์ (ภายใน 3 ต.ค.) | 🚧 |
+| LINE OA (`channels/line_webhook.py`, แชทอย่างเดียว + รับรูป) — ต้องใช้ Channel Secret / Access Token | 🚧 |
+| ตารางทดสอบ 10 คำถาม + เวลาตอบ ใน `docs/test-log.md` | 🚧 |
+| Merge เข้า `main` + deploy Vercel (env, Vercel KV, Max Duration 60s) | 🚧 |
+| อัปเดต `docs/architecture.html` (ยังเป็นเวอร์ชัน "Test System" เดิม) / README ส่วน UI | 🚧 |
+| คลิปเดโม ≤ 3 นาที + รายงาน (แผนภาพจากเอกสารนี้) | 🚧 |
+

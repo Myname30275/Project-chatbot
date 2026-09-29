@@ -40,7 +40,7 @@ vision/          ④ Vision: รูปสัตว์ → ประเมิน�
   slip_check.py                รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ (แอดมินเป็นผู้ยืนยัน)
 shop/            ⑤ ข้อมูลร้าน: catalog.json (ราคา), policies.md, faq.md + pricing.py
 prompts/         ⑥ system prompt แยกเป็นไฟล์ (chat_system.txt, voice_hint.txt)
-static/, templates/  ⑦ UX/UI — หน้าเว็บ, โหมดเสียง, อวตาร 3D
+static/, templates/  ⑦ UX/UI — / (Landing page + หน้าต่างแชท), /avatar (อวตารพนักงาน + คุยด้วยเสียง)
 tests/                         unit tests
 docs/                          เอกสารออกแบบ/ผลทดลอง
 ```
@@ -116,10 +116,10 @@ uvicorn main:app --reload
 
 ## โหมดเสียงและการทดลอง Cartesia
 
-เลือกเสียงตอบกลับได้ใน Settings: Browser, เสียงโคลน Colab หรือ Cartesia
+หน้า `/avatar` คือโหมดคุยด้วยเสียง: อวตาร VRM พนักงานร้าน (`static/avatar/Avatar grooming.vrm`,
+ท่า `Idle.fbx`) + STT ของเบราว์เซอร์ + เสียงตอบจาก Cartesia (เลือกเสียงได้ในหน้านั้น)
 Cartesia รับเสียงแบบ PCM streaming ผ่าน backend โดยเก็บคีย์ใน `CARTESIA_API_KEY`
-และใช้เสียงสำเร็จรูป Suda สำหรับแพ็กเกจ Free (ยังไม่ใช่เสียงโคลน)
-ผลทดลองล่าสุด: ความเร็วพอใช้ แต่ผู้ใช้ยังไม่พอใจกับการอ่านภาษาไทย
+ถ้าไม่ตั้ง key จะใช้เสียงไทยของเบราว์เซอร์แทน (Chrome บน Windows อาจไม่มีเสียงไทย ให้ใช้ Edge)
 ดู [การตั้งค่า ผลทดสอบ และงานค้าง](docs/cartesia-trial.md)
 
 ## Deploy ขึ้น Vercel
