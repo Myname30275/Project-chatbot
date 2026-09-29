@@ -48,7 +48,8 @@ flowchart TB
 
     subgraph VI["④ vision/"]
         DOC["documents.py ✅"]
-        PET["pet_estimate / slip_check 🚧"]
+        IA["image_analyzer ✅<br/>Gemini → JSON"]
+        PET["pet_estimate / slip_check ✅<br/>โค้ดคิดราคา/ตรวจสลิป"]
     end
 
     subgraph DATA["⑤ shop/ + ⑥ prompts/ ✅"]
@@ -82,7 +83,9 @@ flowchart TB
     RAG -->|embedding คำถาม| GM
 
     LLMC -->|แชต + OCR| TY[("Typhoon API")]
-    DOC -->|บรรยายภาพ| GM[("Gemini API")]
+    IA -->|จำแนกรูป| GM[("Gemini API")]
+    DOC --> IA --> PET
+    PET --> PR
     TTS --> CT[("Cartesia TTS")]
     STORE --> KV[("Redis / Vercel KV")]
 ```
@@ -114,8 +117,9 @@ flowchart TB
 | ③ | `guardrails/judge.py` + `prompts/guard_judge.txt` | ด่าน 2: Typhoon จำแนกเจตนา SAFE / INJECTION / PRIVACY / HARMFUL (ฟรี แทน Llama Guard) รันพร้อม RAG | ✅ |
 | ③ | `guardrails/output_guard.py` | ด่าน 3: ราคา/ส่วนลดต้องมีใน catalog, ห้ามเบอร์/เลขบัตร/อีเมลของคนอื่น, ห้ามหลุดกฎภายใน — ตรวจทีละประโยค | ✅ |
 | ③ | `guardrails/pipeline.py`, `categories.py` | รวมด่าน + ข้อความปฏิเสธภาษาไทยรายหมวด + log การบล็อก (ไม่ log เนื้อหา) | ✅ |
-| ④ | `vision/documents.py` | อ่านไฟล์แนบ: PDF (pymupdf), รูป (typhoon-ocr + Gemini) | ✅ |
-| ④ | `vision/pet_estimate.py`, `slip_check.py` | รูปสัตว์ → ประเมินราคา, รูปสลิป → ตรวจยอด | 🚧 |
+| ④ | `vision/documents.py` | อ่านไฟล์แนบ: PDF (pymupdf + typhoon-ocr), รูป → image_analyzer (สำรอง: OCR) | ✅ |
+| ④ | `vision/image_analyzer.py` + `prompts/image_analyze.txt` | Gemini จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON 1 ครั้ง · ขอใหม่ถ้าไม่เป็น JSON · whitelist ทุกฟิลด์ · โมเดลสำรองเมื่อ 429/503 | ✅ |
+| ④ | `vision/pet_estimate.py`, `slip_check.py` | รูปสัตว์ → ราคาจาก `pricing.quote()` · รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ · สร้างคำตอบถึงลูกค้าทันทีด้วยโค้ด (ไม่ยืนยันการชำระเงินเอง) | ✅ |
 | ⑤ | `shop/catalog.json` | ข้อมูลร้าน + ราคาทั้งหมด (**แหล่งข้อมูลเดียว**) | ✅ |
 | ⑤ | `shop/policies.md`, `faq.md` | นโยบายร้าน, FAQ 10 ข้อ | ✅ |
 | ⑤ | `shop/pricing.py` | คำนวณราคาด้วยโค้ด + สร้างตารางราคาให้ prompt | ✅ |
@@ -175,8 +179,8 @@ flowchart LR
     M["ข้อความ/รูป<br/>(เว็บ · เสียง · LINE)"] --> G1{"input guard<br/>ยาวเกิน? ถี่เกิน?<br/>blocklist? Llama Guard?"}
     G1 -- ไม่ผ่าน --> R1["ข้อความปฏิเสธภาษาไทย"]
     G1 -- ผ่าน --> K{"เป็นรูป?"}
-    K -- รูปสัตว์ --> P["vision → JSON ขนาด/ขนพัน<br/>→ pricing.quote()"]
-    K -- รูปสลิป --> S["vision → JSON ยอด/วันที่<br/>→ เทียบมัดจำ → รอแอดมินยืนยัน"]
+    K -- รูปสัตว์ --> P["vision ✅ → JSON ขนาด/ขนพัน<br/>→ pricing.quote() → ตอบทันที"]
+    K -- รูปสลิป --> S["vision ✅ → JSON ยอด/ผู้รับ<br/>→ เทียบมัดจำ → รอแอดมินยืนยัน"]
     K -- ข้อความ --> Q["RAG ✅: ค้นบริการ/ราคา/นโยบาย/FAQ ที่เกี่ยวข้อง"]
     P --> L["LLM (Typhoon)<br/>system prompt + ตารางราคา"]
     S --> L
@@ -216,7 +220,7 @@ flowchart LR
 | บริการ | ใช้ทำอะไร | ตัวแปรใน `.env` | จำเป็นไหม |
 |---|---|---|---|
 | **Typhoon** (opentyphoon.ai) | แชต (`typhoon-v2.5-30b-a3b-instruct`) + OCR (`typhoon-ocr`) | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | ✅ จำเป็น |
-| **Gemini** (Google AI Studio) | บรรยายภาพ + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
+| **Gemini** (Google AI Studio) | Vision (`gemini-flash-latest` + สำรอง `gemini-flash-lite-latest`) + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
 | **Cartesia** | เสียงพนักงานในโหมดเสียง | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ไม่ตั้ง = ใช้เสียงเบราว์เซอร์ |
 | **Redis / Vercel KV** | เก็บประวัติแชตข้าม instance | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | จำเป็นบน Vercel |
 | **LINE Messaging API** 🚧 | ช่องทาง LINE OA | (จะเพิ่ม) | สำหรับ LINE |
@@ -264,6 +268,11 @@ instance จึงต้องเก็บ state ทั้งหมดไว้�
   (ที่อาจมีราคาผิด) แต่สลับไปค้นแบบ lexical จากข้อมูลล่าสุดแทน
 - **ทำไมข้อมูลหลัก (ชื่อ เวลา ติดต่อ บริการที่ไม่มี) ยังอยู่ใน system prompt** — ต้องรู้ทุกคำถาม
   และสั้น ไม่คุ้มที่จะเสี่ยงค้นไม่เจอ
+- **ทำไมคำตอบแรกหลังส่งรูปสร้างด้วยโค้ด ไม่ให้ LLM เล่า** — ทดสอบจริงแล้ว Typhoon เล่าผลวิเคราะห์ไม่สม่ำเสมอ
+  (บางรอบตอบว่ารับอาบน้ำจระเข้) แนวเดียวกับ Workshop Week 10 ที่อ่านใบเสร็จแล้วส่งผลจากโค้ดตรง ๆ
+  คำตอบนี้ถูกบันทึกลงประวัติ คำถามต่อจากนั้น LLM จึงเห็นคำตอบที่ถูกต้องของตัวเองและตอบต่อได้แม่น
+- **ทำไม Vision ส่งให้ LLM แค่ข้อมูลโครงสร้าง** — ตัวหนังสือในรูปอาจเป็นคำสั่งแฝง (prompt injection ทางอ้อม)
+  ทุกฟิลด์จึงผ่าน whitelist/ตัดความยาว และราคาคำนวณด้วยโค้ดเสมอ
 - **ทำไมปิดค้นเว็บ** — โจทย์ห้ามแต่งข้อมูล ข้อมูลจากเว็บอาจขัดกับราคา/นโยบายจริงของร้าน
 - **ทำไมบันทึกประวัติเฉพาะตอนสตรีมจบ** — กันคำตอบครึ่งๆ กลางๆ ไปเป็น context ของรอบถัดไป
 
@@ -281,4 +290,5 @@ python -m unittest discover -s tests
 | `tests/test_rag.py` | ทุกรายการใน catalog ค้นเจอได้, index ตรงกับข้อมูลร้านปัจจุบัน, ค้นเจอบริการ/FAQ, คำถามต่อเนื่อง, embedding ล่มแล้วใช้ lexical แทน, ไม่ใช้ index เก่า |
 | `tests/test_tts.py` | proxy เสียง: สตรีม, เลือกภาษา, ไม่หลุด key/error ของผู้ให้บริการ |
 | `tests/test_guardrails.py` | โจมตี 9 แบบ, false positive 10 แบบ, rate limit, judge + fail policy, ตรวจขาออก, สตรีมทีละประโยค, endpoint ทั้งสองผ่านด่าน |
-| `docs/test-log.md` | ✅ ความปลอดภัย 5 กรณี + ✅ ปรับปรุง 3 จุด · 🚧 คำถาม 10 ข้อ (+ เวลาตอบ), ภาพ 5 ภาพ |
+| `tests/test_vision.py` | parse + whitelist, ข้อความซ่อนในรูปถูกตัด, พ.ศ.→ค.ศ., ราคาตามขนาด/แมว/ขนพัน, สัตว์อื่น/แผล/ไม่รู้ขนาดไม่บอกราคา, สลิปตรง/ไม่ตรง, Vision ล่มไม่เดา, คำตอบทันที + บันทึกประวัติ |
+| `docs/test-log.md` | ✅ ความปลอดภัย 5 กรณี + ✅ ปรับปรุง 3 จุด + ✅ ภาพ 10 ภาพ · 🚧 คำถาม 10 ข้อ (+ เวลาตอบ) |

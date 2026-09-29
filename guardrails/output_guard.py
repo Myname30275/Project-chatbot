@@ -83,7 +83,9 @@ def _shop_contacts() -> set[str]:
     return {_digits(pricing.load_catalog()["shop"]["contacts"]["phone"])}
 
 
-def check_sentence(sentence: str, user_pii: set[str] = frozenset()) -> str | None:
+def check_sentence(
+    sentence: str, user_pii: set[str] = frozenset(), extra_amounts: set[float] = frozenset()
+) -> str | None:
     """คืนเหตุผลที่ไม่ผ่าน (LEAK / PRICE / DISCOUNT / PII) หรือ None ถ้าผ่าน"""
     text = sentence.translate(_THAI_DIGITS)
     if _LEAK_RE.search(text):
@@ -93,7 +95,7 @@ def check_sentence(sentence: str, user_pii: set[str] = frozenset()) -> str | Non
     amounts = [
         float(f"{m.group(1).replace(',', '')}.{m.group(2) or 0}") for m in _BAHT_RE.finditer(text)
     ] + [float(m.group(1).replace(",", "")) for m in _BAHT_PREFIX_RE.finditer(text)]
-    if any(a not in allowed_baht() for a in amounts) and not negated:
+    if any(a not in allowed_baht() and a not in extra_amounts for a in amounts) and not negated:
         return "PRICE"
 
     if any(float(m.group(1)) not in allowed_percent() for m in _PERCENT_RE.finditer(text)) and not negated:
@@ -133,8 +135,10 @@ def split_sentences(text: str) -> list[str]:
 class OutputGuard:
     """ตรวจคำตอบทีละประโยค ใช้ได้ทั้งแบบสตรีม (feed/flush) และแบบข้อความเต็ม (check_text)"""
 
-    def __init__(self, user_texts: list[str] | None = None):
+    def __init__(self, user_texts: list[str] | None = None, extra_amounts: set[float] | None = None):
+        """extra_amounts = ยอดเงินที่ระบบอ่านได้จากสลิปของลูกค้าเอง (บอททวนได้ เช่น "โอนมา 500 บาท")"""
         self.user_pii = pii_from_user(user_texts or [])
+        self.extra_amounts = set(extra_amounts or ())
         self.pending = ""
         self.blocked_reason: str | None = None
 
@@ -145,7 +149,7 @@ class OutputGuard:
     def _release(self, text: str) -> list[str]:
         out = []
         for sentence in split_sentences(text):
-            reason = check_sentence(sentence, self.user_pii)
+            reason = check_sentence(sentence, self.user_pii, self.extra_amounts)
             if reason:
                 self.blocked_reason = reason
                 return out

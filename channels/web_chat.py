@@ -253,7 +253,12 @@ async def post_attachment(request: Request, response: Response, file: UploadFile
     items = await store.get_attachments(session_id)
     items.append(item)
     await store.set_attachments(session_id, items)
-    return {"ok": True, "attachment": _attachment_summary(item)}
+
+    # รูปสัตว์/สลิป: ระบบตอบลูกค้าทันทีด้วยข้อความที่สร้างจากโค้ด (ราคา/ยอดถูกต้องแน่นอน) และบันทึกลงประวัติ
+    reply = item.get("meta", {}).get("reply")
+    if reply:
+        await assistant.record_image_reply(session_id, reply)
+    return {"ok": True, "attachment": _attachment_summary(item), "reply": reply}
 
 
 @router.delete("/attachments/{index}")

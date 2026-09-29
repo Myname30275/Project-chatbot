@@ -22,6 +22,7 @@ REQUEST_TIMEOUT = httpx.Timeout(connect=5.0, write=10.0, read=120.0, pool=5.0)
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 MAX_ATTEMPTS = 3
 BACKOFF_BASE = 1.0
+MAX_RETRY_WAIT = 5.0  # วินาที — เพดานของ Retry-After ที่ผู้ให้บริการสั่งให้รอ
 
 
 class LLMConnectionError(Exception):
@@ -85,19 +86,21 @@ def _build_payload(
     )
     if extra_system:
         messages.append({"role": "system", "content": extra_system})
+    messages.extend(history)
     if context_blocks:
+        # วางไว้ติดกับคำถามล่าสุด (หลัง history): ทดสอบจริงแล้วถ้าวางไว้ต้นบทสนทนา โมเดลเลือกใช้
+        # ตารางราคาเต็มจาก RAG แทนราคาที่ระบบคำนวณจากรูปของน้องตัวนั้น
         joined = "\n\n---\n\n".join(context_blocks)
         messages.append(
             {
                 "role": "system",
                 "content": (
-                    "ผู้ใช้แนบไฟล์มาด้วย ต่อไปนี้คือเนื้อหาที่ดึงมาจากไฟล์ "
-                    "ใช้ประกอบการตอบเมื่อเกี่ยวข้อง และถ้าอ้างอิงให้บอกชื่อไฟล์ด้วย:\n\n"
+                    "รูป/ไฟล์ที่ลูกค้าส่งมาในบทสนทนานี้ (ระบบวิเคราะห์ให้แล้ว) — "
+                    "ถ้าลูกค้าถามเกี่ยวกับน้องหรือสลิปในรูป ให้ใช้ข้อมูลส่วนนี้ก่อนตารางราคาทั่วไป:\n\n"
                     + joined
                 ),
             }
         )
-    messages.extend(history)
     messages.append({"role": "user", "content": message})
 
     # ค่าที่ผู้ใช้ปรับในหน้า Settings (ต่อ request) มาก่อนค่า default ใน .env
@@ -120,7 +123,8 @@ def _retry_delay(response: httpx.Response | None, attempt: int) -> float:
     if response is not None:
         retry_after = response.headers.get("Retry-After")
         if retry_after and retry_after.isdigit():
-            return float(retry_after)
+            # มีเพดาน: ทดสอบจริง Gemini สั่งรอนานจนลูกค้ารอ 69 วินาที — รอไม่เกินนี้แล้วให้ผู้เรียกไปใช้ทางสำรอง
+            return min(float(retry_after), MAX_RETRY_WAIT)
     return BACKOFF_BASE * (2**attempt) + random.uniform(0, 0.3)
 
 

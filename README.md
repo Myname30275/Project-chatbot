@@ -33,8 +33,11 @@ guardrails/      ③ ความปลอดภัย 3 ด่าน (ฟรี
   judge.py                     ด่าน 2: ใช้ Typhoon จำแนกเจตนา (SAFE/INJECTION/PRIVACY/HARMFUL)
   output_guard.py              ด่าน 3: ราคา/ส่วนลดต้องมีจริง, ห้ามหลุดข้อมูลส่วนตัวหรือกฎภายใน
   pipeline.py, categories.py   รวมด่าน + ข้อความปฏิเสธภาษาไทย
-vision/          ④ OCR + อ่านรูป
-  documents.py                 ดึงข้อความจากไฟล์แนบ (pymupdf + typhoon-ocr + Gemini)
+vision/          ④ Vision: รูปสัตว์ → ประเมินราคา, รูปสลิป → ตรวจมัดจำ
+  documents.py                 อ่านไฟล์แนบ (PDF: pymupdf + typhoon-ocr, รูป → image_analyzer)
+  image_analyzer.py            Gemini จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON (มีโมเดลสำรอง)
+  pet_estimate.py              รูปสัตว์ → ราคาจาก catalog + ข้อความตอบลูกค้าทันที
+  slip_check.py                รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ (แอดมินเป็นผู้ยืนยัน)
 shop/            ⑤ ข้อมูลร้าน: catalog.json (ราคา), policies.md, faq.md + pricing.py
 prompts/         ⑥ system prompt แยกเป็นไฟล์ (chat_system.txt, voice_hint.txt)
 static/, templates/  ⑦ UX/UI — หน้าเว็บ, โหมดเสียง, อวตาร 3D

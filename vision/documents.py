@@ -5,7 +5,8 @@
 
 - PDF ที่มีข้อความจริง  -> pymupdf ดึงตรงๆ (ฟรี ไม่เรียก AI)
 - PDF หน้าที่เป็นสแกน    -> เรนเดอร์เป็นรูป -> typhoon-ocr
-- รูปภาพ                 -> typhoon-ocr (ถอดข้อความ) + Gemini (บรรยายภาพ ถ้าตั้ง VISION_*)
+- รูปภาพ                 -> Gemini จำแนก สัตว์/สลิป/อื่นๆ (vision/image_analyzer.py) แล้ว
+                            ประเมินราคา (pet_estimate) หรือตรวจสลิป (slip_check) — ไม่ได้ตั้ง VISION_* ใช้ typhoon-ocr
 - ข้อความ (txt/md/csv)  -> decode ตรงๆ
 
 typhoon-ocr เรียกผ่าน endpoint OpenAI-compatible เดียวกับแชต (LLM_BASE_URL + LLM_API_KEY)
@@ -22,6 +23,7 @@ import pymupdf
 
 from config import settings
 from chatbot.llm_client import _post_with_retry
+from vision import image_analyzer, pet_estimate, slip_check
 
 logger = logging.getLogger(__name__)
 
@@ -157,30 +159,48 @@ async def _extract_pdf(data: bytes) -> tuple[str, dict[str, Any]]:
 
 
 async def _extract_image(data: bytes, mime: str) -> tuple[str, dict[str, Any]]:
-    tasks = [_ocr(data, mime)]
+    """รูปภาพ: ถ้าตั้ง VISION_* ใช้ Gemini จำแนก (สัตว์/สลิป/อื่น ๆ) แล้วสรุปให้เข้ากับงานของร้าน
+    (ประเมินราคาจากรูปสัตว์ / ตรวจสลิปกับค่ามัดจำ) — ถ้าไม่ได้ตั้งหรือ Gemini ล้ม ถอยไปใช้ OCR อ่านตัวหนังสือ"""
     if settings.vision_enabled:
-        tasks.append(_describe(data, mime))
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    ocr_text = results[0] if not isinstance(results[0], Exception) else ""
-    desc = ""
-    vision_used = False
-    if settings.vision_enabled:
-        if isinstance(results[1], Exception):
-            logger.warning("บรรยายภาพ (vision) ล้มเหลว: %s", results[1])
+        try:
+            analysis = await image_analyzer.analyze(data, mime)
+        except image_analyzer.VisionError as exc:
+            logger.warning("vision ใช้ไม่ได้ ถอยไปใช้ OCR: %s", exc.message)
         else:
-            desc = results[1]
-            vision_used = bool(desc.strip())
+            # meta["reply"] = ข้อความตอบลูกค้าทันทีที่สร้างด้วยโค้ด (ช่องทางส่งให้ลูกค้าเห็นและบันทึกลงประวัติ)
+            # ส่วน text = สรุปสำหรับโมเดลแชตใช้ตอบคำถามต่อเนื่อง
+            meta = {"pages": 1, "ocr_pages": 0, "vision_used": True, "image_type": analysis.image_type}
+            if analysis.image_type == "pet":
+                meta["reply"] = pet_estimate.customer_reply(analysis)
+                return pet_estimate.estimate_text(analysis), meta
+            if analysis.image_type == "slip":
+                meta["slip_amount"] = analysis.slip.amount
+                meta["reply"] = slip_check.customer_reply(analysis.slip)
+                return slip_check.slip_text(analysis.slip), meta
+            desc = analysis.other_description or "ไม่ทราบ"
+            meta["reply"] = (
+                "ได้รับรูปแล้วค่ะ รูปนี้ไม่ใช่รูปน้องหรือสลิปโอนเงิน "
+                "น้องหอมช่วยประเมินราคาจากรูปสุนัข/แมว และรับรูปสลิปมัดจำได้ค่ะ"
+            )
+            return (
+                f"ผลวิเคราะห์รูป: ไม่ใช่รูปสัตว์เลี้ยงหรือสลิป (รูป{desc}) "
+                "ร้านช่วยประเมินราคาจากรูปสุนัข/แมว และตรวจรูปสลิปมัดจำได้",
+                meta,
+            )
 
-    if isinstance(results[0], Exception) and not desc:
-        raise DocumentError("อ่านรูปภาพนี้ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
-
-    blocks = []
-    if ocr_text.strip():
-        blocks.append(f"ข้อความในรูป:\n{ocr_text.strip()}")
-    if desc.strip():
-        blocks.append(f"รายละเอียดภาพ:\n{desc.strip()}")
-    return "\n\n".join(blocks), {"pages": 1, "ocr_pages": 0, "vision_used": vision_used}
+    # ทางสำรอง: OCR อ่านได้แค่ตัวหนังสือ (พอใช้กับสลิป) — รูปสัตว์ที่ไม่มีตัวหนังสือจะไม่ได้อะไรเลย
+    # กรณีนั้นแจ้งลูกค้าตรง ๆ ดีกว่าปล่อยให้โมเดลแชตเดาจากชื่อไฟล์ (พบจริงระหว่างทดสอบ)
+    unavailable = (
+        "ระบบอ่านรูปขัดข้องชั่วคราว รบกวนส่งรูปใหม่อีกครั้งในอีกสักครู่ "
+        "หรือพิมพ์บอกชนิดและน้ำหนักของน้องได้เลยค่ะ"
+    )
+    try:
+        ocr_text = (await _ocr(data, mime)).strip()
+    except DocumentError as exc:
+        raise DocumentError(unavailable) from exc
+    if not ocr_text or "ไม่มีข้อความ" in ocr_text:
+        raise DocumentError(unavailable)
+    return f"ข้อความในรูป:\n{ocr_text}", {"pages": 1, "ocr_pages": 1, "vision_used": False}
 
 
 def _data_uri(img_bytes: bytes, mime: str) -> str:
@@ -237,17 +257,4 @@ async def _ocr(img_bytes: bytes, mime: str) -> str:
         img_bytes,
         mime,
         "OCR",
-    )
-
-
-async def _describe(img_bytes: bytes, mime: str) -> str:
-    return await _vision_call(
-        settings.VISION_BASE_URL,
-        settings.VISION_MODEL,
-        {"Authorization": f"Bearer {settings.VISION_API_KEY}"},
-        "อธิบายภาพนี้อย่างละเอียดเป็นภาษาไทย: วัตถุ/บุคคล/ฉากที่เห็น, ข้อความที่ปรากฏ, "
-        "ถ้าเป็นกราฟ/แผนภูมิ/ไดอะแกรม ให้ระบุชนิดและอ่านค่าตัวเลข/แกน/ป้ายกำกับ, สีหลัก, และเลย์เอาต์",
-        img_bytes,
-        mime,
-        "vision",
     )

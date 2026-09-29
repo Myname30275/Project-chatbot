@@ -349,6 +349,12 @@ async function uploadFile(file) {
       showError(payload.message || "อัปโหลดไฟล์ไม่สำเร็จ");
     } else if (payload.ok && payload.attachment) {
       attachments.push(payload.attachment);
+      // รูปสัตว์/สลิป: เซิร์ฟเวอร์ตอบกลับทันที (ประเมินราคา / ตรวจสลิป) — แสดงเหมือนบอทตอบในแชต
+      if (payload.reply) {
+        appendUserMessage(`📷 ส่งรูป ${file.name}`);
+        createAiBubble().innerHTML = renderMarkdown(payload.reply);
+        scrollToBottom();
+      }
     } else {
       showError("อัปโหลดไฟล์ไม่สำเร็จ กรุณาลองใหม่");
     }

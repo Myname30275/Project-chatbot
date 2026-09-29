@@ -47,15 +47,54 @@ class Reply:
 
 async def attachment_blocks(session_id: str) -> list[str]:
     """ข้อความจากไฟล์แนบทั้งหมดของ session เป็นบล็อก ๆ ให้ LLM ใช้อ้างอิง"""
-    items = await store.get_attachments(session_id)
-    return [f"[ไฟล์: {it['name']}]\n{it['text']}" for it in items if it.get("text")]
+    return _blocks(await store.get_attachments(session_id))
 
 
-async def _knowledge(session_id: str, history: list[dict], message: str) -> tuple[str | None, list[dict]]:
+_SHOP_ANALYSED = {"pet", "slip"}  # รูปที่ระบบของร้านวิเคราะห์เอง (ราคา/ยอดคำนวณด้วยโค้ด)
+
+
+def _is_shop_analysis(item: dict) -> bool:
+    return item.get("meta", {}).get("image_type") in _SHOP_ANALYSED
+
+
+def _blocks(items: list[dict]) -> list[str]:
+    """ไฟล์แนบทั่วไปของลูกค้า (PDF/ข้อความ/รูปอื่น ๆ) — ผลวิเคราะห์รูปสัตว์/สลิปแยกไปอยู่กับข้อมูลร้านแทน"""
+    # รูปภาพไม่ส่งชื่อไฟล์ให้โมเดล: ทดสอบจริงแล้วโมเดลเดาชนิดสัตว์จากชื่อไฟล์ (เช่น "Chiwawa.jpg")
+    # แทนที่จะใช้ผลวิเคราะห์รูป — ชื่อไฟล์จากมือถือจริง (IMG_1234) ไม่มีความหมายอยู่แล้ว
+    return [
+        f"[{'รูปที่ลูกค้าส่ง' if it.get('kind') == 'image' else 'ไฟล์: ' + it['name']}]\n{it['text']}"
+        for it in items
+        if it.get("text") and not _is_shop_analysis(it)
+    ]
+
+
+def _analysis_knowledge(items: list[dict]) -> str | None:
+    """ผลวิเคราะห์รูปสัตว์/สลิป วางเป็นชิ้นแรกของ "ข้อมูลร้านที่ค้นได้" — ทดสอบจริงแล้วถ้าส่งแยกเป็น
+    ไฟล์แนบ โมเดลเลือกใช้ตารางราคาเต็มจาก RAG แทนราคาที่ระบบคำนวณจากรูปของน้องตัวนั้น"""
+    texts = [it["text"] for it in items if it.get("text") and _is_shop_analysis(it)]
+    if not texts:
+        return None
+    # รูปล่าสุดสำคัญสุด (ลูกค้าเพิ่งส่ง) จึงเรียงจากใหม่ไปเก่า
+    return "\n\n".join(f"[รูปที่ลูกค้าส่ง] {t}" for t in reversed(texts))
+
+
+def _slip_amounts(items: list[dict]) -> set[float]:
+    """ยอดเงินที่ vision อ่านได้จากสลิปของลูกค้า — ให้ output guard ยอมให้บอททวนตัวเลขนี้ได้"""
+    return {it["meta"]["slip_amount"] for it in items if it.get("meta", {}).get("slip_amount") is not None}
+
+
+# ตารางราคาแยกตามขนาด — ถ้าลูกค้าส่งรูปน้องมาแล้ว ระบบคำนวณราคาของตัวนั้นไว้ให้แล้ว
+# ทดสอบจริง: ถ้ายังแนบตารางทุกขนาดไปด้วย Typhoon เลือกไล่ราคาทุกขนาดแทน (แก้ด้วย prompt ไม่หาย)
+_SIZED_PRICE_CHUNKS = {"service:bath", "service:full_groom"}
+
+
+async def _knowledge(
+    session_id: str, history: list[dict], message: str, exclude: set[str] = frozenset()
+) -> tuple[str | None, list[dict]]:
     """RAG: ค้นชิ้นข้อมูลร้านที่เกี่ยวกับคำถาม — คืน (ข้อความสำหรับ LLM, รายการอ้างอิง)
     error ถูกกลืนทั้งหมด: ค้นไม่ได้ก็ยังตอบต่อได้ (prompt สั่งให้ใช้ fallback ถ้าไม่มีข้อมูล)"""
     try:
-        hits = await retriever.retrieve(history, message)
+        hits = [h for h in await retriever.retrieve(history, message) if h.chunk.id not in exclude]
     except Exception:  # noqa: BLE001
         logger.exception("RAG ล้มเหลวโดยไม่คาดคิด session=%s", session_id)
         return None, []
@@ -89,20 +128,26 @@ async def respond_stream(
         return
 
     history = await store.get_history(session_id)
-    blocks = await attachment_blocks(session_id) + (extra_blocks or [])
+    attachments = await store.get_attachments(session_id)
+    blocks = _blocks(attachments) + (extra_blocks or [])
+    from_images = _analysis_knowledge(attachments)
+    has_pet_photo = any(it.get("meta", {}).get("image_type") == "pet" for it in attachments)
 
     # ด่าน 2 (LLM ตรวจเจตนา) + RAG รันพร้อมกัน จึงแทบไม่เพิ่มเวลาตอบ
     decision, (knowledge, sources) = await asyncio.gather(
-        guard.check_judge(message, session_id), _knowledge(session_id, history, message)
+        guard.check_judge(message, session_id),
+        _knowledge(session_id, history, message, _SIZED_PRICE_CHUNKS if has_pet_photo else frozenset()),
     )
     if not decision.allowed:
         for event in _refusal(decision):
             yield event
         return
     yield {"knowledge": sources}
+    if from_images:
+        knowledge = from_images + ("\n\n" + knowledge if knowledge else "")
 
     # ด่าน 3: ปล่อยคำตอบทีละประโยคที่ตรวจผ่านแล้วเท่านั้น
-    out_guard = guard.OutputGuard(_user_texts(history, message))
+    out_guard = guard.OutputGuard(_user_texts(history, message), _slip_amounts(attachments))
     shown = ""  # ข้อความที่ลูกค้าเห็นจริง — ใช้บันทึกประวัติ
     completed = False
     llm_stream = llm_client.chat_stream(history, message, blocks, knowledge=knowledge, **llm_overrides)
@@ -144,6 +189,19 @@ async def respond_stream(
             history + [{"role": "user", "content": message}, {"role": "assistant", "content": shown}],
         )
     yield {"done": True}
+
+
+IMAGE_MARKER = "(ส่งรูปภาพ)"
+
+
+async def record_image_reply(session_id: str, reply: str) -> None:
+    """บันทึกคำตอบจากการวิเคราะห์รูปลงประวัติ เหมือนบอทตอบในแชตจริง — คำถามต่อจากนี้โมเดลแชตจะเห็น
+    คำตอบที่ถูกต้องของตัวเองในบทสนทนา (ทดสอบแล้วทำตามได้สม่ำเสมอกว่าอ่านผลวิเคราะห์ดิบ)"""
+    history = await store.get_history(session_id)
+    await store.set_history(
+        session_id,
+        history + [{"role": "user", "content": IMAGE_MARKER}, {"role": "assistant", "content": reply}],
+    )
 
 
 async def respond(session_id: str, message: str, **kwargs) -> Reply:

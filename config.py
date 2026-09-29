@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     # gemini-flash-latest = alias ที่ Google ชี้ไปโมเดล flash ตัวล่าสุดเสมอ
     # (ตั้งชื่อเวอร์ชันตายตัวเช่น gemini-2.5-flash จะโดน 404 เมื่อ Google เลิกให้ผู้ใช้ใหม่)
     VISION_MODEL: str = "gemini-flash-latest"
+    # โมเดลสำรองเมื่อโมเดลหลักตอบ 429 (โควตาฟรีเต็ม) / 5xx (ล้น) — ทดสอบจริงแล้ว flash-latest ล่มบ่อย
+    # ช่วงโหลดสูง ส่วน flash-lite มีโควตาฟรีมากกว่าและเร็วกว่า (อ่านชนิดสัตว์ถูกในการทดสอบ)
+    VISION_FALLBACK_MODEL: str | None = "gemini-flash-lite-latest"
 
     # --- RAG: ค้นคืนข้อมูลร้านจาก shop/ (rag/) ---
     # embedding ผ่าน endpoint OpenAI-compatible — ไม่ตั้ง EMBED_BASE_URL/EMBED_API_KEY จะใช้ค่า
