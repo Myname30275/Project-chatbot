@@ -7,10 +7,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from config import settings
-from chatbot import llm_client, search
+from chatbot import llm_client, prompt_builder, search
 from chatbot.conversation_store import get_store
 from chatbot.llm_client import LLMConnectionError
 from chatbot.search import SearchError
+from rag import retriever
 from vision import documents
 from vision.documents import DocumentError
 
@@ -29,12 +30,8 @@ SESSION_COOKIE = "session_id"
 SESSION_MAX_AGE = 60 * 60 * 24 * 7  # 7 วัน
 
 # ผู้ใช้ฟังคำตอบเป็นเสียง ไม่ได้อ่าน — ตอบยาวๆ มีลิสต์/หัวข้อ ฟังแล้วงงและ (สำหรับเสียงโคลน)
-# ต้องรอสังเคราะห์นานขึ้นด้วย ส่งเป็น system message แยกต่างหาก ไม่ปนกับ SYSTEM_PROMPT หลัก
-_VOICE_SYSTEM_HINT = (
-    "ผู้ใช้กำลังฟังคำตอบนี้เป็นเสียง ไม่ได้อ่านตัวหนังสือ "
-    "ตอบสั้น กระชับ ไม่เกิน 2-3 ประโยค เหมือนคุยกันปกติ "
-    "ห้ามใช้ลิสต์ หัวข้อ ตาราง หรือมาร์กดาวน์ใดๆ"
-)
+# ต้องรอสังเคราะห์นานขึ้นด้วย ส่ง prompts/voice_hint.txt เป็น system message แยกต่างหาก
+# ไม่ปนกับ system prompt หลักของร้าน
 # (เคยลองบังคับเพดาน max_tokens ทับสำหรับโหมดเสียงเพื่อกันดีเลย์ — ตัดคำตอบยาวกลาง
 # ประโยค ผู้ใช้ไม่เอา จึงเอาออก ไม่จำกัดความยาวคำตอบ; แก้ดีเลย์ด้วยการสตรีม/prefetch
 # ฝั่ง voice.js แทน — ดู pumpSpeakQueue())
@@ -82,7 +79,7 @@ def _chat_overrides(req: ChatRequest) -> dict:
     if req.max_tokens is not None:
         out["max_tokens"] = min(max(int(req.max_tokens), 1), 16384)
     if req.voice:
-        out["extra_system"] = _VOICE_SYSTEM_HINT
+        out["extra_system"] = prompt_builder.voice_hint()
     return out
 
 
@@ -145,6 +142,19 @@ async def _search_context(
     if not _search_should_try(message, want_search, has_attachments):
         return [], None
     return await _search_run(session_id, history, message)
+
+
+async def _knowledge(session_id: str, history: list[dict], message: str) -> tuple[str | None, list[dict]]:
+    """RAG: ค้นชิ้นข้อมูลร้านที่เกี่ยวกับคำถาม — คืน (ข้อความสำหรับ LLM, รายการอ้างอิง)
+    error ถูกกลืนทั้งหมด: ค้นไม่ได้ก็ยังตอบต่อได้ (prompt สั่งให้ใช้ fallback ถ้าไม่มีข้อมูล)"""
+    try:
+        hits = await retriever.retrieve(history, message)
+    except Exception:  # noqa: BLE001
+        logger.exception("RAG ล้มเหลวโดยไม่คาดคิด session=%s", session_id)
+        return None, []
+    sources = retriever.sources_payload(hits)
+    logger.info("RAG session=%s hits=%s", session_id, [(s["id"], s["score"]) for s in sources])
+    return (retriever.as_context_block(hits) if hits else None), sources
 
 
 @router.get("/config")
@@ -300,11 +310,12 @@ async def post_chat(chat_request: ChatRequest, request: Request, response: Respo
         session_id, history, chat_request.message,
         chat_request.web_search, has_attachments=bool(context_blocks),
     )
+    knowledge, _sources = await _knowledge(session_id, history, chat_request.message)
 
     try:
         reply_text = await llm_client.chat(
             history, chat_request.message, context_blocks + extra_blocks,
-            **_chat_overrides(chat_request),
+            knowledge=knowledge, **_chat_overrides(chat_request),
         )
     except LLMConnectionError as exc:
         logger.error("chat ล้มเหลว session=%s: %s", session_id, exc.message)
@@ -349,9 +360,14 @@ async def post_chat_stream(chat_request: ChatRequest, request: Request):
                 # ไม่ได้ค้น (classifier บอก SKIP / ค้นล้มเหลว) — เคลียร์สถานะ
                 yield f"data: {json.dumps({'search_done': True}, ensure_ascii=False)}\n\n"
 
+        # RAG: ค้นข้อมูลร้านก่อนเรียก LLM แล้วส่งรายการอ้างอิงให้หน้าเว็บ (ไว้โชว์ว่าตอบจากข้อมูลส่วนไหน)
+        knowledge, sources = await _knowledge(session_id, history, chat_request.message)
+        yield f"data: {json.dumps({'knowledge': sources}, ensure_ascii=False)}\n\n"
+
         try:
             async for event in llm_client.chat_stream(
-                history, chat_request.message, context_blocks + extra_blocks, **overrides
+                history, chat_request.message, context_blocks + extra_blocks,
+                knowledge=knowledge, **overrides
             ):
                 if event["type"] == "delta":
                     accumulated_text += event["content"]

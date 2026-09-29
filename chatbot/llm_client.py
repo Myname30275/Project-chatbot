@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from chatbot import prompt_builder
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ def _build_payload(
     temperature: float | None = None,
     max_tokens: int | None = None,
     extra_system: str | None = None,
+    knowledge: str | None = None,
 ) -> dict[str, Any]:
     """ประกอบ payload แบบ Chat Completions มาตรฐาน (messages: [{role, content}])
     เพราะ endpoint นี้เป็น endpoint เดียวที่ Typhoon / LM Studio / OpenRouter รองรับ
@@ -63,10 +65,24 @@ def _build_payload(
 
     extra_system = system message เสริมเฉพาะ request นี้ (เช่น "ตอบสั้นสำหรับโหมดเสียง")
     แยกจาก context_blocks เพราะไม่ใช่เนื้อหาอ้างอิง แต่เป็นคำสั่งปรับพฤติกรรมการตอบ
+
+    knowledge = ชิ้นข้อมูลร้านที่ RAG ค้นได้ตามคำถาม (ดู rag/retriever.py) — แยกจาก context_blocks
+    เพราะเป็นข้อมูลทางการของร้าน (เชื่อถือได้) ไม่ใช่ไฟล์ที่ลูกค้าส่งมา (เชื่อถือไม่ได้)
     """
-    messages: list[dict[str, str]] = []
-    if settings.SYSTEM_PROMPT:
-        messages.append({"role": "system", "content": settings.SYSTEM_PROMPT})
+    # system prompt ของร้าน = prompts/chat_system.txt + ข้อมูลหลักใน shop/ (ดู chatbot/prompt_builder.py)
+    messages: list[dict[str, str]] = [
+        {"role": "system", "content": prompt_builder.system_prompt()}
+    ]
+    messages.append(
+        {
+            "role": "system",
+            "content": (
+                "ข้อมูลร้านที่ค้นได้ (จากคลังความรู้ของร้าน เรียงจากเกี่ยวข้องมากไปน้อย):\n\n" + knowledge
+                if knowledge
+                else "ข้อมูลร้านที่ค้นได้: (ไม่พบข้อมูลที่เกี่ยวข้องกับคำถามนี้ในคลังความรู้)"
+            ),
+        }
+    )
     if extra_system:
         messages.append({"role": "system", "content": extra_system})
     if context_blocks:
@@ -223,6 +239,7 @@ async def chat(
     temperature: float | None = None,
     max_tokens: int | None = None,
     extra_system: str | None = None,
+    knowledge: str | None = None,
 ) -> str:
     """ส่งข้อความคุยหนึ่งรอบแบบไม่สตรีม คืนค่าข้อความตอบกลับ (reply_text) เพียงอย่างเดียว"""
     payload = _build_payload(
@@ -233,6 +250,7 @@ async def chat(
         temperature=temperature,
         max_tokens=max_tokens,
         extra_system=extra_system,
+        knowledge=knowledge,
     )
     url = f"{settings.LLM_BASE_URL}/chat/completions"
 
@@ -264,6 +282,7 @@ async def chat_stream(
     temperature: float | None = None,
     max_tokens: int | None = None,
     extra_system: str | None = None,
+    knowledge: str | None = None,
 ) -> AsyncGenerator[dict[str, Any], None]:
     """สตรีมคำตอบทีละชิ้นตามฟอร์แมต SSE มาตรฐานของ Chat Completions
     ส่งออกเป็น dict รูปแบบ:
@@ -280,6 +299,7 @@ async def chat_stream(
         temperature=temperature,
         max_tokens=max_tokens,
         extra_system=extra_system,
+        knowledge=knowledge,
     )
     url = f"{settings.LLM_BASE_URL}/chat/completions"
     started = False

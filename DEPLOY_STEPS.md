@@ -37,8 +37,9 @@ cp .env.example .env
 LLM_BASE_URL=https://api.opentyphoon.ai/v1
 LLM_API_KEY=<key ที่เพิ่งสร้าง>
 LLM_MODEL=typhoon-v2.5-30b-a3b-instruct
-SYSTEM_PROMPT="คุณคือผู้ช่วย AI ที่เป็นมิตรและตอบเป็นภาษาไทย"
 ```
+
+> system prompt และข้อมูลร้านอยู่ใน `prompts/` กับ `shop/` ไม่ต้องตั้งใน `.env`
 
 > `.env` ถูก gitignore ไว้แล้ว — ห้าม commit key ขึ้น git เด็ดขาด
 
@@ -98,7 +99,7 @@ git push -u origin main
    | `LLM_API_KEY` | `<Typhoon key ของคุณ>` |
    | `LLM_MODEL` | `typhoon-v2.5-30b-a3b-instruct` |
 
-   (จะใส่ `SYSTEM_PROMPT`, `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` เพิ่มด้วยก็ได้)
+   (จะใส่ `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` เพิ่มด้วยก็ได้)
 
 4. กด **Deploy** → ได้ URL เช่น `https://your-repo.vercel.app`
 
@@ -153,7 +154,10 @@ instance และ instance ถูกปิดทิ้งได้ตลอด 
 ## 6. (ทางเลือก) เปิด "ค้นเว็บอัตโนมัติ" ด้วย Tavily
 
 เวลาผู้ใช้ถามข้อมูลล่าสุด (ข่าว/ราคา/ผลกีฬา/เหตุการณ์ปัจจุบัน) บอตจะประเมินเอง →
-ค้นเว็บ → ตอบพร้อมชิปแหล่งอ้างอิงใต้คำตอบ ไม่ตั้ง key = ฟีเจอร์นี้ปิด (ทุกอย่างอื่นปกติ)
+ค้นเว็บ → ตอบพร้อมชิปแหล่งอ้างอิงใต้คำตอบ
+
+> **ปิดเป็นค่าเริ่มต้น** สำหรับบอทร้าน (ต้องตอบจากข้อมูลร้านเท่านั้น) ถ้าจะเปิดต้องตั้ง
+> `WEB_SEARCH_ENABLED=true` คู่กับ `SEARCH_API_KEY`
 
 1. ขอ API key ฟรีที่ [tavily.com](https://tavily.com) → Sign up → API Keys
    (ไม่ต้องผูกบัตร, 1000 ครั้ง/เดือน, key ขึ้นต้น `tvly-`)
@@ -163,7 +167,9 @@ instance และ instance ถูกปิดทิ้งได้ตลอด 
    |---|---|
    | `SEARCH_API_KEY` | `<Tavily key>` |
 
-   (ปรับเพิ่มได้: `SEARCH_MAX_RESULTS` ค่าเริ่ม 5, `WEB_SEARCH_ENABLED=false` เพื่อปิดทั้งฟีเจอร์)
+   | `WEB_SEARCH_ENABLED` | `true` |
+
+   (ปรับเพิ่มได้: `SEARCH_MAX_RESULTS` ค่าเริ่ม 5)
 3. **ตั้ง Settings → Functions → Max Duration = 60s** — รอบที่ค้นเว็บจะช้ากว่าปกติ
    (ประเมิน ~0.7s + ค้น ~2s ก่อนเริ่มสตรีมคำตอบ) อาจเกิน default 10s
 4. **Redeploy**

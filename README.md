@@ -20,12 +20,18 @@ channels/        ① ช่องทางเข้า (API layer)
 chatbot/         ② แกนกลางที่ทุกช่องทางใช้ร่วมกัน
   llm_client.py                คุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
   conversation_store.py        ประวัติบทสนทนา + ไฟล์แนบ (in-memory หรือ Redis/Vercel KV)
-  search.py                    ค้นเว็บอัตโนมัติ (Tavily) — พักไว้สำหรับร้าน
+  prompt_builder.py            ประกอบ system prompt จาก prompts/ + ข้อมูลหลักใน shop/
+  search.py                    ค้นเว็บอัตโนมัติ (Tavily) — ปิดไว้ บอทร้านตอบจากข้อมูลร้านเท่านั้น
+rag/             RAG: ค้นคืนข้อมูลร้านตามคำถาม
+  chunker.py                   แบ่ง shop/ เป็น 28 ชิ้น (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น)
+  retriever.py                 hybrid: embedding (Gemini) 0.7 + TF-IDF character n-gram 0.3
+  build_index.py               สร้าง index.json — รันใหม่ทุกครั้งที่แก้ shop/
+  index.json                   embedding ที่สร้างไว้ล่วงหน้า (commit ขึ้น git)
 guardrails/*     ③ ความปลอดภัย: blocklist, Llama Guard, ตรวจขาเข้า/ขาออก
 vision/          ④ OCR + อ่านรูป
   documents.py                 ดึงข้อความจากไฟล์แนบ (pymupdf + typhoon-ocr + Gemini)
-shop/*           ⑤ ข้อมูลร้าน (ราคา นโยบาย) + logic ที่ไม่ให้ LLM ตัดสินเอง
-prompts/*        ⑥ system prompt แยกเป็นไฟล์
+shop/            ⑤ ข้อมูลร้าน: catalog.json (ราคา), policies.md, faq.md + pricing.py
+prompts/         ⑥ system prompt แยกเป็นไฟล์ (chat_system.txt, voice_hint.txt)
 static/, templates/  ⑦ UX/UI — หน้าเว็บ, โหมดเสียง, อวตาร 3D
 tests/                         unit tests
 docs/                          เอกสารออกแบบ/ผลทดลอง
@@ -54,7 +60,6 @@ uvicorn main:app --reload
 | `LLM_BASE_URL` | `https://api.opentyphoon.ai/v1` | ต้องจบด้วย `/v1` |
 | `LLM_API_KEY` | (จาก dashboard ผู้ให้บริการ) | อย่า commit ค่านี้ขึ้น git |
 | `LLM_MODEL` | `typhoon-v2.5-30b-a3b-instruct` | หรือ `typhoon-v2.1-12b-instruct` |
-| `SYSTEM_PROMPT` | (ข้อความ system prompt) | มีค่า default ให้แล้วถ้าไม่ตั้ง |
 | `LLM_TEMPERATURE` | `0.7` | ไม่ตั้ง = ใช้ค่า default ของผู้ให้บริการ |
 | `LLM_MAX_TOKENS` | `16384` | ความยาวคำตอบสูงสุด; **ถ้าไม่ตั้ง Typhoon จะ default แค่ 512** (คำตอบยาวจะถูกตัด) — 16384 คือเพดานของ Typhoon |
 | `KV_REST_API_URL` | (จาก Vercel KV) | ดูหัวข้อ "ความจำบทสนทนา" ด้านล่าง |

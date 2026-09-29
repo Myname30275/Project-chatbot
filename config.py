@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     CARTESIA_MODEL: str = "sonic-3.6"
     CARTESIA_VOICE_ID: str = "ccc7bb22-dcd0-42e4-822e-0731b950972f"
 
-    # ข้อความระบบที่ส่งเป็น role "system" ทุกครั้งที่เริ่มคุยกับโมเดล กำหนดโทนการตอบ
-    SYSTEM_PROMPT: str = "คุณคือผู้ช่วย AI ที่เป็นมิตรและตอบเป็นภาษาไทย"
+    # system prompt ไม่ได้ตั้งผ่าน env แล้ว — อยู่ที่ prompts/chat_system.txt + ข้อมูลร้านใน shop/
+    # (ดู chatbot/prompt_builder.py) ค่า SYSTEM_PROMPT ใน .env เก่าจะถูกเมินไป (extra="ignore")
 
     # ปุ่มปรับพฤติกรรมโมเดล — ไม่ตั้งก็ได้ (ปล่อยให้ผู้ให้บริการใช้ค่า default ของตัวเอง)
     # ใส่ลง payload เฉพาะเมื่อมีค่า (ดู chatbot/llm_client.py::_build_payload)
@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     # (ตั้งชื่อเวอร์ชันตายตัวเช่น gemini-2.5-flash จะโดน 404 เมื่อ Google เลิกให้ผู้ใช้ใหม่)
     VISION_MODEL: str = "gemini-flash-latest"
 
+    # --- RAG: ค้นคืนข้อมูลร้านจาก shop/ (rag/) ---
+    # embedding ผ่าน endpoint OpenAI-compatible — ไม่ตั้ง EMBED_BASE_URL/EMBED_API_KEY จะใช้ค่า
+    # VISION_* (Gemini) แทน · ไม่มีทั้งคู่ = ค้นแบบ lexical (TF-IDF) อย่างเดียว ระบบยังทำงานได้
+    EMBED_BASE_URL: str | None = None
+    EMBED_API_KEY: str | None = None
+    EMBED_MODEL: str = "gemini-embedding-001"
+    EMBED_DIMENSIONS: int = 768
+    RAG_TOP_K: int = 4  # จำนวนชิ้นความรู้ที่แนบให้ LLM ต่อ 1 คำถาม
+
     ATTACHMENT_MAX_BYTES: int = 8 * 1024 * 1024        # 8 MB ต่อไฟล์
     ATTACHMENT_MAX_PDF_PAGES: int = 12                 # หน้าเกินนี้ไม่อ่าน
     ATTACHMENT_CONTEXT_CHAR_LIMIT: int = 80_000        # รวมทุกไฟล์ต่อ session ตัดส่วนเกิน
@@ -51,7 +60,8 @@ class Settings(BaseSettings):
     # --- ค้นเว็บอัตโนมัติ (chatbot/search.py) ---
     # เวลาผู้ใช้ถามข้อมูลล่าสุด (ข่าว/ราคา/เหตุการณ์ปัจจุบัน) โมเดลจะสั่งให้ไปค้นเว็บ
     # มาก่อนตอบ — ขอ key ฟรีที่ tavily.com (ไม่ตั้ง SEARCH_API_KEY = ปิดฟีเจอร์นี้)
-    WEB_SEARCH_ENABLED: bool = True
+    # ปิดเป็นค่าเริ่มต้น: บอทร้านต้องตอบจากข้อมูลร้านเท่านั้น ข้อมูลจากเว็บเสี่ยงขัดกับราคา/นโยบายจริง
+    WEB_SEARCH_ENABLED: bool = False
     SEARCH_API_KEY: str | None = None
     SEARCH_MAX_RESULTS: int = 5
     SEARCH_TIMEOUT: float = 12.0
@@ -87,6 +97,18 @@ class Settings(BaseSettings):
     @property
     def vision_enabled(self) -> bool:
         return bool(self.VISION_BASE_URL and self.VISION_API_KEY)
+
+    @property
+    def embed_base_url(self) -> str | None:
+        return self.EMBED_BASE_URL or self.VISION_BASE_URL
+
+    @property
+    def embed_api_key(self) -> str | None:
+        return self.EMBED_API_KEY or self.VISION_API_KEY
+
+    @property
+    def embeddings_enabled(self) -> bool:
+        return bool(self.embed_base_url and self.embed_api_key)
 
     @property
     def search_enabled(self) -> bool:
