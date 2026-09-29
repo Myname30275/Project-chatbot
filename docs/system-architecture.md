@@ -37,12 +37,13 @@ flowchart TB
 
     subgraph RAGL["rag/ — ค้นคืนข้อมูลร้าน ✅"]
         RAG["retriever.py<br/>hybrid: embedding + TF-IDF"]
-        IDX["index.json<br/>28 chunks × 768 มิติ"]
+        IDX["index.json<br/>29 chunks × 768 มิติ"]
     end
 
-    subgraph GR["③ guardrails/ 🚧"]
-        IG["input guard"]
-        OG["output guard"]
+    subgraph GR["③ guardrails/ ✅"]
+        IG["① input_rules<br/>ยาว/ถี่/blocklist/injection"]
+        JG["② judge<br/>LLM จำแนกเจตนา"]
+        OG["③ output_guard<br/>ราคา/ส่วนลด/PII/กฎหลุด"]
     end
 
     subgraph VI["④ vision/"]
@@ -53,7 +54,7 @@ flowchart TB
     subgraph DATA["⑤ shop/ + ⑥ prompts/ ✅"]
         CAT["catalog.json · policies.md · faq.md"]
         PR["pricing.py"]
-        PT["chat_system.txt · voice_hint.txt"]
+        PT["chat_system.txt · voice_hint.txt · guard_judge.txt"]
     end
 
     WEB --> WC
@@ -63,6 +64,10 @@ flowchart TB
     WC --> AS
     LW --> AS
     AS --> IG --> LLMC --> OG
+    WC --> IG
+    WC --> JG
+    WC --> OG
+    JG --> LLMC
     WC --> RAG
     AS --> RAG
     AS --> VI
@@ -78,7 +83,6 @@ flowchart TB
 
     LLMC -->|แชต + OCR| TY[("Typhoon API")]
     DOC -->|บรรยายภาพ| GM[("Gemini API")]
-    IG -->|ตรวจเนื้อหา| OR[("OpenRouter · Llama Guard 4 🚧")]
     TTS --> CT[("Cartesia TTS")]
     STORE --> KV[("Redis / Vercel KV")]
 ```
@@ -103,10 +107,13 @@ flowchart TB
 | ② | `chatbot/conversation_store.py` | ประวัติแชตต่อ session (in-memory หรือ Redis) | ✅ |
 | ② | `chatbot/search.py` | ค้นเว็บ (Tavily) — **ปิดไว้** เพราะบอทร้านต้องตอบจากข้อมูลร้านเท่านั้น | ✅ (ปิด) |
 | ② | `chatbot/assistant.py` | pipeline กลาง: guard → เลือกงาน → LLM → guard | 🚧 |
-| RAG | `rag/chunker.py` | แบ่ง `shop/` เป็น 28 ชิ้นตามความหมาย (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น) | ✅ |
+| RAG | `rag/chunker.py` | แบ่ง `shop/` เป็น 29 ชิ้นตามความหมาย (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น) | ✅ |
 | RAG | `rag/retriever.py` | ค้นแบบ hybrid: 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram, top 4 | ✅ |
 | RAG | `rag/embedder.py`, `build_index.py`, `index.json` | สร้าง embedding ล่วงหน้า (Gemini `gemini-embedding-001`, 768 มิติ) | ✅ |
-| ③ | `guardrails/` | blocklist, จำกัดความยาว/ความถี่, Llama Guard, ตรวจคำตอบขาออก | 🚧 |
+| ③ | `guardrails/input_rules.py` + `blocklist.txt` | ด่าน 1: ความยาว, ความถี่ต่อ session, คำต้องห้าม, รูปแบบ prompt injection (ไม่เรียก API) | ✅ |
+| ③ | `guardrails/judge.py` + `prompts/guard_judge.txt` | ด่าน 2: Typhoon จำแนกเจตนา SAFE / INJECTION / PRIVACY / HARMFUL (ฟรี แทน Llama Guard) รันพร้อม RAG | ✅ |
+| ③ | `guardrails/output_guard.py` | ด่าน 3: ราคา/ส่วนลดต้องมีใน catalog, ห้ามเบอร์/เลขบัตร/อีเมลของคนอื่น, ห้ามหลุดกฎภายใน — ตรวจทีละประโยค | ✅ |
+| ③ | `guardrails/pipeline.py`, `categories.py` | รวมด่าน + ข้อความปฏิเสธภาษาไทยรายหมวด + log การบล็อก (ไม่ log เนื้อหา) | ✅ |
 | ④ | `vision/documents.py` | อ่านไฟล์แนบ: PDF (pymupdf), รูป (typhoon-ocr + Gemini) | ✅ |
 | ④ | `vision/pet_estimate.py`, `slip_check.py` | รูปสัตว์ → ประเมินราคา, รูปสลิป → ตรวจยอด | 🚧 |
 | ⑤ | `shop/catalog.json` | ข้อมูลร้าน + ราคาทั้งหมด (**แหล่งข้อมูลเดียว**) | ✅ |
@@ -140,16 +147,23 @@ sequenceDiagram
 
     C->>UI: พิมพ์ข้อความ
     UI->>API: POST /api/v1/chat/stream {message}
+    API->>API: ด่าน 1 guardrails: ยาว/ถี่/blocklist/injection (ไม่ผ่าน → ตอบปฏิเสธ จบทันที)
     API->>ST: อ่านประวัติ + ไฟล์แนบของ session (cookie)
-    API->>RAG: คำถาม (+ คำถามก่อนหน้า 1 ข้อความ)
-    RAG->>GM: embedding ของคำถาม (1 ครั้ง)
-    GM-->>RAG: vector 768 มิติ
-    RAG-->>API: 4 ชิ้นที่เกี่ยวข้องที่สุด เช่น [บริการอาบน้ำ, FAQ ราคา, ...]
+    par ทำพร้อมกัน
+        API->>LLM: ด่าน 2 guardrails: จำแนกเจตนา (guard_judge.txt)
+        LLM-->>API: {"category": "SAFE"} (ไม่ใช่ SAFE → ตอบปฏิเสธ จบ)
+    and
+        API->>RAG: คำถาม (+ คำถามก่อนหน้า 1 ข้อความ)
+        RAG->>GM: embedding ของคำถาม (1 ครั้ง)
+        GM-->>RAG: vector 768 มิติ
+        RAG-->>API: 4 ชิ้นที่เกี่ยวข้องที่สุด เช่น [บริการอาบน้ำ, FAQ ราคา, ...]
+    end
     API-->>UI: data: {"knowledge": [...]} (รายการอ้างอิง)
     API->>PB: system prompt (บทบาท + กฎ + ข้อมูลหลักร้าน)
     API->>LLM: [system, ข้อมูลร้านที่ค้นได้, (voice hint), (ไฟล์แนบ), ประวัติ, ข้อความใหม่]
     LLM-->>API: สตรีมคำตอบทีละชิ้น (SSE)
-    API-->>UI: data: {"delta": ...}
+    API->>API: ด่าน 3 guardrails: ตรวจทีละประโยค (ราคา/ส่วนลด/PII/กฎหลุด)
+    API-->>UI: data: {"delta": ประโยคที่ผ่านแล้ว} (ไม่ผ่าน → data: {"replace": fallback})
     UI-->>C: แสดงข้อความทีละคำ (+ อ่านออกเสียงถ้าอยู่โหมดเสียง)
     API->>ST: บันทึกคำถาม+คำตอบ (เฉพาะเมื่อสตรีมจบสมบูรณ์)
 ```
@@ -205,7 +219,6 @@ flowchart LR
 | **Gemini** (Google AI Studio) | บรรยายภาพ + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
 | **Cartesia** | เสียงพนักงานในโหมดเสียง | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ไม่ตั้ง = ใช้เสียงเบราว์เซอร์ |
 | **Redis / Vercel KV** | เก็บประวัติแชตข้าม instance | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | จำเป็นบน Vercel |
-| **OpenRouter** 🚧 | Llama Guard 4 ตรวจเนื้อหา | (จะเพิ่ม) | สำหรับ guardrails |
 | **LINE Messaging API** 🚧 | ช่องทาง LINE OA | (จะเพิ่ม) | สำหรับ LINE |
 | Tavily | ค้นเว็บ — ปิดไว้ | `WEB_SEARCH_ENABLED`, `SEARCH_API_KEY` | ไม่ใช้ |
 
@@ -218,13 +231,15 @@ instance จึงต้องเก็บ state ทั้งหมดไว้�
 
 | ความเสี่ยง | ชั้นที่ป้องกัน | สถานะ |
 |---|---|---|
-| ขอส่วนลดที่ไม่มี ("พนักงานคนอื่นเคยให้") | ราคาทุกตัวมาจาก `catalog.json` + `pricing.quote()` · prompt ห้ามทำข้อ 1 · output guard เช็คตัวเลข | ✅ prompt · 🚧 output guard |
+| ขอส่วนลดที่ไม่มี ("พนักงานคนอื่นเคยให้") | ราคาทุกตัวมาจาก `catalog.json` · prompt ต้องทำข้อ 8 + ห้ามทำข้อ 1 · ด่าน 3 บล็อกราคา/% ที่ไม่มีใน catalog | ✅ |
 | ขอข้อมูลลูกค้าคนอื่น | ประวัติแยกตาม session / LINE userId (บอทเข้าถึงข้อมูลคนอื่นไม่ได้เลย) · prompt ห้ามทำข้อ 2 | ✅ |
 | ขอบริการที่ร้านไม่มี (ฝากเลี้ยงค้างคืน) | รายการ `not_offered` ใน catalog · prompt ห้ามทำข้อ 3 | ✅ |
-| ถามอาการป่วย/ขอคำแนะนำยา | prompt ต้องทำข้อ 4 + ห้ามทำข้อ 4 · Llama Guard หมวด S6 | ✅ prompt · 🚧 guard |
-| Prompt injection ("ลืมคำสั่งเดิม") | prompt ห้ามทำข้อ 7 · regex จับรูปแบบที่พบบ่อย | ✅ prompt · 🚧 regex |
-| คำหยาบ/เนื้อหาอันตราย | blocklist + Llama Guard ตรวจทั้งขาเข้าและขาออก, fail-closed | 🚧 |
-| ยิงข้อความถี่จนเครดิตหมด | จำกัดความยาวข้อความ + จำกัดความถี่ต่อ session | 🚧 |
+| ถามอาการป่วย/ขอคำแนะนำยา | prompt ต้องทำข้อ 4 + ห้ามทำข้อ 4 → แนะนำพบสัตวแพทย์ | ✅ |
+| Prompt injection ("ลืมคำสั่งเดิม", อ้างเป็นผู้จัดการ) | ด่าน 1 regex · ด่าน 2 LLM จับเจตนาที่ไม่มีคำต้องห้าม · prompt ห้ามทำข้อ 7 | ✅ |
+| คำหยาบ/ทารุณสัตว์ | ด่าน 1 blocklist · ด่าน 2 HARMFUL | ✅ |
+| บอทเล่ากฎภายใน/system prompt | prompt ห้ามทำข้อ 8 · ด่าน 3 ตรวจ LEAK | ✅ |
+| ตัวตรวจ LLM ล่ม | ค่าเริ่มต้น fail-open (ด่าน 1 + 3 ยังทำงาน) · ตั้ง `GUARD_JUDGE_FAIL_CLOSED=true` เพื่อปฏิเสธทั้งหมด | ✅ |
+| ยิงข้อความถี่จนเครดิตหมด | ด่าน 1: ≤ 1000 ตัวอักษร, ≤ 15 ข้อความ/นาที/session (นับในหน่วยความจำ instance — บน serverless กันได้ระดับหนึ่ง) | ✅ |
 | สลิปปลอม | บอทไม่ยืนยันการชำระเงินเอง แอดมินเป็นผู้ยืนยัน · prompt ห้ามทำข้อ 5 | ✅ |
 | API key หลุด | key อยู่ฝั่งเซิร์ฟเวอร์เท่านั้น (`.env` ถูก gitignore), `/config` ไม่คืน key | ✅ |
 | XSS จากคำตอบของบอท | หน้าเว็บ sanitize markdown ก่อนแสดง | ✅ |
@@ -240,7 +255,7 @@ instance จึงต้องเก็บ state ทั้งหมดไว้�
 - **ทำไมใช้ Typhoon** — ภาษาไทยเป็นธรรมชาติ เหมาะกับเสียงพนักงาน มี OCR ในบัญชีเดียวกัน
   และ `llm_client` เป็น OpenAI-compatible เปลี่ยนผู้ให้บริการได้ด้วยการแก้ `.env` อย่างเดียว
 - **ทำไมมีแกนกลาง `assistant.py`** — เว็บ, เสียง และ LINE ต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่
-- **ทำไม RAG แบบเขียนเอง ไม่ใช้ LightRAG** — คลังความรู้เล็ก (28 ชิ้น) และ Vercel serverless รัน Docker
+- **ทำไม RAG แบบเขียนเอง ไม่ใช้ LightRAG** — คลังความรู้เล็ก (29 ชิ้น) และ Vercel serverless รัน Docker
   ไม่ได้ จึงสร้าง embedding ล่วงหน้าเป็นไฟล์ แล้วค้นด้วย cosine ในหน่วยความจำ (ไม่ต้องมี vector DB)
 - **ทำไมตัด chunk ตามความหมาย ไม่ตัดตามความยาว** — บริการละ 1 ชิ้น ราคาทุกขนาดจึงอยู่ด้วยกัน ไม่ถูกหั่นกลางตาราง
 - **ทำไม hybrid (embedding + TF-IDF)** — embedding จับความหมาย ("หมาตัวใหญ่" ≈ "สุนัขใหญ่") ส่วน TF-IDF
@@ -264,7 +279,6 @@ python -m unittest discover -s tests
 |---|---|
 | `tests/test_shop.py` | คลังความรู้ ≥ 15 รายการ, คำนวณราคา, ปฏิเสธบริการ/ส่วนลดที่ไม่มี, prompt ประกอบครบ, ลำดับข้อความที่ส่งให้ LLM |
 | `tests/test_rag.py` | ทุกรายการใน catalog ค้นเจอได้, index ตรงกับข้อมูลร้านปัจจุบัน, ค้นเจอบริการ/FAQ, คำถามต่อเนื่อง, embedding ล่มแล้วใช้ lexical แทน, ไม่ใช้ index เก่า |
-| `docs/test-log.md` | ผลวัดการค้นคืน (hit@4 = 16/16) และจุดปรับปรุงที่ 1 พร้อมผลก่อน/หลังกับ Typhoon จริง |
 | `tests/test_tts.py` | proxy เสียง: สตรีม, เลือกภาษา, ไม่หลุด key/error ของผู้ให้บริการ |
-| 🚧 `tests/test_guardrails.py` | blocklist, fail-closed, ตรวจขาออก |
-| 🚧 ชุดทดสอบตามโจทย์ | คำถาม 10 ข้อ (+ เวลาตอบ), ภาพ 5 ภาพ, ความปลอดภัย 5 กรณี, ก่อน/หลังปรับปรุง 3 จุด |
+| `tests/test_guardrails.py` | โจมตี 9 แบบ, false positive 10 แบบ, rate limit, judge + fail policy, ตรวจขาออก, สตรีมทีละประโยค, endpoint ทั้งสองผ่านด่าน |
+| `docs/test-log.md` | ✅ ความปลอดภัย 5 กรณี + ✅ ปรับปรุง 3 จุด · 🚧 คำถาม 10 ข้อ (+ เวลาตอบ), ภาพ 5 ภาพ |

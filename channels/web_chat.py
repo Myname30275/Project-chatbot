@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import uuid
@@ -11,6 +12,7 @@ from chatbot import llm_client, prompt_builder, search
 from chatbot.conversation_store import get_store
 from chatbot.llm_client import LLMConnectionError
 from chatbot.search import SearchError
+from guardrails import pipeline as guard
 from rag import retriever
 from vision import documents
 from vision.documents import DocumentError
@@ -299,34 +301,60 @@ async def delete_attachment(index: int, request: Request):
     return {"ok": True, "attachments": [_attachment_summary(it) for it in items]}
 
 
+def _sse(payload: dict) -> str:
+    return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _user_texts(history: list[dict], message: str) -> list[str]:
+    """ข้อความทั้งหมดที่ลูกค้าคนนี้พิมพ์เอง — ให้ output guard ยอมให้บอททวนเบอร์/อีเมลของเจ้าตัวได้"""
+    return [m["content"] for m in history if m.get("role") == "user"] + [message]
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def post_chat(chat_request: ChatRequest, request: Request, response: Response):
     session_id, is_new = _resolve_session(request)
     if is_new:
         _set_session_cookie(response, session_id)
+    message = chat_request.message
+
+    # ด่าน 1: กฎในโค้ด — ไม่ผ่านก็ตอบปฏิเสธทันที ไม่เรียก LLM และไม่บันทึกลงประวัติ
+    decision = guard.check_rules(message, session_id)
+    if not decision.allowed:
+        return ChatResponse(reply=decision.message)
+
     history = await store.get_history(session_id)
     context_blocks = await _context_blocks(session_id)
     extra_blocks, _meta = await _search_context(
-        session_id, history, chat_request.message,
+        session_id, history, message,
         chat_request.web_search, has_attachments=bool(context_blocks),
     )
-    knowledge, _sources = await _knowledge(session_id, history, chat_request.message)
+    # ด่าน 2 (LLM ตรวจเจตนา) รันพร้อมกับ RAG จึงแทบไม่เพิ่มเวลาตอบ
+    decision, (knowledge, _sources) = await asyncio.gather(
+        guard.check_judge(message, session_id), _knowledge(session_id, history, message)
+    )
+    if not decision.allowed:
+        return ChatResponse(reply=decision.message)
 
     try:
         reply_text = await llm_client.chat(
-            history, chat_request.message, context_blocks + extra_blocks,
+            history, message, context_blocks + extra_blocks,
             knowledge=knowledge, **_chat_overrides(chat_request),
         )
     except LLMConnectionError as exc:
         logger.error("chat ล้มเหลว session=%s: %s", session_id, exc.message)
         return JSONResponse(status_code=502, content={"error": True, "message": exc.message})
 
+    # ด่าน 3: ตรวจคำตอบก่อนส่ง — ราคา/ส่วนลดที่ไม่มีจริง หรือข้อมูลส่วนตัว → แทนด้วย fallback
+    out_guard = guard.OutputGuard(_user_texts(history, message))
+    if out_guard.check_text(reply_text):
+        reply_text = guard.output_fallback(out_guard.blocked_reason, session_id)
+
     # ต่อประวัติด้วยข้อความรอบนี้ (ทั้งฝั่งผู้ใช้และ AI) เก็บไว้ใช้เป็น context รอบถัดไป
     await store.set_history(
         session_id,
         history
         + [
-            {"role": "user", "content": chat_request.message},
+            {"role": "user", "content": message},
             {"role": "assistant", "content": reply_text},
         ],
     )
@@ -336,70 +364,104 @@ async def post_chat(chat_request: ChatRequest, request: Request, response: Respo
 @router.post("/chat/stream")
 async def post_chat_stream(chat_request: ChatRequest, request: Request):
     session_id, is_new = _resolve_session(request)
+    message = chat_request.message
+    rules_decision = guard.check_rules(message, session_id)
     history = await store.get_history(session_id)
     context_blocks = await _context_blocks(session_id)
     overrides = _chat_overrides(chat_request)
     try_search = _search_should_try(
-        chat_request.message, chat_request.web_search, has_attachments=bool(context_blocks)
+        message, chat_request.web_search, has_attachments=bool(context_blocks)
     )
+
+    async def refuse(decision: guard.Decision):
+        # ข้อความที่ถูกปฏิเสธไม่บันทึกลงประวัติ กันคำสั่งแปลกปลอมค้างเป็น context รอบถัดไป
+        yield _sse({"blocked": decision.code})
+        yield _sse({"delta": decision.message})
+        yield _sse({"done": True})
 
     async def event_generator():
         received_done = False
-        accumulated_text = ""
+        shown_text = ""  # ข้อความที่ลูกค้าเห็นจริง (ผ่าน output guard แล้ว) — ใช้บันทึกประวัติ
         extra_blocks: list[str] = []
+
+        # ด่าน 1: กฎในโค้ด
+        if not rules_decision.allowed:
+            async for chunk in refuse(rules_decision):
+                yield chunk
+            return
 
         # ค้นเว็บ "ในสตรีม" เพื่อให้ผู้ใช้เห็นสถานะทันที (ไม่ต้องนั่งรอหน้าจอเงียบ
         # ระหว่างวางแผนคำค้น + ยิง Tavily ซึ่งกินเวลาหลายวินาที)
         if try_search:
-            yield f"data: {json.dumps({'search': ''}, ensure_ascii=False)}\n\n"
-            extra_blocks, meta = await _search_run(session_id, history, chat_request.message)
+            yield _sse({"search": ""})
+            extra_blocks, meta = await _search_run(session_id, history, message)
             if meta:
-                yield f"data: {json.dumps({'search': meta['query']}, ensure_ascii=False)}\n\n"
-                yield f"data: {json.dumps({'sources': meta['sources']}, ensure_ascii=False)}\n\n"
+                yield _sse({"search": meta["query"]})
+                yield _sse({"sources": meta["sources"]})
             else:
                 # ไม่ได้ค้น (classifier บอก SKIP / ค้นล้มเหลว) — เคลียร์สถานะ
-                yield f"data: {json.dumps({'search_done': True}, ensure_ascii=False)}\n\n"
+                yield _sse({"search_done": True})
 
-        # RAG: ค้นข้อมูลร้านก่อนเรียก LLM แล้วส่งรายการอ้างอิงให้หน้าเว็บ (ไว้โชว์ว่าตอบจากข้อมูลส่วนไหน)
-        knowledge, sources = await _knowledge(session_id, history, chat_request.message)
-        yield f"data: {json.dumps({'knowledge': sources}, ensure_ascii=False)}\n\n"
+        # ด่าน 2 (LLM ตรวจเจตนา) + RAG รันพร้อมกัน
+        decision, (knowledge, sources) = await asyncio.gather(
+            guard.check_judge(message, session_id), _knowledge(session_id, history, message)
+        )
+        if not decision.allowed:
+            async for chunk in refuse(decision):
+                yield chunk
+            return
+        # ส่งรายการอ้างอิงของ RAG ให้หน้าเว็บ (ไว้โชว์ว่าตอบจากข้อมูลส่วนไหน)
+        yield _sse({"knowledge": sources})
 
+        # ด่าน 3: ปล่อยคำตอบให้ลูกค้าทีละประโยคที่ตรวจผ่านแล้วเท่านั้น
+        out_guard = guard.OutputGuard(_user_texts(history, message))
+        llm_stream = llm_client.chat_stream(
+            history, message, context_blocks + extra_blocks, knowledge=knowledge, **overrides
+        )
         try:
-            async for event in llm_client.chat_stream(
-                history, chat_request.message, context_blocks + extra_blocks,
-                knowledge=knowledge, **overrides
-            ):
+            async for event in llm_stream:
                 if event["type"] == "delta":
-                    accumulated_text += event["content"]
-                    payload = {"delta": event["content"]}
+                    for sentence in out_guard.feed(event["content"]):
+                        shown_text += sentence
+                        yield _sse({"delta": sentence})
+                    if out_guard.blocked:
+                        break
                 elif event["type"] == "error":
                     logger.error("stream error session=%s: %s", session_id, event["message"])
-                    payload = {"error": True, "message": event["message"]}
+                    yield _sse({"error": True, "message": event["message"]})
                 elif event["type"] == "done":
                     received_done = True
-                    payload = {"done": True}
-                else:
-                    continue
-                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+            if received_done:
+                for sentence in out_guard.flush():
+                    shown_text += sentence
+                    yield _sse({"delta": sentence})
+            if out_guard.blocked:
+                # ประโยคที่ไม่ผ่านไม่เคยถูกส่งออก — แทนคำตอบทั้งก้อนด้วย fallback
+                shown_text = guard.output_fallback(out_guard.blocked_reason, session_id)
+                received_done = True
+                yield _sse({"replace": shown_text})
+            if received_done:
+                yield _sse({"done": True})
         except Exception as exc:
             logger.exception("stream ล้มเหลวโดยไม่คาดคิด session=%s", session_id)
-            payload = {"error": True, "message": f"เกิดข้อผิดพลาดที่ไม่คาดคิด: {exc}"}
-            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+            yield _sse({"error": True, "message": f"เกิดข้อผิดพลาดที่ไม่คาดคิด: {exc}"})
         finally:
+            await llm_stream.aclose()
             # บันทึกประวัติเฉพาะตอนสตรีมจบแบบสมบูรณ์ (received_done) เท่านั้น ถ้าโดน
             # ตัดกลางทางหรือผู้ใช้กด "หยุด" เอง จะไม่เก็บคำตอบครึ่งๆ กลางๆ ไว้เป็น
             # context ต่อ กันบทสนทนารอบถัดไปสับสนจากคำตอบที่ไม่สมบูรณ์
-            if accumulated_text and received_done:
+            if shown_text and received_done:
                 await store.set_history(
                     session_id,
                     history
                     + [
-                        {"role": "user", "content": chat_request.message},
-                        {"role": "assistant", "content": accumulated_text},
+                        {"role": "user", "content": message},
+                        {"role": "assistant", "content": shown_text},
                     ],
                 )
             if not received_done:
-                yield f"data: {json.dumps({'done': True}, ensure_ascii=False)}\n\n"
+                yield _sse({"done": True})
 
     resp = StreamingResponse(
         event_generator(),

@@ -1,0 +1,181 @@
+"""ด่านที่ 3 (ขาออก): ตรวจคำตอบของบอทด้วยโค้ดก่อนถึงลูกค้า — ด่านที่กันเรื่องสำคัญของร้านจริง ๆ
+
+ต่อให้ลูกค้าหลอกบอทผ่านด่านขาเข้าได้ คำตอบที่มีสิ่งต่อไปนี้จะไม่ถูกส่งออก (แทนด้วยข้อความ fallback):
+
+1. ราคาที่ไม่มีในร้าน — ทุกตัวเลขที่ตามด้วย "บาท" ต้องเป็นราคาใน catalog, ผลรวมของราคา 1–3 รายการ
+   (เช่น ตัดขน + สปา) หรือราคาหลังลดตามแพ็กเกจสมาชิก
+2. ส่วนลดที่ไม่มีในร้าน — ทุกตัวเลขที่ตามด้วย "%" ต้องเป็นส่วนลดที่ประกาศไว้
+   ยกเว้นประโยคที่ปฏิเสธชัดเจน เช่น "ส่วนลด 50% ไม่มีในนโยบายของร้าน" (บอทกำลังปฏิเสธ ไม่ได้ให้)
+3. ข้อมูลส่วนตัว — เบอร์โทร/เลขบัตรประชาชน/อีเมล ที่ไม่ใช่ของร้าน และไม่ใช่ที่ลูกค้าคนนี้พิมพ์มาเอง
+   (OWASP LLM02 Sensitive Information Disclosure)
+4. กฎภายในหลุด — คำตอบพูดถึง "คำสั่งระบบ", "ข้อความเมื่อไม่มีข้อมูล", "ต้องทำข้อ 4" ฯลฯ
+   (พบจริงระหว่างทดสอบ: บอทอธิบายกฎให้ลูกค้าฟังในวงเล็บ)
+
+ตรวจทีละประโยค: โหมดสตรีมจะปล่อยข้อความให้ลูกค้าเห็นทีละประโยคที่ตรวจผ่านแล้วเท่านั้น
+(ดู OutputGuard.feed) ลูกค้าจึงไม่มีทางเห็นประโยคที่ไม่ผ่าน แม้แต่ชั่วขณะ
+
+ข้อจำกัด (ตอบ Q&A): อ่านได้แค่ตัวเลขอารบิก/เลขไทย ไม่อ่านตัวเลขที่สะกดเป็นคำ ("ห้าสิบเปอร์เซ็นต์")
+จึงสั่งใน prompt ให้เขียนราคาเป็นตัวเลขเสมอ
+"""
+
+import itertools
+import re
+from functools import lru_cache
+
+from shop import pricing
+
+_THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
+
+_BAHT_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:บาท|฿|baht)", re.IGNORECASE)
+_BAHT_PREFIX_RE = re.compile(r"฿\s*(\d{1,3}(?:,\d{3})+|\d+)")
+_PERCENT_RE = re.compile(r"(\d+(?:\.\d+)?)\s*(?:%|เปอร์เซ็นต์|เปอร์เซ็น|percent)", re.IGNORECASE)
+
+_PHONE_RE = re.compile(r"(?<!\d)0\d{1,2}[-\s]?\d{3}[-\s]?\d{3,4}(?!\d)")
+_ID_CARD_RE = re.compile(r"(?<!\d)\d[-\s]?\d{4}[-\s]?\d{5}[-\s]?\d{2}[-\s]?\d(?!\d)")
+_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
+
+# คำปฏิเสธที่ชัดเจน (ไม่ใช้แค่ "ไม่" เดี่ยว ๆ เพราะ "ไม่ต้องจ่ายเต็ม ลด 50%" คือการให้ส่วนลด)
+_NEGATION_RE = re.compile(
+    r"ไม่มี|ไม่ได้|ไม่สามารถ|ไม่ใช่|ไม่อยู่ใน|ไม่รองรับ|ยืนยัน\S{0,6}ไม่ได้|ให้ไม่ได้"
+    r"|\bnot\b|\bno\b|cannot|can't|unavailable",
+    re.IGNORECASE,
+)
+
+# วลีที่มีแต่ในคำสั่งระบบ ถ้าโผล่ในคำตอบแปลว่าบอทกำลังเล่ากฎภายในให้ลูกค้าฟัง
+# (OWASP LLM07/LLM08 — เปิดเผย system prompt / hidden context)
+_LEAK_RE = re.compile(
+    r"คำสั่งระบบ|system\s*prompt|เมื่อไม่มีข้อมูล|ข้อมูลร้านที่ค้นได้|ข้อมูลหลักของร้าน|"
+    r"(ตาม|ใน)\s*(กฎ)?\s*(ข้อ)?\s*(ต้องทำ|ห้ามทำ)|ต้องทำ\s*ข้อ|ห้ามทำ\s*ข้อ",
+    re.IGNORECASE,
+)
+
+# ขอบประโยค: ขึ้นบรรทัดใหม่ / คำลงท้าย "ค่ะ คะ ครับ" ตามด้วยช่องว่าง / . ! ? ตามด้วยช่องว่าง
+_BOUNDARY_RE = re.compile(r"\n|(?:ค่ะ|คะ|ครับ)(?=\s)|[.!?](?=\s)")
+_MAX_PENDING = 300  # ข้อความค้างเกินนี้โดยไม่เจอขอบประโยค ให้ตัดที่ช่องว่างสุดท้ายแทน
+
+
+def _digits(s: str) -> str:
+    return re.sub(r"\D", "", s)
+
+
+@lru_cache
+def allowed_baht() -> frozenset[float]:
+    c = pricing.load_catalog()
+    base: set[int] = {c["payment"]["deposit"]}
+    for s in c["services"]:
+        base |= set(s["prices"].values()) if "prices" in s else {s["price"]}
+    for a in c["addons"]:
+        base |= {a[k] for k in ("price", "price_min", "price_max") if k in a}
+    base |= {d["price"] for d in c["delivery"]} | {p["price"] for p in c["products"]}
+
+    sums = {sum(combo) for r in (1, 2, 3) for combo in itertools.combinations_with_replacement(sorted(base), r)}
+    discounts = [p["discount_percent"] for p in c["packages"]]
+    discounted = {round(s * (100 - d) / 100, 2) for s in sums for d in discounts}
+    return frozenset({float(x) for x in sums} | discounted)
+
+
+@lru_cache
+def allowed_percent() -> frozenset[float]:
+    return frozenset(float(p["discount_percent"]) for p in pricing.load_catalog()["packages"])
+
+
+def _shop_contacts() -> set[str]:
+    return {_digits(pricing.load_catalog()["shop"]["contacts"]["phone"])}
+
+
+def check_sentence(sentence: str, user_pii: set[str] = frozenset()) -> str | None:
+    """คืนเหตุผลที่ไม่ผ่าน (LEAK / PRICE / DISCOUNT / PII) หรือ None ถ้าผ่าน"""
+    text = sentence.translate(_THAI_DIGITS)
+    if _LEAK_RE.search(text):
+        return "LEAK"
+    negated = bool(_NEGATION_RE.search(text))
+
+    amounts = [
+        float(f"{m.group(1).replace(',', '')}.{m.group(2) or 0}") for m in _BAHT_RE.finditer(text)
+    ] + [float(m.group(1).replace(",", "")) for m in _BAHT_PREFIX_RE.finditer(text)]
+    if any(a not in allowed_baht() for a in amounts) and not negated:
+        return "PRICE"
+
+    if any(float(m.group(1)) not in allowed_percent() for m in _PERCENT_RE.finditer(text)) and not negated:
+        return "DISCOUNT"
+
+    allowed_pii = _shop_contacts() | set(user_pii)
+    for m in list(_PHONE_RE.finditer(text)) + list(_ID_CARD_RE.finditer(text)):
+        if _digits(m.group(0)) not in allowed_pii:
+            return "PII"
+    for m in _EMAIL_RE.finditer(text):
+        if m.group(0).lower() not in allowed_pii:
+            return "PII"
+    return None
+
+
+def pii_from_user(texts: list[str]) -> set[str]:
+    """ข้อมูลติดต่อที่ลูกค้าคนนี้พิมพ์มาเอง — บอททวนกลับให้เจ้าของได้ (เช่น ยืนยันเบอร์ตอนจองคิว)"""
+    out: set[str] = set()
+    for t in texts:
+        t = t.translate(_THAI_DIGITS)
+        out |= {_digits(m.group(0)) for m in _PHONE_RE.finditer(t)}
+        out |= {_digits(m.group(0)) for m in _ID_CARD_RE.finditer(t)}
+        out |= {m.group(0).lower() for m in _EMAIL_RE.finditer(t)}
+    return out
+
+
+def split_sentences(text: str) -> list[str]:
+    out, start = [], 0
+    for m in _BOUNDARY_RE.finditer(text):
+        out.append(text[start : m.end()])
+        start = m.end()
+    if start < len(text):
+        out.append(text[start:])
+    return [s for s in out if s]
+
+
+class OutputGuard:
+    """ตรวจคำตอบทีละประโยค ใช้ได้ทั้งแบบสตรีม (feed/flush) และแบบข้อความเต็ม (check_text)"""
+
+    def __init__(self, user_texts: list[str] | None = None):
+        self.user_pii = pii_from_user(user_texts or [])
+        self.pending = ""
+        self.blocked_reason: str | None = None
+
+    @property
+    def blocked(self) -> bool:
+        return self.blocked_reason is not None
+
+    def _release(self, text: str) -> list[str]:
+        out = []
+        for sentence in split_sentences(text):
+            reason = check_sentence(sentence, self.user_pii)
+            if reason:
+                self.blocked_reason = reason
+                return out
+            out.append(sentence)
+        return out
+
+    def feed(self, delta: str) -> list[str]:
+        """รับข้อความที่สตรีมเข้ามา คืนส่วนที่ครบประโยคและตรวจผ่านแล้ว (พร้อมส่งให้ลูกค้า)"""
+        if self.blocked:
+            return []
+        self.pending += delta
+        last = None
+        for m in _BOUNDARY_RE.finditer(self.pending):
+            last = m.end()
+        if last is None and len(self.pending) > _MAX_PENDING:
+            cut = self.pending.rfind(" ")
+            last = cut + 1 if cut > 0 else None
+        if last is None:
+            return []
+        ready, self.pending = self.pending[:last], self.pending[last:]
+        return self._release(ready)
+
+    def flush(self) -> list[str]:
+        """เรียกตอนสตรีมจบ — ตรวจข้อความที่ค้างอยู่"""
+        if self.blocked:
+            return []
+        ready, self.pending = self.pending, ""
+        return self._release(ready)
+
+    def check_text(self, text: str) -> str | None:
+        """โหมดไม่สตรีม: คืนเหตุผลที่ไม่ผ่าน หรือ None"""
+        self._release(text)
+        return self.blocked_reason

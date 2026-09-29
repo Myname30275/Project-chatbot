@@ -89,6 +89,15 @@ def _catalog_chunks() -> list[Chunk]:
         + "\n".join(f"- {p['name']}: {_baht(p['price'])}" for p in c["products"]),
     ))
 
+    # อยู่ใน system prompt แล้วก็จริง แต่ใส่ซ้ำเป็น chunk ด้วย เพื่อให้คำถามอย่าง "ฝากเลี้ยงได้ไหม"
+    # ค้นเจอข้อมูลตรง ๆ — ทดสอบแล้วโมเดลตอบ "ร้านไม่มีบริการนี้" ได้ดีกว่าตอบ fallback
+    out.append(Chunk(
+        id="not_offered",
+        title="บริการที่ร้านไม่มี",
+        source="shop/catalog.json",
+        text="บริการที่ร้านไม่มี (ห้ามรับปาก)\n" + "\n".join(f"- {x}" for x in c["not_offered"]),
+    ))
+
     pay = c["payment"]
     out.append(Chunk(
         id="payment",

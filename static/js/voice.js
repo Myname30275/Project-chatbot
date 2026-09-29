@@ -582,6 +582,11 @@
             pendingBuf = chunked.rest;
             haveSpokenFirst = chunked.haveSpokenFirst;
             for (const piece of chunked.out) enqueueSpeech(piece, session);
+          } else if (pl.replace !== undefined) {
+            // output guard บล็อกคำตอบ — ทิ้งส่วนที่ยังไม่ได้พูด แล้วพูดข้อความที่ปลอดภัยแทน
+            reply = pl.replace;
+            pendingBuf = pl.replace;
+            replyEl.textContent = reply;
           } else if (pl.error) {
             throw new Error(pl.message || "stream error");
           }

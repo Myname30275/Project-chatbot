@@ -53,6 +53,13 @@ class Settings(BaseSettings):
     EMBED_DIMENSIONS: int = 768
     RAG_TOP_K: int = 4  # จำนวนชิ้นความรู้ที่แนบให้ LLM ต่อ 1 คำถาม
 
+    # --- Guardrails (guardrails/) — ฟรีทั้งหมด: กฎในโค้ด + ใช้ LLM ตัวเดิมเป็นตัวตรวจ ---
+    GUARD_MAX_INPUT_CHARS: int = 1000          # ข้อความยาวเกินนี้ปฏิเสธ (กันยัดคำสั่ง/เปลืองโควตา)
+    GUARD_RATE_LIMIT_PER_MINUTE: int = 15      # ข้อความต่อ session ต่อนาที
+    GUARD_JUDGE_ENABLED: bool = True           # ใช้ LLM ตรวจเจตนาของข้อความขาเข้า
+    # ตัวตรวจ LLM ล่ม: false = ปล่อยผ่าน (ยังมีกฎในโค้ด + ตรวจขาออกคุมอยู่) / true = ปฏิเสธทุกข้อความ
+    GUARD_JUDGE_FAIL_CLOSED: bool = False
+
     ATTACHMENT_MAX_BYTES: int = 8 * 1024 * 1024        # 8 MB ต่อไฟล์
     ATTACHMENT_MAX_PDF_PAGES: int = 12                 # หน้าเกินนี้ไม่อ่าน
     ATTACHMENT_CONTEXT_CHAR_LIMIT: int = 80_000        # รวมทุกไฟล์ต่อ session ตัดส่วนเกิน

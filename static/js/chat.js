@@ -199,6 +199,11 @@ async function sendMessage(message) {
           accumulatedText += payload.delta;
           aiBubble.innerHTML = renderMarkdown(accumulatedText);
           scrollToBottom();
+        } else if (payload.replace !== undefined) {
+          // output guard บล็อกคำตอบ — แทนข้อความทั้งหมดด้วยข้อความที่ปลอดภัยจากเซิร์ฟเวอร์
+          accumulatedText = payload.replace;
+          aiBubble.innerHTML = renderMarkdown(accumulatedText);
+          scrollToBottom();
         } else if (payload.error) {
           showError(payload.message || "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
         } else if (payload.done) {

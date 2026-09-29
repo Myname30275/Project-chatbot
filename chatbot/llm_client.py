@@ -252,9 +252,30 @@ async def chat(
         extra_system=extra_system,
         knowledge=knowledge,
     )
+    return await _complete(payload)
+
+
+async def complete(
+    messages: list[dict[str, str]],
+    *,
+    temperature: float | None = None,
+    max_tokens: int | None = None,
+    timeout: httpx.Timeout | None = None,
+) -> str:
+    """เรียกโมเดลแชตด้วย messages ที่ผู้เรียกประกอบเอง — ไม่แนบ system prompt ของร้าน
+    ใช้กับงานเบื้องหลังที่มีคำสั่งของตัวเอง เช่น ตัวตรวจความปลอดภัย (guardrails/judge.py)"""
+    payload: dict[str, Any] = {"model": settings.LLM_MODEL, "messages": messages}
+    if temperature is not None:
+        payload["temperature"] = temperature
+    if max_tokens is not None:
+        payload["max_tokens"] = max_tokens
+    return await _complete(payload, timeout)
+
+
+async def _complete(payload: dict[str, Any], timeout: httpx.Timeout | None = None) -> str:
     url = f"{settings.LLM_BASE_URL}/chat/completions"
 
-    async with httpx.AsyncClient(timeout=REQUEST_TIMEOUT) as client:
+    async with httpx.AsyncClient(timeout=timeout or REQUEST_TIMEOUT) as client:
         try:
             response = await _post_with_retry(client, url, json=payload)
             response.raise_for_status()
