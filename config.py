@@ -88,6 +88,13 @@ class Settings(BaseSettings):
     # ข้ามโดเมน เพราะหน้าเว็บที่แถมมาเป็น same-origin อยู่แล้ว
     ALLOWED_ORIGINS: str = ""
 
+    # --- หลังบ้านเจ้าของร้าน (/admin) ---
+    # ไม่ตั้ง ADMIN_PASSWORD = ปิดหลังบ้าน (เข้าไม่ได้เลย) · ADMIN_SECRET ใช้เซ็น cookie
+    # ไม่ตั้งจะสร้างจากรหัสผ่าน (เปลี่ยนรหัสผ่าน = ทุกเครื่องที่ login ไว้หลุดออกเอง)
+    ADMIN_PASSWORD: str | None = None
+    ADMIN_SECRET: str | None = None
+    ADMIN_SESSION_HOURS: int = 12
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

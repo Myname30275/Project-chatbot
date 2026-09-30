@@ -62,6 +62,8 @@ document.addEventListener("click", (e) => {
 });
 document.getElementById("chat-close").addEventListener("click", closeChat);
 document.addEventListener("keydown", (e) => {
+  // Escape ตอนป๊อปอัปจองเปิดอยู่ = ปิดป๊อปอัปอย่างเดียว (booking.js จัดการ) ไม่ปิดหน้าต่างแชท
+  if (document.querySelector(".sheet:not([hidden])")) return;
   if (e.key === "Escape" && chatPanel.classList.contains("is-open")) closeChat();
 });
 if (location.hash === "#chat") openChat();
@@ -133,6 +135,28 @@ function createAiBubble() {
 function scrollToBottom() {
   chatWindow.scrollTop = chatWindow.scrollHeight;
 }
+
+// การ์ด/องค์ประกอบอื่นที่ไม่ใช่บับเบิลข้อความ (เช่น ใบจองจาก booking.js) ในฝั่งบอท
+function appendAiNode(node) {
+  hideEmptyState();
+  const wrapper = document.createElement("div");
+  wrapper.className = "message ai message--card";
+  wrapper.appendChild(node);
+  chatWindow.insertBefore(wrapper, loadingIndicator);
+  scrollToBottom();
+  return wrapper;
+}
+
+// ให้ booking.js ใช้วาดข้อความ/ใบจองลงแชท และหยิบรูปน้องที่ลูกค้าส่งไว้ไปใส่ฟอร์มจอง
+window.hhChat = {
+  createAiBubble,
+  appendAiNode,
+  scrollToBottom,
+  lastPetFile: null,
+  ensureOpen() {
+    if (!chatPanel.classList.contains("is-open")) openChat();
+  },
+};
 
 // ชิ้นข้อมูลร้านที่ RAG ค้นมาใช้ตอบ — โชว์ใต้คำตอบให้ลูกค้าเห็นว่าอ้างอิงจากอะไร
 function renderKnowledge(bubble, items) {
@@ -275,6 +299,7 @@ async function sendMessage(message) {
       aiBubble.parentElement.remove();
     } else if (!aiBubble.classList.contains("bubble--refusal")) {
       renderKnowledge(aiBubble, knowledge);
+      window.hhBooking?.maybeAddCta(message, aiBubble);
     }
   } catch (err) {
     if (err.name === "AbortError") {
@@ -375,7 +400,13 @@ async function uploadFile(file) {
       attachments.push(payload.attachment);
       renderAttachments();
       // รูปสัตว์/สลิป: เซิร์ฟเวอร์ตอบกลับทันที (ประเมินราคา / ตรวจสลิป)
-      if (payload.reply) createAiBubble().innerHTML = renderMarkdown(payload.reply);
+      const isPet = (payload.attachment.meta || {}).image_type === "pet";
+      if (isPet) window.hhChat.lastPetFile = file; // ใช้เป็นรูปน้องบนใบจองได้เลย ไม่ต้องเลือกใหม่
+      if (payload.reply) {
+        const bubble = createAiBubble();
+        bubble.innerHTML = renderMarkdown(payload.reply);
+        if (isPet) window.hhBooking?.addCta(bubble);
+      }
     } else {
       showError("ส่งรูปไม่สำเร็จ ลองส่งใหม่อีกครั้ง");
     }

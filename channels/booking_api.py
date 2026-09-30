@@ -1,0 +1,120 @@
+"""API จองคิวฝั่งลูกค้า (หน้าต่างแชทบนเว็บ) — ใช้ session cookie ตัวเดียวกับแชท
+
+ตรรกะการจองทั้งหมดอยู่ที่ booking/service.py ไฟล์นี้แค่รับ/ส่งข้อมูลแบบ HTTP
+"""
+
+import logging
+
+from fastapi import APIRouter, File, Form, Request, Response, UploadFile
+from fastapi.responses import JSONResponse
+
+from booking import service, slots
+from booking.service import BookingError
+from booking.store import StoreError, get_store
+from channels.web_chat import _resolve_session, _set_session_cookie
+from guardrails.input_rules import RateLimiter
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/v1/booking")
+
+# จองแต่ละครั้งส่งสลิปไปให้ Gemini อ่าน — จำกัดถี่กว่าแชทเพื่อกันยิงรัว ๆ จนโควตาหมด
+# นับ 2 ชั้น: ต่อ session (ลูกค้าทั่วไป) และต่อ IP (กันคนที่ไม่ส่ง cookie กลับมาเพื่อได้ session ใหม่ทุกครั้ง)
+_attempts = RateLimiter(limit=5)
+_attempts_ip = RateLimiter(limit=20)
+_IMAGE_KINDS = {"pet", "slip"}
+
+
+def _error(status: int, message: str, field: str | None = None) -> JSONResponse:
+    return JSONResponse(status_code=status, content={"error": True, "message": message, "field": field})
+
+
+def _client_ip(request: Request) -> str:
+    # บน Vercel IP จริงอยู่ใน x-forwarded-for ตัวแรก
+    forwarded = request.headers.get("x-forwarded-for", "")
+    return forwarded.split(",")[0].strip() or (request.client.host if request.client else "unknown")
+
+
+async def _read(upload: UploadFile | None) -> bytes | None:
+    if upload is None:
+        return None
+    # อ่านเกินเพดานมา 1 byte พอรู้ว่าใหญ่เกิน ไม่ต้องอ่านทั้งไฟล์ลงหน่วยความจำ
+    return await upload.read(service.MAX_IMAGE_BYTES + 1)
+
+
+@router.get("/slots")
+async def get_slots():
+    """ช่องเวลาที่จองได้ + จำนวนที่ว่าง (หน้าเว็บวาดปฏิทินจากตรงนี้)"""
+    try:
+        counts = await get_store().slot_counts(slots.all_keys())
+    except StoreError as exc:
+        return _error(503, str(exc))
+    return {"days": slots.availability(counts), "capacity": slots.config()["capacity_per_slot"]}
+
+
+@router.post("")
+async def post_booking(
+    request: Request,
+    pet_name: str = Form(""),
+    owner_name: str = Form(""),
+    phone: str = Form(""),
+    slot: str = Form(""),
+    pet_photo: UploadFile | None = File(None),
+    slip: UploadFile | None = File(None),
+):
+    session_id, is_new = _resolve_session(request)
+    resp = await _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip)
+    if is_new:
+        # ส่ง cookie กลับทุกกรณี (รวมตอน error) — ไม่งั้นคนที่จองไม่ผ่านจะได้ session ใหม่ทุกครั้งและหลุด rate limit
+        _set_session_cookie(resp, session_id)
+    return resp
+
+
+async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip) -> JSONResponse:
+    if not _attempts.allow(session_id) or not _attempts_ip.allow(_client_ip(request)):
+        return _error(429, "ส่งคำขอจองถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
+    try:
+        booking = await service.create(
+            session_id,
+            pet_name=pet_name,
+            owner_name=owner_name,
+            phone=phone,
+            slot=slot,
+            pet_photo=await _read(pet_photo),
+            slip=await _read(slip),
+        )
+    except BookingError as exc:
+        return _error(exc.status, exc.message, exc.field)
+    except StoreError as exc:
+        return _error(503, str(exc))
+
+    return JSONResponse(status_code=201, content={"ok": True, "booking": service.public_view(booking)})
+
+
+@router.get("/mine")
+async def get_mine(request: Request):
+    session_id, _ = _resolve_session(request)
+    try:
+        return {"bookings": await service.list_for_session(session_id)}
+    except StoreError as exc:
+        return _error(503, str(exc))
+
+
+@router.get("/{booking_id}/image/{kind}")
+async def get_image(booking_id: str, kind: str, request: Request):
+    """รูปน้อง/สลิปบนใบจอง — เฉพาะเจ้าของการจอง (คนอื่นได้ 404 เหมือนไม่มีการจองนี้)"""
+    session_id, _ = _resolve_session(request)
+    if kind not in _IMAGE_KINDS:
+        return _error(404, "ไม่พบรูป")
+    try:
+        if not await service.get_owned(booking_id, session_id):
+            return _error(404, "ไม่พบการจองนี้")
+        data = await get_store().get_image(booking_id, kind)
+    except StoreError as exc:
+        return _error(503, str(exc))
+    if not data:
+        return _error(404, "ไม่พบรูป")
+    return Response(
+        content=data,
+        media_type=service.sniff_image(data) or "application/octet-stream",
+        headers={"Cache-Control": "private, max-age=86400"},
+    )

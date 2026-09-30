@@ -16,3 +16,6 @@ Example UI/Design skill/anthropic-skills/
 
 # ไฟล์โปรเจกต์ VRoid Studio (ใช้แก้โมเดล — เว็บใช้ไฟล์ .vrm ที่ export แล้ว)
 *.vroid
+
+# ไฟล์ล็อกชั่วคราวของ Word/Office ตอนเปิดเอกสารค้างไว้
+~$*

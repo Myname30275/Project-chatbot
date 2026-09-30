@@ -14,6 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      crossorigin="anonymous"
       href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
@@ -125,18 +126,20 @@
         <h2 class="section__title">จองคิวใน 3 ขั้น</h2>
         <ol class="steps">
           <li>
-            <h3>ถามหรือส่งรูปน้องในแชท</h3>
-            <p>น้องหอมบอกราคาคร่าว ๆ ตามไซส์ และเวลาว่างของร้าน</p>
+            <h3>ส่งรูปน้องในแชท</h3>
+            <p>น้องหอมประเมินราคาคร่าว ๆ ตามไซส์ให้ก่อนตัดสินใจ</p>
           </li>
           <li>
-            <h3>โอนมัดจำ {{ catalog.payment.deposit }} บาท</h3>
-            <p>ส่งรูปสลิปในแชท น้องหอมเช็กยอดให้ก่อน แอดมินยืนยันคิวอีกครั้ง</p>
+            <h3>กดจองคิว แล้วโอนมัดจำ {{ catalog.payment.deposit }} บาท</h3>
+            <p>กรอกชื่อน้อง ชื่อเจ้าของ เบอร์โทร เลือกวันเวลาที่ว่าง แล้วแนบสลิป ได้ใบจองทันที</p>
           </li>
           <li>
-            <h3>พาน้องมาตามนัด</h3>
-            <p>มัดจำหักจากค่าบริการวันนั้น รับคิวสุดท้าย 16:00 น.</p>
+            <h3>แสดงใบจองที่หน้าร้าน</h3>
+            <p>ร้านยืนยันคิวให้ ชั่งน้ำหนักน้องแล้วแจ้งราคาจริง มัดจำหักจากค่าบริการวันนั้น</p>
           </li>
         </ol>
+
+        <button class="btn steps__cta" type="button" data-open-booking>จองคิว</button>
 
         <div class="not-offered">
           <h3>ร้านยังไม่มีบริการเหล่านี้</h3>
@@ -183,6 +186,9 @@
           <span id="chat-status" class="chat__status">พร้อมตอบ</span>
         </div>
         <div class="chat__tools">
+          <button class="icon-btn" type="button" data-my-bookings title="ใบจองของฉัน" aria-label="ใบจองของฉัน">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5A1.5 1.5 0 0 1 5.5 6h13A1.5 1.5 0 0 1 20 7.5V10a2 2 0 0 0 0 4v2.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 16.5V14a2 2 0 0 0 0-4Z" /><path d="M14.5 6v12" stroke-dasharray="2 2.2" /></svg>
+          </button>
           <button id="new-chat-button" class="icon-btn" type="button" title="เริ่มแชทใหม่" aria-label="เริ่มแชทใหม่">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3M4.5 4v3.5H8" /></svg>
           </button>
@@ -206,7 +212,7 @@
           <div class="quick" role="group" aria-label="คำถามที่ถามบ่อย">
             <button type="button" class="quick__btn" data-ask="อาบน้ำหมาเล็กเท่าไหร่คะ">อาบน้ำหมาเล็กเท่าไหร่</button>
             <button type="button" class="quick__btn" data-ask="ตัดขนแมวเท่าไหร่คะ">ตัดขนแมวเท่าไหร่</button>
-            <button type="button" class="quick__btn" data-ask="จองคิวยังไงคะ">จองคิวยังไง</button>
+            <button type="button" class="quick__btn quick__btn--book" data-open-booking>จองคิว</button>
             <button type="button" class="quick__btn" data-ask="ร้านเปิดกี่โมงคะ">ร้านเปิดกี่โมง</button>
             <button type="button" class="quick__btn quick__btn--photo" data-pick-photo>ส่งรูปน้องให้ดู</button>
           </div>
@@ -235,6 +241,88 @@
       </form>
     </aside>
 
+    <!-- ================= ป๊อปอัปจองคิว (booking.js) ================= -->
+    <div id="booking-sheet" class="sheet" hidden>
+      <div class="sheet__scrim" data-close-booking></div>
+      <section class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="booking-title">
+        <header class="sheet__head">
+          <h2 id="booking-title">จองคิวอาบน้ำ-ตัดขน</h2>
+          <button class="icon-btn" type="button" data-close-booking aria-label="ปิด">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+        <ol class="stepper" aria-label="ขั้นตอนการจอง">
+          <li data-dot="1">ข้อมูลน้อง</li>
+          <li data-dot="2">วันเวลา</li>
+          <li data-dot="3">มัดจำ</li>
+        </ol>
+
+        <form id="booking-form" class="sheet__form" novalidate>
+          <div class="sheet__body" data-step="1">
+            <div class="photo-pick">
+              <img id="bk-pet-preview" class="photo-pick__img" alt="รูปน้องที่จะอยู่บนใบจอง" hidden />
+              <div>
+                <p class="photo-pick__label">รูปน้อง</p>
+                <button type="button" class="btn btn--ghost btn--small" data-pick="pet">เลือกรูปน้อง</button>
+              </div>
+              <input type="file" id="bk-pet-file" accept="image/jpeg,image/png,image/webp" hidden />
+            </div>
+            <p class="field__error" data-error-for="pet_photo"></p>
+
+            <label class="field">
+              <span>ชื่อน้อง</span>
+              <input name="pet_name" maxlength="40" autocomplete="off" required />
+            </label>
+            <p class="field__error" data-error-for="pet_name"></p>
+            <label class="field">
+              <span>ชื่อเจ้าของ</span>
+              <input name="owner_name" maxlength="40" autocomplete="name" required />
+            </label>
+            <p class="field__error" data-error-for="owner_name"></p>
+            <label class="field">
+              <span>เบอร์โทร</span>
+              <input name="phone" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="08xxxxxxxx" required />
+            </label>
+            <p class="field__error" data-error-for="phone"></p>
+          </div>
+
+          <div class="sheet__body" data-step="2" hidden>
+            <p class="sheet__label" id="bk-day-label">เลือกวัน</p>
+            <div id="bk-days" class="day-row" role="radiogroup" aria-labelledby="bk-day-label"></div>
+            <p class="sheet__label" id="bk-time-label">เลือกเวลา</p>
+            <div id="bk-times" class="time-grid" role="radiogroup" aria-labelledby="bk-time-label"></div>
+            <p class="field__error" data-error-for="slot"></p>
+          </div>
+
+          <div class="sheet__body" data-step="3" hidden>
+            <div class="pay-box">
+              <p>โอนมัดจำ <b>{{ catalog.payment.deposit }} บาท</b> เข้าบัญชี <b>{{ catalog.payment.account_name }}</b></p>
+              <p class="pay-box__small">{{ catalog.payment.methods | join(" หรือ ") }} · มัดจำหักจากค่าบริการวันที่มารับบริการ</p>
+            </div>
+            <div class="photo-pick">
+              <img id="bk-slip-preview" class="photo-pick__img" alt="สลิปที่แนบ" hidden />
+              <div>
+                <p class="photo-pick__label">สลิปมัดจำ</p>
+                <button type="button" class="btn btn--ghost btn--small" data-pick="slip">แนบสลิป</button>
+              </div>
+              <input type="file" id="bk-slip-file" accept="image/jpeg,image/png,image/webp" hidden />
+            </div>
+            <p class="field__error" data-error-for="slip"></p>
+            <p id="bk-summary" class="sheet__summary"></p>
+            <p class="sheet__note">ราคาจริงร้านแจ้งหลังชั่งน้ำหนักน้องที่หน้าร้าน</p>
+          </div>
+
+          <p id="bk-status" class="sheet__status" role="status" aria-live="polite"></p>
+          <footer class="sheet__foot">
+            <button type="button" class="btn btn--ghost btn--small" id="bk-back">ย้อนกลับ</button>
+            <button type="button" class="btn btn--small" id="bk-next">ถัดไป</button>
+            <button type="submit" class="btn btn--small" id="bk-submit" hidden>ยืนยันการจอง</button>
+          </footer>
+        </form>
+      </section>
+    </div>
+
     <script src="/static/js/chat.js?v={{ asset_v() }}"></script>
+    <script src="/static/js/booking.js?v={{ asset_v() }}"></script>
   </body>
 </html>

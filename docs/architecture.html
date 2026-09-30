@@ -3,608 +3,779 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Test System Architecture</title>
-<meta name="description" content="สถาปัตยกรรมของแชตบอต Test System — FastAPI บน Vercel, Typhoon LLM, อัปโหลดไฟล์, ประวัติหลายบทสนทนา และค้นเว็บอัตโนมัติ" />
-<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
-</head>
-<body>
+<title>Hom Hom Grooming Architecture</title>
+<meta name="description" content="โครงระบบแชทบอทร้าน Hom Hom Grooming — FastAPI บน Vercel, Typhoon, RAG ภาษาไทย, guardrails 3 ด่าน, Vision, จองคิว + หลังบ้าน, หน้าเว็บ + อวตารเสียง" />
 <style>
-  @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Serif:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Nunito:wght@400;600;700&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
   :root {
-    --ground: #f3f6fb;
+    --ground: #fffbf3;
     --surface: #ffffff;
-    --surface-2: #eef3fa;
-    --ink: #14243a;
-    --muted: #5c7288;
-    --faint: #8a9db2;
-    --accent: #2563cf;
-    --accent-wash: #e9f1fd;
-    --rule: #d8e3ef;
-    --amber: #a96a12;
-    --amber-wash: #fbf0dc;
-    --ok: #1c7a53;
-    --shadow: 0 1px 2px rgba(20, 36, 58, .04), 0 8px 24px -16px rgba(20, 36, 58, .22);
+    --surface-2: #fff5e1;
+    --ink: #5c3d2e;
+    --muted: #7a5f50;
+    --rule: rgba(92, 61, 46, .18);
+    --honey: #e8a840;
+    --honey-soft: #f8dda8;
+    --honey-deep: #b86e1b;
+    --ext: #fcebd0;
+    --ok: #4f6e37;
+    --todo: #b0503a;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --ground: #0d151e;
-      --surface: #172230;
-      --surface-2: #1e2c3d;
-      --ink: #e7eef8;
-      --muted: #97acc2;
-      --faint: #6d829a;
-      --accent: #6ba6f6;
-      --accent-wash: #1a2c45;
-      --rule: #27374b;
-      --amber: #e0a54a;
-      --amber-wash: #33280f;
-      --ok: #57c79a;
-      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -18px rgba(0, 0, 0, .6);
+      --ground: #1c1510;
+      --surface: #271e17;
+      --surface-2: #30251c;
+      --ink: #f3e6d6;
+      --muted: #c4ad99;
+      --rule: rgba(243, 230, 214, .16);
+      --honey: #e8a840;
+      --honey-soft: #5a4220;
+      --honey-deep: #f1bb62;
+      --ext: #3b2c1d;
+      --ok: #9cc47c;
+      --todo: #ee8f76;
     }
   }
   :root[data-theme="dark"] {
-    --ground: #0d151e;
-    --surface: #172230;
-    --surface-2: #1e2c3d;
-    --ink: #e7eef8;
-    --muted: #97acc2;
-    --faint: #6d829a;
-    --accent: #6ba6f6;
-    --accent-wash: #1a2c45;
-    --rule: #27374b;
-    --amber: #e0a54a;
-    --amber-wash: #33280f;
-    --ok: #57c79a;
-    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px -18px rgba(0, 0, 0, .6);
+    --ground: #1c1510;
+    --surface: #271e17;
+    --surface-2: #30251c;
+    --ink: #f3e6d6;
+    --muted: #c4ad99;
+    --rule: rgba(243, 230, 214, .16);
+    --honey: #e8a840;
+    --honey-soft: #5a4220;
+    --honey-deep: #f1bb62;
+    --ext: #3b2c1d;
+    --ok: #9cc47c;
+    --todo: #ee8f76;
   }
 
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-
   body {
     margin: 0;
     background: var(--ground);
     color: var(--ink);
-    font-family: "IBM Plex Sans", "IBM Plex Sans Thai", -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans Thai", sans-serif;
-    line-height: 1.65;
+    font-family: "Nunito", "IBM Plex Sans Thai Looped", "Noto Sans Thai", sans-serif;
+    line-height: 1.7;
     -webkit-font-smoothing: antialiased;
   }
+  h1, h2, h3 { font-family: "Mali", "Nunito", sans-serif; line-height: 1.3; }
+  code { font-family: "IBM Plex Mono", monospace; font-size: .86em; background: var(--surface-2); padding: 1px 5px; border-radius: 5px; overflow-wrap: anywhere; }
 
   .wrap {
-    max-width: 1160px;
-    margin: 0 auto;
-    padding: 0 clamp(20px, 5vw, 64px);
     display: grid;
     grid-template-columns: 1fr;
-    gap: 0;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 16px;
   }
   @media (min-width: 1080px) {
-    .wrap { grid-template-columns: 210px minmax(0, 748px); gap: 56px; justify-content: center; }
+    .wrap { grid-template-columns: 220px minmax(0, 820px); gap: 48px; justify-content: center; padding: 0 32px; }
   }
+  .toc { display: none; font-size: .86rem; }
+  @media (min-width: 1080px) { .toc { display: block; position: sticky; top: 0; align-self: start; padding-top: 88px; } }
+  .toc ol { list-style: none; margin: 0; padding: 0; counter-reset: toc; }
+  .toc li { counter-increment: toc; }
+  .toc a { display: block; padding: 4px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; }
+  .toc a::before { content: counter(toc, decimal-leading-zero) "  "; color: var(--honey-deep); font-family: "IBM Plex Mono", monospace; font-size: .78rem; }
+  .toc a:hover { background: var(--surface-2); color: var(--ink); }
 
-  /* ---- contents rail ---- */
-  .toc {
-    display: none;
-    font-family: "IBM Plex Mono", monospace;
-    font-size: .74rem;
-  }
-  @media (min-width: 1080px) {
-    .toc { display: block; position: sticky; top: 0; align-self: start; padding-top: 96px; }
-  }
-  .toc ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-  .toc a {
-    display: block; padding: 5px 10px; border-radius: 6px;
-    color: var(--muted); text-decoration: none; border-left: 2px solid transparent;
-  }
-  .toc a:hover { color: var(--accent); background: var(--accent-wash); }
-  .toc .n { color: var(--faint); margin-right: 8px; }
+  main { min-width: 0; padding-bottom: 96px; }
+  header.masthead { padding: 64px 0 24px; border-bottom: 2px dashed var(--rule); }
+  .brand { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .brand svg { width: 56px; height: 56px; flex: none; }
+  h1 { font-size: clamp(1.9rem, 4.6vw, 2.7rem); margin: 0 0 12px; }
+  .lede { font-size: 1.08rem; color: var(--muted); max-width: 44em; margin: 0 0 16px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; font-size: .88rem; }
+  .meta li { padding: 2px 12px; border: 2px solid var(--ink); border-radius: 999px; background: var(--surface); }
 
-  main { min-width: 0; padding-bottom: 120px; }
+  section { padding-top: 48px; }
+  h2 { font-size: 1.6rem; margin: 0 0 8px; }
+  h2 .n { color: var(--honey-deep); font-family: "IBM Plex Mono", monospace; font-size: .95rem; margin-right: 10px; vertical-align: middle; }
+  h3 { font-size: 1.15rem; margin: 28px 0 8px; }
+  p { max-width: 46em; }
+  ul.plain { padding-left: 1.2em; }
+  ul.plain li { margin: 4px 0; }
 
-  /* ---- header ---- */
-  header.masthead {
-    padding: 88px 0 40px;
-    animation: rise .5s ease both;
-  }
-  @media (prefers-reduced-motion: reduce) { header.masthead { animation: none; } }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } }
+  figure { margin: 20px 0 8px; padding: 18px; background: var(--surface); border: 2px solid var(--ink); border-radius: 22px; }
+  figure svg { display: block; width: 100%; height: auto; color: var(--ink); }
+  figcaption { margin-top: 12px; font-size: .9rem; color: var(--muted); }
 
-  .kicker {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
-    color: var(--accent); margin: 0 0 14px;
-  }
-  h1 {
-    font-size: clamp(2rem, 5vw, 2.9rem);
-    font-weight: 600; line-height: 1.08; letter-spacing: -.02em;
-    margin: 0 0 18px; text-wrap: balance;
-  }
-  .lede {
-    font-family: "IBM Plex Serif", Georgia, serif;
-    font-size: 1.16rem; color: var(--muted); margin: 0; max-width: 60ch;
-  }
-  .stack {
-    margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--rule);
-    display: flex; flex-wrap: wrap; gap: 8px;
-  }
+  /* คลาสของรูปวาด (อยู่นอก svg ตามหลัก self-contained) */
+  .bx { fill: var(--surface); stroke: currentColor; stroke-width: 2; }
+  .bx-core { fill: var(--honey-soft); stroke: currentColor; stroke-width: 2.4; }
+  .bx-ext { fill: var(--ext); stroke: currentColor; stroke-width: 1.5; }
+  .bx-todo { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-dasharray: 6 5; opacity: .75; }
+  .bx-hl { fill: var(--honey-soft); stroke: var(--honey-deep); stroke-width: 2.4; }
+  .bx-no { fill: none; stroke: var(--todo); stroke-width: 1.6; stroke-dasharray: 4 4; }
+  .ln { stroke: currentColor; stroke-width: 1.6; fill: none; }
+  .ln-no { stroke: var(--todo); stroke-width: 1.6; fill: none; stroke-dasharray: 4 4; }
+  .ln-todo { stroke: currentColor; stroke-width: 1.6; fill: none; stroke-dasharray: 6 5; opacity: .75; }
+  .t { fill: currentColor; font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; font-size: 14px; font-weight: 700; }
+  .ts { fill: currentColor; font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; font-size: 12px; opacity: .8; }
+  .tl { fill: currentColor; font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; font-size: 11.5px; font-style: italic; opacity: .85; }
+  .tn { fill: var(--todo); font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; font-size: 12px; }
+  .th { fill: var(--honey-deep); font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; font-size: 12px; font-weight: 700; }
 
-  /* ---- chips ---- */
-  .chip {
-    font-family: "IBM Plex Mono", monospace;
-    font-size: .72rem; padding: 3px 9px; border-radius: 999px;
-    border: 1px solid var(--rule); color: var(--muted); white-space: nowrap;
-  }
-  .chip--ext { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); background: var(--accent-wash); }
-  .chip--todo { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); background: var(--amber-wash); }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 0; list-style: none; font-size: .84rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 22px; height: 12px; margin-right: 6px; vertical-align: -1px; border: 2px solid var(--ink); border-radius: 4px; }
+  .legend .l-core { background: var(--honey-soft); }
+  .legend .l-ext { background: var(--ext); border-width: 1.5px; }
+  .legend .l-todo { border-style: dashed; }
+  .legend .l-no { border: 1.5px dashed var(--todo); }
 
-  /* ---- sections ---- */
-  section { padding: 48px 0 0; scroll-margin-top: 24px; }
-  h2 {
-    font-size: 1.42rem; font-weight: 600; letter-spacing: -.01em;
-    margin: 0 0 6px; display: flex; align-items: baseline; gap: 12px;
-  }
-  h2 .s-num {
-    font-family: "IBM Plex Mono", monospace; font-size: .8rem; font-weight: 400;
-    color: var(--accent); flex: none;
-  }
-  .section-note { color: var(--muted); margin: 0 0 26px; max-width: 62ch; }
-  h3 {
-    font-size: 1rem; font-weight: 600; margin: 30px 0 8px;
-    font-family: "IBM Plex Mono", monospace; color: var(--ink);
-  }
-  p { max-width: 65ch; }
-  a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
-
-  code {
-    font-family: "IBM Plex Mono", monospace; font-size: .86em;
-    background: var(--surface-2); padding: 1px 5px; border-radius: 4px;
-  }
-  pre {
-    margin: 18px 0; padding: 18px 20px; border-radius: 10px;
-    background: var(--surface); border: 1px solid var(--rule);
-    box-shadow: var(--shadow); overflow-x: auto;
-  }
-  pre code { background: none; padding: 0; font-size: .82rem; line-height: 1.7; color: var(--ink); }
-  .tok-key { color: var(--accent); }
-  .tok-com { color: var(--faint); font-style: italic; }
-
-  /* ---- diagram ---- */
-  .diagram {
-    margin: 8px 0 4px; padding: 22px; border-radius: 12px;
-    background: var(--surface); border: 1px solid var(--rule); box-shadow: var(--shadow);
-    overflow-x: auto;
-  }
-  .diagram svg { display: block; min-width: 640px; width: 100%; height: auto; }
-  .d-box { fill: var(--surface-2); stroke: var(--rule); }
-  .d-box--core { fill: var(--accent-wash); stroke: color-mix(in srgb, var(--accent) 45%, transparent); }
-  .d-label { fill: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 13px; font-weight: 500; }
-  .d-sub { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
-  .d-edge { stroke: var(--faint); stroke-width: 1.5; fill: none; }
-  .d-edge-label { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
-  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: .78rem; color: var(--muted); }
-  .legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .sw { width: 13px; height: 13px; border-radius: 3px; border: 1px solid var(--rule); flex: none; }
-  .sw--core { background: var(--accent-wash); border-color: color-mix(in srgb, var(--accent) 45%, transparent); }
-  .sw--ext { background: var(--surface-2); }
-
-  /* ---- flow list ---- */
-  ol.flow { counter-reset: step; list-style: none; padding: 0; margin: 20px 0 0; display: flex; flex-direction: column; gap: 2px; }
-  ol.flow li {
-    position: relative; padding: 14px 0 14px 46px; border-top: 1px solid var(--rule);
-  }
-  ol.flow li:last-child { border-bottom: 1px solid var(--rule); }
-  ol.flow li::before {
-    counter-increment: step; content: counter(step);
-    position: absolute; left: 0; top: 12px;
-    font-family: "IBM Plex Mono", monospace; font-size: .8rem;
-    width: 26px; height: 26px; display: grid; place-items: center;
-    border-radius: 7px; background: var(--accent-wash); color: var(--accent);
-    border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  }
-  ol.flow b { font-weight: 600; }
-  ol.flow .muted { color: var(--muted); }
-
-  /* ---- definition blocks ---- */
-  .defs { margin: 22px 0 0; display: flex; flex-direction: column; }
-  .def { padding: 20px 0; border-top: 1px solid var(--rule); }
-  .def:last-child { border-bottom: 1px solid var(--rule); }
-  .def-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin-bottom: 6px; }
-  .def-head .path { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: .92rem; color: var(--ink); }
-  .def p { margin: 6px 0 0; color: var(--muted); }
-  .def ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
-  .def li { margin: 3px 0; }
-
-  /* ---- tables ---- */
-  .table-scroll { overflow-x: auto; margin: 20px 0 0; border: 1px solid var(--rule); border-radius: 10px; box-shadow: var(--shadow); }
-  table { border-collapse: collapse; width: 100%; font-size: .86rem; background: var(--surface); }
-  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  th { font-weight: 600; color: var(--muted); font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; background: var(--surface-2); }
-  tr:last-child td { border-bottom: none; }
-  td code { font-size: .82em; white-space: nowrap; }
+  .table-wrap { overflow-x: auto; margin: 14px 0; border: 2px solid var(--ink); border-radius: 16px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px dashed var(--rule); }
+  thead th { background: var(--surface-2); font-family: "Mali", sans-serif; font-weight: 600; }
+  tbody tr:last-child > * { border-bottom: 0; }
   td:first-child { white-space: nowrap; }
+  .s-ok { color: var(--ok); font-weight: 700; white-space: nowrap; }
+  .s-todo { color: var(--todo); font-weight: 700; white-space: nowrap; }
 
-  .callout {
-    margin: 22px 0 0; padding: 16px 20px; border-radius: 10px;
-    background: var(--amber-wash); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
-    color: var(--ink);
-  }
-  .callout p { margin: 0; color: var(--ink); }
-  .callout strong { color: var(--amber); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: 16px 0; }
+  .card { padding: 16px 18px; background: var(--surface); border: 2px solid var(--ink); border-radius: 18px; }
+  .card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+  .card p { margin: 0; font-size: .92rem; color: var(--muted); }
 
-  footer {
-    margin-top: 72px; padding-top: 24px; border-top: 1px solid var(--rule);
-    font-family: "IBM Plex Mono", monospace; font-size: .74rem; color: var(--faint);
-  }
+  dl.why { margin: 12px 0; }
+  dl.why dt { font-weight: 700; margin-top: 14px; }
+  dl.why dd { margin: 2px 0 0; color: var(--muted); max-width: 46em; }
+
+  footer { margin-top: 56px; padding-top: 18px; border-top: 2px dashed var(--rule); font-size: .84rem; color: var(--muted); }
 </style>
-
+</head>
+<body>
 <div class="wrap">
   <nav class="toc" aria-label="สารบัญ">
     <ol>
-      <li><a href="#overview"><span class="n">01</span>ภาพรวม</a></li>
-      <li><a href="#map"><span class="n">02</span>แผนผังระบบ</a></li>
-      <li><a href="#flow"><span class="n">03</span>เส้นทางข้อความ</a></li>
-      <li><a href="#modules"><span class="n">04</span>โมดูล</a></li>
-      <li><a href="#state"><span class="n">05</span>โครงข้อมูล</a></li>
-      <li><a href="#search"><span class="n">06</span>ค้นเว็บ</a></li>
-      <li><a href="#voice"><span class="n">07</span>โหมดเสียง</a></li>
-      <li><a href="#api"><span class="n">08</span>API</a></li>
-      <li><a href="#deploy"><span class="n">09</span>Deploy</a></li>
-      <li><a href="#env"><span class="n">10</span>Env</a></li>
-      <li><a href="#open"><span class="n">11</span>งานค้าง</a></li>
+      <li><a href="#goal">โจทย์</a></li>
+      <li><a href="#layers">ภาพรวมระบบ</a></li>
+      <li><a href="#message">เส้นทาง 1 ข้อความ</a></li>
+      <li><a href="#vision">ส่งรูปน้อง / สลิป</a></li>
+      <li><a href="#guard">Guardrails 3 ด่าน</a></li>
+      <li><a href="#rag">RAG ข้อมูลร้าน</a></li>
+      <li><a href="#ui">หน้าเว็บและอวตาร</a></li>
+      <li><a href="#booking">จองคิวและหลังบ้าน</a></li>
+      <li><a href="#folders">โฟลเดอร์</a></li>
+      <li><a href="#api">API endpoints</a></li>
+      <li><a href="#services">บริการภายนอก</a></li>
+      <li><a href="#why">เหตุผลการออกแบบ</a></li>
+      <li><a href="#status">สถานะงาน</a></li>
     </ol>
   </nav>
 
   <main>
     <header class="masthead">
-      <p class="kicker">สรุปสถาปัตยกรรม · feat/landing-ui</p>
-      <h1>Test System — โครงระบบแชตบอต</h1>
-      <p class="lede">
-        แชตบอตภาษาไทยที่รันบน FastAPI + Vercel serverless คุยกับโมเดล Typhoon ผ่าน
-        Chat Completions API แบบ OpenAI-compatible อ่านไฟล์แนบ จำได้หลายบทสนทนา
-        ค้นเว็บมาตอบเองเมื่อถูกถามข้อมูลล่าสุด และมีโหมดสนทนาด้วยเสียง
-      </p>
-      <div class="stack">
-        <span class="chip">FastAPI</span>
-        <span class="chip">Uvicorn</span>
-        <span class="chip">Jinja2 + vanilla JS</span>
-        <span class="chip">SSE streaming</span>
-        <span class="chip">Voice mode (บนเบราว์เซอร์)</span>
-        <span class="chip chip--ext">Typhoon LLM + OCR</span>
-        <span class="chip chip--ext">Gemini vision</span>
-        <span class="chip chip--ext">Tavily search</span>
-        <span class="chip chip--ext">Upstash Redis</span>
-        <span class="chip chip--ext">Vercel</span>
+      <div class="brand">
+        <svg viewBox="0 0 64 64" role="img" aria-label="โลโก้ Hom Hom Grooming">
+          <g stroke="#5c3d2e" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M14 33 12.5 9.5 29 21Z" fill="#e8a840" />
+            <path d="M50 33 51.5 9.5 35 21Z" fill="#e8a840" />
+          </g>
+          <path d="M32 19.5c10.2 0 17.5 6.8 17.5 16.5 0 10.4-7.6 17.5-17.5 17.5S14.5 46.4 14.5 36c0-9.7 7.3-16.5 17.5-16.5Z" fill="#e8a840" stroke="#5c3d2e" stroke-width="2.4" />
+          <path d="M29.6 21.2h4.8c.6 4.4 1.8 8.6 5.4 11.8 3.4 1.6 5.2 4.6 5.2 8 0 6-5.8 10.4-13 10.4S19 47 19 41c0-3.4 1.8-6.4 5.2-8 3.6-3.2 4.8-7.4 5.4-11.8Z" fill="#fffbf3" />
+          <circle cx="24.5" cy="33.5" r="2.1" fill="#5c3d2e" />
+          <circle cx="39.5" cy="33.5" r="2.1" fill="#5c3d2e" />
+          <ellipse cx="32" cy="39.6" rx="3.4" ry="2.5" fill="#5c3d2e" />
+          <path d="M26.8 42.4c1.8 2.2 3.8 2.2 5.2 0 1.4 2.2 3.4 2.2 5.2 0" fill="none" stroke="#5c3d2e" stroke-width="2" stroke-linecap="round" />
+        </svg>
+        <strong style="font-family: Mali, sans-serif; font-size: 1.3rem;">Hom Hom Grooming</strong>
       </div>
+      <h1>โครงระบบแชทบอท “น้องหอม”</h1>
+      <p class="lede">
+        ผู้ช่วยตอบลูกค้าของร้านอาบน้ำ-ตัดขนหมาแมว ตอบราคาจากข้อมูลร้านจริงด้วย RAG ภาษาไทย
+        ประเมินราคาจากรูปน้อง จองคิวพร้อมตรวจสลิปมัดจำ ออกใบจองให้ลูกค้า มีหลังบ้านให้เจ้าของร้านยืนยันคิว
+        และคุยด้วยเสียงผ่านอวตารพนักงาน
+      </p>
+      <ul class="meta">
+        <li>สถานะ ณ 1 ต.ค. 2569</li>
+        <li>branch <code>refactor/folder-structure</code></li>
+        <li>FastAPI บน Vercel</li>
+        <li>เทส 97 ตัวผ่าน</li>
+      </ul>
     </header>
 
-    <section id="overview">
-      <h2><span class="s-num">01</span>ภาพรวม</h2>
-      <p class="section-note">หลักการออกแบบที่ยึดตลอดทั้งโปรเจกต์</p>
-      <p>
-        โค้ดฝั่งเซิร์ฟเวอร์ทั้งหมดอยู่ที่ <code>main.py</code> + <code>routers/</code> +
-        <code>services/</code> เหมือนกันหมดไม่ว่าจะรันในเครื่อง (<code>uvicorn main:app</code>)
-        หรือบน Vercel — ไฟล์ <code>api/index.py</code> เป็นแค่ตัวห่อ import <code>app</code> เข้ามา
-      </p>
-      <ul>
-        <li>
-          <b>ผู้ให้บริการ LLM ถูกแยกออกด้วยชื่อกลางๆ</b> (<code>LLM_BASE_URL</code>,
-          <code>LLM_API_KEY</code>, <code>LLM_MODEL</code>) — สลับจาก Typhoon ไป LM Studio หรือ
-          OpenRouter ได้โดยแก้แค่ <code>.env</code>
-        </li>
-        <li>
-          <b>ไม่มี RAG / vector store</b> — ทั้งเนื้อหาไฟล์แนบและผลค้นเว็บถูกแปลงเป็น
-          "ข้อความ" แล้วเสียบเป็น <code>system</code> message ก่อน history (กลไก
-          <code>context_blocks</code> เดียวกัน)
-        </li>
-        <li>
-          <b>Chat Completions เป็น stateless</b> — เซิร์ฟเวอร์ต้องส่ง history ทั้งก้อนไป
-          ทุกครั้ง ประวัติเก็บฝั่งเราแยกตาม cookie <code>session_id</code>
-        </li>
-        <li>
-          <b>ทุกบริการภายนอกออกแบบให้ "ไม่ล้ม"</b> — Redis ล่ม / Tavily timeout / vision
-          error ล้วนถูก log แล้วทำงานต่อแบบ degraded ไม่โยน 500
-        </li>
-      </ul>
+    <!-- 01 -->
+    <section id="goal">
+      <h2><span class="n">01</span>โจทย์ของร้าน</h2>
+      <p>แชทบอทตอบลูกค้าแทนเจ้าของร้าน ภายใต้เงื่อนไข 3 ข้อ ทุกส่วนของระบบออกแบบมาเพื่อรักษาเงื่อนไขเหล่านี้</p>
+      <div class="cards">
+        <div class="card"><h3>ตอบจากข้อมูลจริง</h3><p>ราคา เวลา นโยบาย มาจาก <code>shop/catalog.json</code> ไฟล์เดียว ห้ามแต่งข้อมูลเอง</p></div>
+        <div class="card"><h3>ใช้เองได้ไม่ต้องสอน</h3><p>ปุ่มคำถามด่วน ส่งรูปแล้วได้ราคาทันที มีสถานะบอกทุกขั้น</p></div>
+        <div class="card"><h3>ไม่ถูกหลอก</h3><p>ส่วนลดปลอม ข้อมูลลูกค้าคนอื่น บริการที่ไม่มี — กันด้วยกฎในโค้ด ไม่ใช่แค่ prompt</p></div>
+      </div>
     </section>
 
-    <section id="map">
-      <h2><span class="s-num">02</span>แผนผังระบบ</h2>
-      <p class="section-note">เบราว์เซอร์คุย same-origin กับ FastAPI ตัวเดียว ซึ่งเป็นตัวเรียกบริการภายนอกทั้งหมด (ไม่มี API key รั่วไปฝั่งหน้าเว็บ)</p>
-      <div class="diagram">
-        <svg viewBox="0 0 820 400" role="img" aria-label="แผนผัง: เบราว์เซอร์ เชื่อมกับ FastAPI บน Vercel ซึ่งเรียก Typhoon, Gemini, Tavily และ Upstash Redis">
+    <!-- 02 -->
+    <section id="layers">
+      <h2><span class="n">02</span>ภาพรวมระบบ</h2>
+      <p>
+        ทุกช่องทาง (หน้าแชท, หน้าอวตาร, LINE) เรียกแกนกลาง <code>chatbot/assistant.py</code> ตัวเดียว
+        จึงผ่าน guardrails, RAG และ prompt ชุดเดียวกันทั้งหมด แต่ละกล่องในรูปคือโฟลเดอร์หรือไฟล์จริงในโค้ด
+      </p>
+      <figure>
+        <svg viewBox="0 0 900 540" role="img" aria-label="ช่องทางทั้งสามเรียก assistant.py ตัวเดียว ซึ่งใช้ vision, rag, guardrails และ llm_client โดยต่อกับ Gemini, Typhoon, Cartesia และ Redis">
           <defs>
-            <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-              <path d="M0 0 L10 5 L0 10 z" fill="var(--faint)" />
+            <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
             </marker>
           </defs>
 
-          <rect class="d-box" x="14" y="146" width="168" height="112" rx="10" />
-          <text class="d-label" x="98" y="180" text-anchor="middle">Browser</text>
-          <text class="d-sub" x="98" y="200" text-anchor="middle">index.html · chat.js</text>
-          <text class="d-sub" x="98" y="215" text-anchor="middle">voice.js (STT/TTS)</text>
-          <text class="d-sub" x="98" y="230" text-anchor="middle">SSE reader</text>
+          <!-- แถว 1: ผู้ใช้ -->
+          <rect class="bx-todo" x="40" y="16" width="190" height="48" rx="12" />
+          <text class="t" x="135" y="37" text-anchor="middle">LINE OA</text>
+          <text class="ts" x="135" y="54" text-anchor="middle">แชท + รูป (ยังไม่ทำ)</text>
+          <rect class="bx" x="255" y="16" width="190" height="48" rx="12" />
+          <text class="t" x="350" y="37" text-anchor="middle">หน้า /</text>
+          <text class="ts" x="350" y="54" text-anchor="middle">landing + หน้าต่างแชท</text>
+          <rect class="bx" x="470" y="16" width="190" height="48" rx="12" />
+          <text class="t" x="565" y="37" text-anchor="middle">หน้า /avatar</text>
+          <text class="ts" x="565" y="54" text-anchor="middle">อวตาร + คุยด้วยเสียง</text>
 
-          <rect class="d-box d-box--core" x="292" y="104" width="234" height="196" rx="12" />
-          <text class="d-label" x="409" y="134" text-anchor="middle">Vercel · FastAPI</text>
-          <text class="d-sub" x="409" y="158" text-anchor="middle">api/index.py → main:app</text>
-          <text class="d-sub" x="409" y="176" text-anchor="middle">routers/chat.py</text>
-          <text class="d-sub" x="409" y="194" text-anchor="middle">services/llm_client · search</text>
-          <text class="d-sub" x="409" y="212" text-anchor="middle">documents · conversation_store</text>
-          <text class="d-sub" x="409" y="244" text-anchor="middle">truststore (corp TLS)</text>
+          <!-- แถว 2: channels/ -->
+          <rect class="bx-todo" x="40" y="116" width="190" height="48" rx="12" />
+          <text class="t" x="135" y="145" text-anchor="middle">line_webhook.py</text>
+          <rect class="bx" x="255" y="116" width="190" height="48" rx="12" />
+          <text class="t" x="350" y="145" text-anchor="middle">web_chat.py</text>
+          <rect class="bx" x="470" y="116" width="190" height="48" rx="12" />
+          <text class="t" x="565" y="145" text-anchor="middle">tts.py</text>
+          <text class="ts" x="24" y="145" text-anchor="end" transform="rotate(-90 24 145)">channels/</text>
 
-          <path class="d-edge" d="M182 196 L292 168" marker-end="url(#arw)" marker-start="url(#arw)" />
-          <text class="d-edge-label" x="237" y="176" text-anchor="middle">HTTPS · SSE</text>
+          <line class="ln-todo" x1="135" y1="64" x2="135" y2="112" marker-end="url(#a1)" />
+          <line class="ln" x1="350" y1="64" x2="350" y2="112" marker-end="url(#a1)" />
+          <text class="tl" x="342" y="93" text-anchor="end">SSE</text>
+          <line class="ln" x1="565" y1="64" x2="565" y2="112" marker-end="url(#a1)" />
+          <text class="tl" x="573" y="93">ข้อความ → เสียง</text>
+          <line class="ln" x1="490" y1="64" x2="430" y2="112" marker-end="url(#a1)" />
+          <text class="tl" x="474" y="100">ถอดเสียงแล้ว</text>
 
-          <rect class="d-box" x="622" y="16" width="184" height="72" rx="10" />
-          <text class="d-label" x="714" y="46" text-anchor="middle">Typhoon</text>
-          <text class="d-sub" x="714" y="65" text-anchor="middle">chat · typhoon-ocr</text>
+          <!-- แถว 3: แกนกลาง -->
+          <rect class="bx-core" x="40" y="214" width="440" height="56" rx="14" />
+          <text class="t" x="260" y="238" text-anchor="middle">chatbot/assistant.py</text>
+          <text class="ts" x="260" y="257" text-anchor="middle">pipeline กลางของทุกช่องทาง</text>
+          <rect class="bx" x="520" y="214" width="140" height="56" rx="12" />
+          <text class="t" x="590" y="238" text-anchor="middle">conversation</text>
+          <text class="t" x="590" y="256" text-anchor="middle">_store</text>
 
-          <rect class="d-box" x="622" y="104" width="184" height="72" rx="10" />
-          <text class="d-label" x="714" y="134" text-anchor="middle">Gemini</text>
-          <text class="d-sub" x="714" y="153" text-anchor="middle">อธิบายรูปภาพ (ถ้าตั้ง)</text>
+          <line class="ln-todo" x1="135" y1="164" x2="135" y2="210" marker-end="url(#a1)" />
+          <line class="ln" x1="350" y1="164" x2="350" y2="210" marker-end="url(#a1)" />
+          <line class="ln" x1="480" y1="242" x2="516" y2="242" marker-end="url(#a1)" />
+          <text class="tl" x="498" y="206" text-anchor="middle">ประวัติ</text>
 
-          <rect class="d-box" x="622" y="192" width="184" height="72" rx="10" />
-          <text class="d-label" x="714" y="222" text-anchor="middle">Tavily</text>
-          <text class="d-sub" x="714" y="241" text-anchor="middle">web search</text>
+          <!-- แถว 4: บริการภายใน -->
+          <rect class="bx" x="40" y="326" width="140" height="60" rx="12" />
+          <text class="t" x="110" y="352" text-anchor="middle">vision/</text>
+          <text class="ts" x="110" y="371" text-anchor="middle">รูปน้อง · สลิป</text>
+          <rect class="bx" x="200" y="326" width="140" height="60" rx="12" />
+          <text class="t" x="270" y="352" text-anchor="middle">rag/</text>
+          <text class="ts" x="270" y="371" text-anchor="middle">ค้นข้อมูลร้าน top 4</text>
+          <rect class="bx" x="360" y="326" width="140" height="60" rx="12" />
+          <text class="t" x="430" y="352" text-anchor="middle">guardrails/</text>
+          <text class="ts" x="430" y="371" text-anchor="middle">3 ด่าน</text>
+          <rect class="bx" x="520" y="326" width="140" height="60" rx="12" />
+          <text class="t" x="590" y="352" text-anchor="middle">llm_client</text>
+          <text class="ts" x="590" y="371" text-anchor="middle">สตรีม + retry</text>
 
-          <rect class="d-box" x="622" y="280" width="184" height="72" rx="10" />
-          <text class="d-label" x="714" y="310" text-anchor="middle">Upstash Redis</text>
-          <text class="d-sub" x="714" y="329" text-anchor="middle">Vercel KV · ประวัติ</text>
+          <line class="ln" x1="110" y1="270" x2="110" y2="322" marker-end="url(#a1)" />
+          <line class="ln" x1="270" y1="270" x2="270" y2="322" marker-end="url(#a1)" />
+          <line class="ln" x1="430" y1="270" x2="430" y2="322" marker-end="url(#a1)" />
+          <line class="ln" x1="470" y1="270" x2="560" y2="322" marker-end="url(#a1)" />
 
-          <path class="d-edge" d="M526 150 C 575 120, 585 80, 622 58" marker-end="url(#arw)" />
-          <path class="d-edge" d="M526 176 C 570 165, 580 150, 622 142" marker-end="url(#arw)" />
-          <path class="d-edge" d="M526 226 C 570 235, 580 240, 622 234" marker-end="url(#arw)" />
-          <path class="d-edge" d="M526 256 C 575 285, 585 300, 622 320" marker-end="url(#arw)" />
+          <!-- แถว 5: ข้อมูล + Gemini -->
+          <rect class="bx-ext" x="40" y="444" width="300" height="52" rx="12" />
+          <text class="t" x="190" y="466" text-anchor="middle">Gemini</text>
+          <text class="ts" x="190" y="484" text-anchor="middle">จำแนกรูปเป็น JSON · embedding 768 มิติ</text>
+          <rect class="bx" x="360" y="444" width="140" height="52" rx="12" />
+          <text class="t" x="430" y="466" text-anchor="middle">shop/</text>
+          <text class="ts" x="430" y="484" text-anchor="middle">catalog.json</text>
+          <rect class="bx" x="520" y="444" width="140" height="52" rx="12" />
+          <text class="t" x="590" y="466" text-anchor="middle">prompts/</text>
+          <text class="ts" x="590" y="484" text-anchor="middle">*.txt</text>
+
+          <line class="ln" x1="110" y1="386" x2="110" y2="440" marker-end="url(#a1)" />
+          <text class="tl" x="118" y="418">จำแนกรูป</text>
+          <line class="ln" x1="270" y1="386" x2="270" y2="440" marker-end="url(#a1)" />
+          <text class="tl" x="278" y="418">embed คำถาม</text>
+          <line class="ln" x1="430" y1="444" x2="430" y2="390" marker-end="url(#a1)" />
+          <text class="tl" x="438" y="418">ราคาจริงไว้เทียบ</text>
+          <line class="ln" x1="590" y1="444" x2="590" y2="390" marker-end="url(#a1)" />
+          <text class="tl" x="598" y="418">system prompt</text>
+
+          <!-- คอลัมน์ขวา: บริการภายนอก -->
+          <rect class="bx-ext" x="720" y="116" width="160" height="48" rx="12" />
+          <text class="t" x="800" y="137" text-anchor="middle">Cartesia</text>
+          <text class="ts" x="800" y="154" text-anchor="middle">เสียงโคลน PCM</text>
+          <rect class="bx-ext" x="720" y="218" width="160" height="48" rx="12" />
+          <text class="t" x="800" y="239" text-anchor="middle">Redis / Vercel KV</text>
+          <text class="ts" x="800" y="256" text-anchor="middle">ประวัติข้าม instance</text>
+          <rect class="bx-ext" x="720" y="332" width="160" height="48" rx="12" />
+          <text class="t" x="800" y="353" text-anchor="middle">Typhoon</text>
+          <text class="ts" x="800" y="370" text-anchor="middle">แชท · judge · OCR</text>
+
+          <line class="ln" x1="660" y1="140" x2="716" y2="140" marker-end="url(#a1)" />
+          <line class="ln" x1="660" y1="242" x2="716" y2="242" marker-end="url(#a1)" />
+          <line class="ln" x1="660" y1="356" x2="716" y2="356" marker-end="url(#a1)" />
         </svg>
-        <div class="legend">
-          <span><span class="sw sw--core"></span> โค้ดของเรา</span>
-          <span><span class="sw sw--ext"></span> บริการภายนอก (REST / OpenAI-compatible)</span>
-        </div>
-      </div>
+        <ul class="legend">
+          <li><i class="l-core"></i>แกนกลาง</li>
+          <li><i></i>ทำแล้ว</li>
+          <li><i class="l-todo"></i>ยังไม่ทำ</li>
+          <li><i class="l-ext"></i>บริการภายนอก (ต้องมี API key)</li>
+        </ul>
+        <figcaption>
+          ช่องทางทำแค่รับ-ส่งข้อความในรูปแบบของตัวเอง ส่วนกฎทั้งหมดอยู่ใต้ <code>assistant.py</code>
+          — LINE OA ที่จะเพิ่มจึงได้ guardrails, RAG และ Vision ชุดเดิมทันทีโดยไม่ต้องเขียนกฎซ้ำ ·
+          ระบบจองคิว (<code>booking/</code>) แยกออกไปและไม่ผ่าน LLM ดูหัวข้อ 08
+        </figcaption>
+      </figure>
     </section>
 
-    <section id="flow">
-      <h2><span class="s-num">03</span>เส้นทางของข้อความหนึ่งครั้ง</h2>
-      <p class="section-note"><code>POST /api/v1/chat/stream</code> — เส้นทางหลักที่หน้าเว็บใช้ ตอบกลับเป็น Server-Sent Events</p>
-      <ol class="flow">
-        <li><b>resolve session</b> <span class="muted">— อ่าน cookie <code>session_id</code> (ไม่มีก็สร้างใหม่ + set-cookie 7 วัน)</span></li>
-        <li><b>โหลด context</b> <span class="muted">— ดึง history + ไฟล์แนบของบทสนทนาที่ active จาก store</span></li>
-        <li><b>เช็คว่าจะค้นเว็บไหม</b> <span class="muted">— <code>_search_should_try()</code> (regex ล้วน ไม่เรียก API)</span></li>
-        <li><b>เปิดสตรีม</b> <span class="muted">— ถ้าจะค้น: ส่ง event <code>{"search":""}</code> ทันที (หน้าเว็บโชว์ "กำลังตรวจสอบข้อมูล…")</span></li>
-        <li><b>วางแผนคำค้น + ยิง Tavily</b> <span class="muted">— <code>_search_run()</code>: fast-path หรือเรียก classifier แล้ว <code>search.run()</code>; สำเร็จ → <code>{"search": q}</code> + <code>{"sources":[…]}</code></span></li>
-        <li><b>เรียก LLM แบบสตรีม</b> <span class="muted">— <code>llm_client.chat_stream(history, message, context_blocks + ผลค้น)</code></span></li>
-        <li><b>ส่ง delta ทีละชิ้น</b> <span class="muted">— <code>{"delta": "…"}</code> ต่อเนื่อง; error กลางทาง → <code>{"error":true,"message":…}</code></span></li>
-        <li><b>ปิด</b> <span class="muted">— <code>{"done":true}</code> (Typhoon ไม่ส่ง <code>[DONE]</code> เอง จึง yield ตอน loop จบ)</span></li>
-        <li><b>บันทึกประวัติ</b> <span class="muted">— เฉพาะเมื่อสตรีมจบสมบูรณ์; กด "หยุด" กลางคัน = ไม่เก็บคำตอบครึ่งๆ</span></li>
-      </ol>
-      <p style="margin-top:22px">
-        <code>POST /api/v1/chat</code> ทำเหมือนกันแต่ไม่สตรีม (รอจนจบแล้วคืน <code>{"reply": …}</code>)
-        — ใช้เป็น fallback / โดยเทสต์ ไม่แสดงชิปแหล่งอ้างอิง
-      </p>
-    </section>
+    <!-- 03 -->
+    <section id="message">
+      <h2><span class="n">03</span>เส้นทางของ 1 ข้อความ</h2>
+      <p>ลูกค้าพิมพ์ “อาบน้ำหมาพันธุ์ปอมเท่าไหร่คะ” ในหน้าต่างแชท ข้อความเดินทางตามนี้</p>
+      <figure>
+        <svg viewBox="0 0 900 300" role="img" aria-label="ข้อความผ่านด่าน 1 แล้วตรวจเจตนาพร้อมกับค้น RAG จากนั้น Typhoon สตรีมคำตอบผ่านด่าน 3 ทีละประโยคก่อนถึงลูกค้า">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
+            </marker>
+            <marker id="a2n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="#c0503a" />
+            </marker>
+          </defs>
 
-    <section id="modules">
-      <h2><span class="s-num">04</span>โมดูลฝั่งเซิร์ฟเวอร์</h2>
-      <p class="section-note">แต่ละไฟล์ทำหน้าที่เดียว คุยกันผ่าน type ง่ายๆ (<code>list[dict]</code>, <code>str</code>)</p>
-      <div class="defs">
-        <div class="def">
-          <div class="def-head"><span class="path">main.py</span></div>
-          <p>สร้าง FastAPI app, inject <code>truststore</code> (แก้ TLS ในเครือข่ายองค์กร), ตั้ง logging กลาง, mount <code>/static</code>, เสิร์ฟ <code>/</code> (Jinja), <code>/health</code>, include <code>chat_router</code>. CORS เปิดเฉพาะเมื่อตั้ง <code>ALLOWED_ORIGINS</code></p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">config.py</span></div>
-          <p>pydantic-settings อ่านจาก <code>.env</code> ตัวเดียว รวมทุกค่า + property คำนวณ: <code>vision_enabled</code>, <code>search_enabled</code>, <code>redis_rest_url/token</code> (รับได้ทั้งชื่อ <code>KV_REST_API_*</code> และ <code>UPSTASH_REDIS_REST_*</code>)</p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">routers/chat.py</span></div>
-          <p>endpoint ทั้งหมดใต้ <code>/api/v1</code> — แชต, สตรีม, reset, ไฟล์แนบ, บทสนทนา (History), <code>/config</code>, <code>/models</code>. จัดการ cookie, clamp ค่า Settings จาก client, ประกอบ <code>context_blocks</code>, และร้อยเส้นทางค้นเว็บเข้ากับสตรีม</p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">services/llm_client.py</span></div>
-          <p>คุย <code>/chat/completions</code> + <code>/models</code> แบบ OpenAI-compatible</p>
-          <ul>
-            <li><code>_build_payload()</code> — ประกอบ messages: system prompt → context_blocks → history → ข้อความใหม่</li>
-            <li>retry อัตโนมัติเมื่อ 429 / 5xx (exponential backoff, เคารพ <code>Retry-After</code>) — สตรีม retry เฉพาะก่อน delta แรก</li>
-            <li>แปลง error เป็นข้อความไทยสุภาพ ไม่หลุด stack trace</li>
-            <li><code>list_models()</code> รองรับทั้ง <code>{"data":[…]}</code> และ list เปล่า (Typhoon), fallback เป็น <code>LLM_MODEL</code></li>
-          </ul>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">services/conversation_store.py</span></div>
-          <p>ABC <code>ConversationStore</code> + <code>InMemory…</code> / <code>Redis…</code> (Upstash REST API). <code>get_store()</code> เลือก backend จาก env ครั้งเดียว — มี KV = เก็บถาวร, ไม่มี = ในหน่วยความจำ process. เมธอด <code>get/set_history</code>, <code>*_attachments</code>, <code>reset</code> ทำงานบนบทที่ active; <code>list/new/activate/delete_conversation</code> สำหรับ History</p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">services/documents.py</span></div>
-          <p>แปลงไฟล์แนบเป็นข้อความ — ไม่มี AI ถ้าไม่จำเป็น</p>
-          <ul>
-            <li>PDF มีข้อความจริง → <code>pymupdf</code> ดึงตรงๆ · หน้าสแกน → render เป็น PNG → <code>typhoon-ocr</code> (ขนานกัน 2)</li>
-            <li>รูปภาพ → OCR + (ถ้าตั้ง <code>VISION_*</code>) Gemini บรรยายภาพ</li>
-            <li>ตัดที่ <code>ATTACHMENT_CONTEXT_CHAR_LIMIT</code> (80k), PDF สูงสุด 12 หน้า, ไฟล์ ≤ 8 MB</li>
-          </ul>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">services/search.py</span></div>
-          <p>ค้นเว็บอัตโนมัติด้วย Tavily — <code>maybe_needs_search()</code>, <code>plan_query()</code>, <code>run()</code>, <code>as_context_block()</code>, <code>sources_payload()</code> (รายละเอียดในหัวข้อ 06)</p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">templates/index.html · static/</span></div>
-          <p>หน้าเดียว 2 ฉาก (<code>#landing</code> / <code>#chat-screen</code>) สลับด้วยทรานสิชัน 3D "พุ่งผ่านพอร์ทัล". <code>chat.js</code> (vanilla, ไม่มี framework) อ่าน SSE ด้วย <code>response.body.getReader()</code>, markdown ผ่าน <code>marked</code> + <code>DOMPurify</code>. โลจิกทรานสิชัน / Settings popover / KV-dot อยู่ใน inline <code>&lt;script&gt;</code> ของ template</p>
-        </div>
-        <div class="def">
-          <div class="def-head"><span class="path">static/js/voice.js</span></div>
-          <p>โหมดสนทนาด้วยเสียง — overlay เต็มจอ (<code>#voice-overlay</code>) + โครงข่ายเซลล์ประสาทบน <code>&lt;canvas&gt;</code>. STT ในเบราว์เซอร์, เรียก <code>/chat/stream</code> เดิม, TTS เป็นเสียงเบราว์เซอร์หรือเซิร์ฟเวอร์เสียงโคลนภายนอกที่ผู้ใช้ตั้ง URL เอง (รายละเอียดหัวข้อ 07). ไม่แตะ backend ของโปรเจกต์นี้</p>
-        </div>
-      </div>
-    </section>
+          <rect class="bx" x="16" y="124" width="104" height="52" rx="12" />
+          <text class="t" x="68" y="146" text-anchor="middle">ลูกค้า</text>
+          <text class="ts" x="68" y="164" text-anchor="middle">POST /chat/stream</text>
 
-    <section id="state">
-      <h2><span class="s-num">05</span>โครงข้อมูลประวัติ</h2>
-      <p class="section-note">1 ก้อนต่อ session เก็บที่คีย์ <code>sess:{session_id}</code> (TTL 7 วัน) — เก็บทุกบทสนทนารวมกัน</p>
-      <pre><code><span class="tok-com"># GET sess:&lt;session_id&gt;  →  JSON:</span>
-{
-  <span class="tok-key">"active"</span>: <span class="tok-key">"a1b2c3d4e5f6"</span>,           <span class="tok-com"># cid ที่กำลังเปิด</span>
-  <span class="tok-key">"order"</span>:  [<span class="tok-key">"a1b2…"</span>, <span class="tok-key">"9f8e…"</span>, …],   <span class="tok-com"># ใหม่สุดอยู่หัว, สูงสุด 15</span>
-  <span class="tok-key">"conv"</span>: {
-    <span class="tok-key">"a1b2c3d4e5f6"</span>: {
-      <span class="tok-key">"title"</span>:       <span class="tok-key">"…"</span>,           <span class="tok-com"># 48 ตัวแรกของข้อความผู้ใช้แรก</span>
-      <span class="tok-key">"updated"</span>:     1735900000,
-      <span class="tok-key">"messages"</span>:    [{<span class="tok-key">"role"</span>, <span class="tok-key">"content"</span>}, …],
-      <span class="tok-key">"attachments"</span>: [{<span class="tok-key">"name"</span>, <span class="tok-key">"kind"</span>, <span class="tok-key">"text"</span>, <span class="tok-key">"meta"</span>}, …]
-    }
-  }
-}</code></pre>
-      <p>
-        <code>_trim()</code> ตัดบทเก่าสุดทิ้งเมื่อเกิน 15 บท หรือเมื่อ blob รวมเกิน ~900 KB.
-        <code>_ensure()</code> กันข้อมูลเพี้ยน — คืน state ที่มี <code>active/order/conv</code> ครบเสมอ
-      </p>
-    </section>
+          <rect class="bx" x="148" y="124" width="120" height="52" rx="12" />
+          <text class="t" x="208" y="146" text-anchor="middle">ด่าน 1 กฎ</text>
+          <text class="ts" x="208" y="164" text-anchor="middle">ยาว · ถี่ · injection</text>
 
-    <section id="search">
-      <h2><span class="s-num">06</span>ค้นเว็บอัตโนมัติ</h2>
-      <p class="section-note">แนวทาง "จำแนก → ค้น → เสียบ context" ไม่ใช่ tool-calling loop — เพื่อให้สตรีมคำตอบทำงานปกติทุกกรณี</p>
-      <h3>2 ด่านต้องผ่านทั้งคู่</h3>
-      <ol class="flow">
-        <li><b>ด่าน heuristic</b> <span class="muted">— <code>maybe_needs_search()</code>: ตัดทักทาย / สั่งเขียน-แปล-สรุป / สมการล้วน / มีไฟล์แนบ ออก แล้วต้องเจอ "สัญญาณ" ข้อมูลสด (<code>_SIGNAL_RE</code>: วันนี้ · ตอนนี้ · ล่าสุด · ราคา · ข่าว · ปี 25xx/20xx · นายก · เปิดตัว · today · price …)</span></li>
-        <li><b>ด่าน classifier</b> <span class="muted">— <code>plan_query()</code>: fast-path ถ้าข้อความขึ้นต้นแบบคำค้นชัด (<code>ข่าว…</code> / <code>ราคา…</code> / <code>พยากรณ์อากาศ…</code>) มิฉะนั้นเรียก LLM 1 ครั้งด้วยโปรโตคอล <code>SEARCH: &lt;คำค้น&gt;</code> / <code>SKIP</code> — ค่าตั้งต้นคือ SKIP</span></li>
-      </ol>
-      <h3>แล้วจึง</h3>
-      <p>
-        <code>run()</code> ยิง <code>POST api.tavily.com/search</code> (<code>search_depth: basic</code>,
-        <code>include_answer: false</code> เพื่อความเร็ว) → <code>as_context_block()</code> จัดผลเป็น
-        <code>[1] ชื่อ / url / snippet</code> พร้อมคำสั่งให้โมเดลอ้างอิง <code>[n]</code> → เสียบเป็น context block
-        เพิ่มจากไฟล์แนบ
-      </p>
-      <p>
-        SSE ที่เพิ่มมาสำหรับหน้าเว็บ: <code>{"search": q}</code> (โชว์แถบสถานะในบับเบิล),
-        <code>{"sources": […]}</code> (ชิปใต้คำตอบ), <code>{"search_done": true}</code>
-        (เคลียร์สถานะเมื่อ classifier ตัดสินไม่ค้น)
-      </p>
-      <p>ปิดทั้งฟีเจอร์ได้ 2 ทาง: ไม่ตั้ง <code>SEARCH_API_KEY</code> (ปิดถาวร) หรือสวิตช์ในหน้า Settings (ต่อผู้ใช้, <code>localStorage["ts.search"]</code>)</p>
-    </section>
+          <rect class="bx" x="304" y="54" width="156" height="52" rx="12" />
+          <text class="t" x="382" y="76" text-anchor="middle">ด่าน 2 judge</text>
+          <text class="ts" x="382" y="94" text-anchor="middle">Typhoon จำแนกเจตนา</text>
+          <rect class="bx" x="304" y="194" width="156" height="52" rx="12" />
+          <text class="t" x="382" y="216" text-anchor="middle">RAG</text>
+          <text class="ts" x="382" y="234" text-anchor="middle">4 ชิ้นที่เกี่ยวที่สุด</text>
+          <text class="th" x="382" y="156" text-anchor="middle">ทำพร้อมกัน</text>
 
-    <section id="voice">
-      <h2><span class="s-num">07</span>โหมดสนทนาด้วยเสียง</h2>
-      <p class="section-note">ปุ่ม 🎙️ ในแถบพิมพ์ → overlay เต็มจอ · ช่อง "เสียงพูด" เดียวเลือกได้ทั้งเสียงโคลน Cartesia (ใช้เครดิต, ผ่าน backend) หรือเสียง <code>speechSynthesis</code> ของเบราว์เซอร์ (ฟรี, fallback อัตโนมัติเมื่อ Cartesia ล้มเหลว/ไม่ได้ตั้งค่า)</p>
-      <div class="table-scroll">
+          <rect class="bx-core" x="500" y="124" width="124" height="52" rx="12" />
+          <text class="t" x="562" y="146" text-anchor="middle">Typhoon</text>
+          <text class="ts" x="562" y="164" text-anchor="middle">สตรีมคำตอบ</text>
+
+          <rect class="bx" x="654" y="124" width="120" height="52" rx="12" />
+          <text class="t" x="714" y="146" text-anchor="middle">ด่าน 3</text>
+          <text class="ts" x="714" y="164" text-anchor="middle">ตรวจทีละประโยค</text>
+
+          <rect class="bx" x="804" y="124" width="84" height="52" rx="12" />
+          <text class="t" x="846" y="146" text-anchor="middle">หน้าจอ</text>
+          <text class="ts" x="846" y="164" text-anchor="middle">+ ชิปอ้างอิง</text>
+
+          <line class="ln" x1="120" y1="150" x2="144" y2="150" marker-end="url(#a2)" />
+          <path class="ln" d="M268 150 H286 V80 H300" marker-end="url(#a2)" />
+          <path class="ln" d="M286 150 V220 H300" marker-end="url(#a2)" />
+          <path class="ln" d="M460 80 H480 V150 H496" marker-end="url(#a2)" />
+          <path class="ln" d="M460 220 H480 V150" />
+          <line class="ln" x1="624" y1="150" x2="650" y2="150" marker-end="url(#a2)" />
+          <line class="ln" x1="774" y1="150" x2="800" y2="150" marker-end="url(#a2)" />
+
+          <!-- ทางออกเมื่อไม่ผ่าน -->
+          <line class="ln-no" x1="208" y1="176" x2="208" y2="262" marker-end="url(#a2n)" />
+          <text class="tn" x="208" y="282" text-anchor="middle">ไม่ผ่าน → ปฏิเสธทันที</text>
+          <line class="ln-no" x1="382" y1="54" x2="382" y2="24" marker-end="url(#a2n)" />
+          <text class="tn" x="392" y="20">ไม่ SAFE → ปฏิเสธ ไม่เรียก LLM</text>
+          <line class="ln-no" x1="714" y1="176" x2="714" y2="262" marker-end="url(#a2n)" />
+          <text class="tn" x="714" y="282" text-anchor="middle">ประโยคไม่ผ่าน → แทนด้วย fallback</text>
+        </svg>
+        <figcaption>
+          ด่าน 2 กับ RAG ยิงพร้อมกัน (<code>asyncio.gather</code>) จึงไม่เพิ่มเวลารอ ·
+          ด่าน 3 ปล่อยเฉพาะประโยคที่ตรวจแล้วออกไปทาง SSE ถ้าเจอราคาหรือส่วนลดที่ไม่มีใน catalog จะส่ง
+          <code>{"replace": fallback}</code> แทนทั้งคำตอบ · ประวัติถูกบันทึกเฉพาะเมื่อสตรีมจบครบ
+        </figcaption>
+      </figure>
+
+      <h3>ลำดับข้อความที่ส่งให้ Typhoon</h3>
+      <div class="table-wrap">
         <table>
-          <thead><tr><th>ชิ้นส่วน</th><th>ใช้อะไร</th></tr></thead>
+          <thead><tr><th>ลำดับ</th><th>บทบาท</th><th>เนื้อหา</th></tr></thead>
           <tbody>
-            <tr><td>เสียง → ข้อความ</td><td>Web Speech API (<code>SpeechRecognition</code>, <code>th-TH</code>) — <strong>Chrome / Edge / Chrome-Android</strong> เท่านั้น (เบราว์เซอร์อื่นขึ้นข้อความว่าไม่รองรับ)</td></tr>
-            <tr><td>สมอง</td><td><code>/api/v1/chat/stream</code> เดิม — ประวัติ / ค้นเว็บ / ค่า Settings ใช้ต่อได้หมด</td></tr>
-            <tr><td>ข้อความ → เสียง</td><td>เลือกจากช่องเดียว <code>&lt;select id="opt-voice"&gt;</code> (<code>localStorage["ts.voice"]</code>) — optgroup "เสียงโคลน (Cartesia)" มาจาก `CARTESIA_VOICES` ที่ต้น <code>voice.js</code> (ค่า option = <code>cartesia:&lt;voice id&gt;</code>) ต่อด้วยเสียง <code>speechSynthesis</code> ของเบราว์เซอร์ (เสียงไทยขึ้นก่อน — รายชื่อมาจาก OS)<br><b>สตรีมทีละท่อน</b> เหมือนกันทั้งสองทาง: ตัดคำตอบเป็นท่อน (ท่อนแรกตัดไวสุด ~40 ตัวอักษร, ถัดไปตัดท้ายประโยคหรือทุก 160 ตัวอักษร) ยิงคำขอ TTS ทันทีที่ตัดท่อนได้ระหว่าง LLM ยังพิมพ์อยู่ (prefetch ล่วงหน้าได้สูงสุด 2 ท่อน) แล้วต่อคิวเล่นแบบไม่มีช่องว่างเวลา (gapless) บน <code>AudioContext</code> เดียว พร้อม fade 10ms ที่รอยต่อระหว่างประโยค (<code>scheduleBuffer()</code> — กันเสียง "ตึ๊ด" คลิกตรงขอบที่มาจากคนละ synthesis call)<br>เลือกเสียงโคลน → สตรีม PCM 24kHz จาก <code>POST /api/v1/tts/stream</code> (backend proxy คีย์ Cartesia ไว้ฝั่งเซิร์ฟเวอร์ ดู <code>routers/tts.py</code>); ท่อนไหนล้มเหลว → fallback <code>speechSynthesis</code> ทันที (ท่อนที่เหลือของคำตอบนี้ใช้เบราว์เซอร์ต่อ กันสลับเสียงไปมา)</td></tr>
-            <tr><td>ภาพ</td><td>โครงข่ายเซลล์ประสาทบน <code>&lt;canvas&gt;</code> — ขยับตามระดับเสียงจริงจากไมค์ (<code>AnalyserNode</code>) ตอนฟัง; ตอนพูดด้วยเสียงโคลนป้อน RMS จาก <code>AnalyserNode</code> ที่ต่อรวมทุกท่อนในคิวเดียว ทำให้พัลส์ตรงกับคำพูดจริงตลอดทั้งคำตอบ (เสียงเบราว์เซอร์ยังใช้พัลส์จาก <code>onboundary</code>), นิ่งเมื่อ <code>prefers-reduced-motion</code></td></tr>
-          </tbody>
-        </table>
-      </div>
-      <h3>ลูปสนทนา (state machine ใน voice.js)</h3>
-      <ol class="flow">
-        <li><b>listening</b> <span class="muted">— <code>SpeechRecognition</code> เก็บเสียง; ผลชั่วคราวโชว์เป็นคำบรรยาย</span></li>
-        <li><b>thinking</b> <span class="muted">— เมื่อได้ผลสุดท้าย → POST <code>/chat/stream</code> (พร้อม <code>chatOptions()</code> + <code>voice: true</code>) อ่าน SSE; ทุกครั้งที่ตัดท่อนคำตอบได้ → <code>enqueueSpeech()</code> ทันที ไม่รอสตรีมจบ</span></li>
-        <li><b>speaking</b> <span class="muted">— <code>pumpSpeakQueue()</code> ดึงท่อนถัดไปมาพูดทีละท่อน (เสียงโคลน: <code>speakCartesiaChunk()</code> → <code>scheduleBuffer()</code> ต่อคิว gapless / เสียงเบราว์เซอร์: <code>speakBrowserChunk()</code>) จนกว่าคิวจะว่างและสตรีมจบ</span></li>
-        <li><b>→ listening</b> <span class="muted">— ท่อนสุดท้ายเล่นจบ (<code>source.onended</code> / <code>utterance.onend</code>) แล้วไม่มีท่อนค้าง → เริ่มฟังใหม่อัตโนมัติ</span></li>
-      </ol>
-      <p>
-        แตะที่วงกลม = พูดแทรก (<code>speakSession++</code> ทำให้งาน async ของคิวเก่าทั้งหมดเห็นว่าถูกยกเลิก แล้ว
-        <code>stopAllTts()</code> หยุดทุก source ที่กำลังเล่น/รอเล่น + abort คำขอ <code>/tts</code> ที่ค้างอยู่ แล้วกลับไปฟัง) ·
-        ปุ่ม ✕ หรือ <code>Esc</code> = ปิด overlay แล้วเรียก <code>window.voiceSyncChat</code>
-        (เพิ่มใน <code>chat.js</code>) เพื่อรีเฟรชแชต + รายการบทสนทนา
-      </p>
-      <p>ต้องเป็น <strong>HTTPS</strong> (Vercel เป็นอยู่แล้ว) ไมโครโฟนถึงจะใช้ได้ · คำบรรยายสลับเปิด/ปิดได้ (<code>localStorage["ts.captions"]</code>)</p>
-    </section>
-
-    <section id="api">
-      <h2><span class="s-num">08</span>Endpoint</h2>
-      <p class="section-note">ทั้งหมดขึ้นต้น <code>/api/v1</code> · ผูก session ด้วย cookie <code>session_id</code></p>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Method + path</th><th>ทำอะไร</th></tr></thead>
-          <tbody>
-            <tr><td><code>POST /chat/stream</code></td><td>แชตแบบสตรีม (SSE) — เส้นทางหลัก</td></tr>
-            <tr><td><code>POST /chat</code></td><td>แชตแบบไม่สตรีม คืน <code>{"reply"}</code></td></tr>
-            <tr><td><code>POST /chat/reset</code></td><td>ล้างเนื้อหาบทที่ active (ไม่ออก session ใหม่)</td></tr>
-            <tr><td><code>GET /history</code></td><td>ข้อความของบทที่ active (โหลดตอนเปิดหน้า)</td></tr>
-            <tr><td><code>GET /conversations</code></td><td>รายการบทสนทนาทั้งหมด (id, title, updated, count, active)</td></tr>
-            <tr><td><code>POST /conversations</code></td><td>เริ่มบทใหม่ ("แชตใหม่")</td></tr>
-            <tr><td><code>POST /conversations/{cid}/activate</code></td><td>สลับไปบทนั้น คืน messages + attachments</td></tr>
-            <tr><td><code>DELETE /conversations/{cid}</code></td><td>ลบบทสนทนา</td></tr>
-            <tr><td><code>GET/POST /attachments</code>, <code>DELETE /attachments/{i}</code></td><td>รายการ / อัปโหลด / ลบไฟล์แนบของบทที่ active</td></tr>
-            <tr><td><code>GET /config</code></td><td>ค่าตั้งต้นหน้า Settings: <code>temperature</code>, <code>max_tokens</code>, <code>model</code>, <code>kv</code>, <code>web_search</code></td></tr>
-            <tr><td><code>GET /tts/config</code></td><td>โหมดเสียง — <code>{"enabled"}</code> บอกว่าตั้งค่า Cartesia ไว้ไหม (ไม่หลุด API key)</td></tr>
-            <tr><td><code>POST /tts/stream</code></td><td>โหมดเสียง — proxy ไป Cartesia เก็บ API key ไว้ฝั่งเซิร์ฟเวอร์เท่านั้น รับ <code>{"text","voice_id"?}</code> สตรีม PCM 24kHz mono กลับ (ดู <code>routers/tts.py</code>) — ไม่ผูก <code>session_id</code></td></tr>
-            <tr><td><code>GET /models</code></td><td>proxy รายชื่อโมเดล (ไม่หลุด API key)</td></tr>
-            <tr><td><code>GET /health</code></td><td>เช็คว่าเซิร์ฟเวอร์ยังรัน (นอก <code>/api/v1</code>)</td></tr>
+            <tr><td>1</td><td>system</td><td><code>prompts/chat_system.txt</code>: บทบาท, แหล่งข้อมูล 3 แหล่ง, ต้องทำ 10 ข้อ, ห้ามทำ 8 ข้อ, ข้อมูลหลักร้าน</td></tr>
+            <tr><td>2</td><td>system</td><td>“ข้อมูลร้านที่ค้นได้” — ผลวิเคราะห์รูป (ถ้ามี) + 4 ชิ้นจาก RAG</td></tr>
+            <tr><td>3</td><td>system</td><td><code>voice_hint.txt</code> เฉพาะหน้าอวตาร (ตอบสั้น ตัวเลขเป็นคำอ่านง่าย)</td></tr>
+            <tr><td>4</td><td>user / assistant</td><td>ประวัติของ session นี้</td></tr>
+            <tr><td>5</td><td>system</td><td>ข้อความจากไฟล์แนบ (PDF / OCR) — วางหลังประวัติ ชื่อไฟล์ถูกซ่อน</td></tr>
+            <tr><td>6</td><td>user</td><td>ข้อความใหม่</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <section id="deploy">
-      <h2><span class="s-num">09</span>Deploy</h2>
-      <p class="section-note">Vercel Python serverless · repo <code>github.com/Myname30275/chatbot-typhoon</code> (private)</p>
-      <ul>
-        <li><code>api/index.py</code> = entrypoint เดียว — เพิ่ม project root เข้า <code>sys.path</code> แล้ว <code>from main import app</code></li>
-        <li>
-          <code>vercel.json</code> <b>ต้องเป็นฟอร์แมต <code>builds</code> / <code>routes</code></b> —
-          ฟอร์แมตใหม่ (<code>functions</code> / <code>rewrites</code>) จะ rewrite ทุก path ไป
-          <code>/api/index</code> ทำให้ FastAPI routing พังทั้งหน้า (เจอ 404/ขาว)
-        </li>
-        <li><code>maxDuration</code> ตั้งใน Dashboard (Settings → Functions → 60s) ไม่ใช่ใน <code>vercel.json</code> — จำเป็นเพราะ OCR หลายหน้า และรอบที่ค้นเว็บใช้เวลาเกิน default 10s</li>
-        <li>แก้ env ต้อง <b>Redeploy</b> ถึงจะมีผล</li>
-        <li>สาขา <code>feat/landing-ui</code> อยู่ใน Vercel Preview — ยังไม่ merge เข้า <code>main</code> / production</li>
+    <!-- 04 -->
+    <section id="vision">
+      <h2><span class="n">04</span>ส่งรูปน้อง / สลิป</h2>
+      <p>รูปไม่เข้า LLM โดยตรง Gemini แปลงรูปเป็นข้อมูลโครงสร้าง แล้ว<strong>โค้ด</strong>เป็นคนคิดราคาและเขียนคำตอบแรก</p>
+      <figure>
+        <svg viewBox="0 0 900 250" role="img" aria-label="รูปถูกแปลงเป็น JSON ด้วย Gemini ผ่านการกรองฟิลด์ แล้วรูปสัตว์ได้ราคาจาก pricing.quote ส่วนสลิปถูกเทียบยอดมัดจำ คำตอบแรกสร้างด้วยโค้ด">
+          <defs>
+            <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
+            </marker>
+          </defs>
+          <rect class="bx" x="16" y="96" width="110" height="56" rx="12" />
+          <text class="t" x="71" y="119" text-anchor="middle">อัปโหลดรูป</text>
+          <text class="ts" x="71" y="138" text-anchor="middle">POST /attachments</text>
+
+          <rect class="bx-ext" x="156" y="96" width="140" height="56" rx="12" />
+          <text class="t" x="226" y="119" text-anchor="middle">Gemini</text>
+          <text class="ts" x="226" y="138" text-anchor="middle">pet / slip / other</text>
+
+          <rect class="bx" x="326" y="96" width="140" height="56" rx="12" />
+          <text class="t" x="396" y="119" text-anchor="middle">กรอง JSON</text>
+          <text class="ts" x="396" y="138" text-anchor="middle">whitelist · ตัดความยาว</text>
+
+          <rect class="bx" x="510" y="24" width="170" height="56" rx="12" />
+          <text class="t" x="595" y="47" text-anchor="middle">pricing.quote()</text>
+          <text class="ts" x="595" y="66" text-anchor="middle">ชนิด · ไซส์ · ขนพัน</text>
+          <rect class="bx" x="510" y="168" width="170" height="56" rx="12" />
+          <text class="t" x="595" y="191" text-anchor="middle">เทียบสลิป</text>
+          <text class="ts" x="595" y="210" text-anchor="middle">ยอด 50 บาท · ชื่อบัญชีร้าน</text>
+
+          <rect class="bx-hl" x="720" y="96" width="164" height="56" rx="12" />
+          <text class="t" x="802" y="119" text-anchor="middle">คำตอบแรกจากโค้ด</text>
+          <text class="ts" x="802" y="138" text-anchor="middle">บันทึกลงประวัติ</text>
+
+          <line class="ln" x1="126" y1="124" x2="152" y2="124" marker-end="url(#a3)" />
+          <line class="ln" x1="296" y1="124" x2="322" y2="124" marker-end="url(#a3)" />
+          <path class="ln" d="M466 124 H488 V52 H506" marker-end="url(#a3)" />
+          <path class="ln" d="M488 124 V196 H506" marker-end="url(#a3)" />
+          <text class="tl" x="494" y="92">สัตว์</text>
+          <text class="tl" x="494" y="164">สลิป</text>
+          <path class="ln" d="M680 52 H700 V124 H716" marker-end="url(#a3)" />
+          <path class="ln" d="M680 196 H700 V124" />
+        </svg>
+        <figcaption>
+          ข้อความที่ซ่อนในรูปอาจเป็นคำสั่งแฝง ทุกฟิลด์จึงถูก whitelist และตัดให้สั้น ·
+          คำถามต่อจากนั้นใช้ผลวิเคราะห์เป็นข้อมูลชิ้นแรก และตัดตารางราคาทุกไซส์ออก บอทจึงตอบราคาของน้องในรูป ·
+          สลิปตรงยอดก็ยังไม่ยืนยันคิว แอดมินเป็นผู้ยืนยัน · Gemini ติด 429/503 จะสลับไปโมเดลสำรอง <code>gemini-flash-lite-latest</code>
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 05 -->
+    <section id="guard">
+      <h2><span class="n">05</span>Guardrails 3 ด่าน (ไม่ต้องใช้ key เพิ่ม)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ด่าน</th><th>ตรวจอะไร</th><th>ถ้าไม่ผ่าน</th></tr></thead>
+          <tbody>
+            <tr><td>1 กฎ (<code>input_rules.py</code>)</td><td>≤ 1000 ตัวอักษร, ≤ 15 ข้อความ/นาที/session, <code>blocklist.txt</code> (แก้แล้วมีผลทันที), รูปแบบ prompt injection — ไม่เรียก API</td><td>ตอบปฏิเสธภาษาไทยตามหมวด ไม่บันทึกประวัติ</td></tr>
+            <tr><td>2 judge (<code>judge.py</code>)</td><td>Typhoon จำแนก SAFE / INJECTION / PRIVACY / HARMFUL ตาม <code>prompts/guard_judge.txt</code> — รันพร้อม RAG</td><td>ปฏิเสธโดยไม่เรียก LLM ตอบ · ตัวตรวจล่ม = ปล่อยผ่าน (ตั้ง <code>GUARD_JUDGE_FAIL_CLOSED=true</code> เพื่อปฏิเสธแทน)</td></tr>
+            <tr><td>3 ขาออก (<code>output_guard.py</code>)</td><td>ทีละประโยค: ยอดบาทต้องมีใน catalog (หรือผลรวม 1–3 รายการ, หรือหลังลด 10%), % ต้องมีจริง, ห้ามเบอร์/อีเมล/เลขบัตรที่ลูกค้าไม่ได้ให้เอง, ห้ามหลุดกฎภายใน</td><td>แทนคำตอบด้วย fallback ของร้าน</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h3>ความเสี่ยงตามโจทย์ร้าน</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ลูกค้าพยายาม</th><th>สิ่งที่กันไว้</th></tr></thead>
+          <tbody>
+            <tr><td>ขอส่วนลดที่ไม่มี</td><td>ราคามาจาก catalog เท่านั้น · prompt ต้องทำข้อ 8 · ด่าน 3 บล็อกตัวเลขที่ไม่มีจริง</td></tr>
+            <tr><td>ขอข้อมูลลูกค้าคนอื่น</td><td>ประวัติแยกตาม session บอทเข้าถึงข้อมูลคนอื่นไม่ได้เลย · ด่าน 2 PRIVACY</td></tr>
+            <tr><td>ขอบริการที่ร้านไม่มี</td><td>รายการ <code>not_offered</code> · prompt ให้ปฏิเสธพร้อมยกตัวอย่างชัดเจน</td></tr>
+            <tr><td>ถามอาการป่วย / ยา</td><td>แนะนำพบสัตวแพทย์ ห้ามวินิจฉัย</td></tr>
+            <tr><td>“ลืมคำสั่งเดิม”, อ้างเป็นผู้จัดการ</td><td>ด่าน 1 regex + ด่าน 2 INJECTION · ด่าน 3 ตรวจการหลุดกฎภายใน</td></tr>
+            <tr><td>ส่งสลิปปลอม</td><td>บอทไม่ยืนยันการชำระเงินเอง แอดมินเป็นผู้ยืนยัน</td></tr>
+            <tr><td>ใช้สลิปใบเดิมจองหลายคิว</td><td>เลขอ้างอิงสลิปเก็บด้วย <code>SET NX</code> — ใบเดิมใช้ซ้ำไม่ได้</td></tr>
+            <tr><td>จองชนกันในช่องเดียว</td><td>ตัวนับ <code>INCR</code> แบบ atomic เกิน 2 คิวได้ 409</td></tr>
+            <tr><td>ดูใบจองของคนอื่น</td><td>ผูกกับ session คนอื่นได้ 404 · เบอร์บนใบจองปิดกลาง</td></tr>
+            <tr><td>เดารหัสหลังบ้าน</td><td>5 ครั้ง/นาที/IP · cookie ลงลายเซ็น HMAC · SameSite=Strict</td></tr>
+            <tr><td>ราคาหน้าร้านไม่ตรงกับที่แจ้ง</td><td>ใบจองไม่มีราคา · นโยบายชั่งน้ำหนักหน้าร้านอยู่ในคลังความรู้</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section id="rag">
+      <h2><span class="n">06</span>RAG ข้อมูลร้าน</h2>
+      <ul class="plain">
+        <li><strong>คลังความรู้:</strong> <code>shop/catalog.json</code> (บริการ 8, บริการเสริม 4, รับ-ส่ง 2, แพ็กเกจ, สินค้า 3), <code>policies.md</code>, <code>faq.md</code> (10 ข้อ) → แบ่งตามความหมายได้ 29 ชิ้น (บริการละชิ้น ราคาทุกไซส์จึงไม่ถูกหั่นกลางตาราง)</li>
+        <li><strong>index:</strong> <code>python -m rag.build_index</code> สร้าง embedding ล่วงหน้า (Gemini <code>gemini-embedding-001</code>, 768 มิติ) เก็บใน <code>rag/index.json</code> — ไม่ต้องมี vector DB</li>
+        <li><strong>การค้น:</strong> 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram (2–3 ตัวอักษร ไม่ต้องตัดคำไทย) · คำค้น = คำถามก่อนหน้า 1 ข้อความ + คำถามใหม่ · เอา 4 ชิ้นบนสุด</li>
+        <li><strong>กันข้อมูลเก่า:</strong> index เก็บ hash ของข้อมูลร้าน ถ้าแก้ <code>shop/</code> แล้วลืม build ใหม่ ระบบจะไม่ใช้ index เก่า แต่ค้นแบบ TF-IDF จากข้อมูลล่าสุดแทน (Gemini ล่มก็ใช้ทางนี้)</li>
+        <li><strong>ผลทดสอบ:</strong> hit@4 = 16/16 คำถาม (<code>docs/test-log.md</code>)</li>
       </ul>
     </section>
 
-    <section id="env">
-      <h2><span class="s-num">10</span>Environment variables</h2>
-      <p class="section-note"><code>.env</code> ถูก gitignore — บน Vercel ตั้งใน Settings → Environment Variables</p>
-      <div class="table-scroll">
+    <!-- 07 -->
+    <section id="ui">
+      <h2><span class="n">07</span>หน้าเว็บและอวตาร</h2>
+      <div class="cards">
+        <div class="card"><h3>หน้า /</h3><p>หัวเรื่อง + ภาพหมา 3 ตัว, ปุ่ม “ส่งรูปน้องให้ประเมินราคา”, ป้ายราคาตามไซส์ (render จาก catalog.json), วิธีจอง 3 ขั้น, บริการที่ร้านไม่มี, ติดต่อร้าน</p></div>
+        <div class="card"><h3>หน้าต่างแชท</h3><p>ปุ่มลอยมุมขวาล่าง → แผงเลื่อนออกจากขวา (มือถือเต็มจอ) · ทักทาย + คำถามด่วน 5 ปุ่ม · ส่งรูปเห็นภาพย่อ · ชิป “ข้อมูลจากร้าน”</p></div>
+        <div class="card"><h3>ป๊อปอัปจองคิว + ใบจอง</h3><p>3 ขั้น: ชื่อน้อง/เจ้าของ/เบอร์ → เลือกช่องเวลาที่ว่าง → แนบสลิป · ได้ใบจองในแชท (ไม่มีราคา) + QR + บันทึกเป็นรูป</p></div>
+        <div class="card"><h3>หน้า /admin</h3><p>หลังบ้านเจ้าของร้าน: ตารางคิวรายสัปดาห์ ปฏิทินรายเดือน ค้นเลขจอง ดูรูปน้อง/สลิป กดยืนยัน มาแล้ว หรือยกเลิก</p></div>
+        <div class="card"><h3>หน้า /avatar</h3><p>พนักงาน VRM ยืนหลังเคาน์เตอร์ตั้งแต่เปิดหน้า · ท่า Idle · ปากขยับตามเสียงจริง · คำบรรยาย · เลือกเสียง Cartesia ได้ 6 เสียง</p></div>
+      </div>
+      <h3>สถานะที่ UI บอกลูกค้า</h3>
+      <p>
+        แชท: พร้อมตอบ · กำลังพิมพ์… (หัวน้องหอมเอียง) · กำลังดูรูปน้อง… (หัวผงก) · คำตอบถูกปฏิเสธ (บับเบิลเส้นประ) ·
+        error พร้อมปุ่ม “ส่งอีกครั้ง” · ปุ่มหยุดระหว่างตอบ<br />
+        อวตาร: กำลังโหลด · กำลังฟัง (ขอบเวทีฟ้า) · กำลังคิด · กำลังพูด · โหลดตัวละครไม่สำเร็จ · เบราว์เซอร์ไม่มีเสียงไทย
+      </p>
+
+      <h3>ลูปคุยด้วยเสียง (<code>voice.js</code>)</h3>
+      <figure>
+        <svg viewBox="0 0 760 200" role="img" aria-label="โหมดเสียงวนจากฟังไปคิดไปพูดแล้วกลับมาฟัง ลูกค้าแตะตัวละครเพื่อพูดแทรกได้">
+          <defs>
+            <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
+            </marker>
+          </defs>
+          <rect class="bx" x="30" y="70" width="190" height="60" rx="30" />
+          <text class="t" x="125" y="96" text-anchor="middle">กำลังฟัง</text>
+          <text class="ts" x="125" y="115" text-anchor="middle">Web Speech th-TH</text>
+          <rect class="bx" x="285" y="70" width="190" height="60" rx="30" />
+          <text class="t" x="380" y="96" text-anchor="middle">กำลังคิด</text>
+          <text class="ts" x="380" y="115" text-anchor="middle">/chat/stream (voice)</text>
+          <rect class="bx-core" x="540" y="70" width="190" height="60" rx="30" />
+          <text class="t" x="635" y="96" text-anchor="middle">กำลังพูด</text>
+          <text class="ts" x="635" y="115" text-anchor="middle">Cartesia ทีละท่อน</text>
+
+          <line class="ln" x1="220" y1="100" x2="281" y2="100" marker-end="url(#a4)" />
+          <text class="tl" x="250" y="90" text-anchor="middle">พูดจบ</text>
+          <line class="ln" x1="475" y1="100" x2="536" y2="100" marker-end="url(#a4)" />
+          <text class="tl" x="505" y="90" text-anchor="middle">ท่อนแรก</text>
+          <path class="ln" d="M635 130 V168 H125 V134" marker-end="url(#a4)" />
+          <text class="tl" x="380" y="186" text-anchor="middle">เล่นเสียงครบ → ฟังต่อ</text>
+          <path class="ln" d="M635 70 V32 H125 V66" marker-end="url(#a4)" />
+          <text class="tl" x="380" y="24" text-anchor="middle">ลูกค้าแตะตัวละคร → หยุดพูด ฟังใหม่</text>
+        </svg>
+        <figcaption>
+          คำตอบถูกตัดเป็นท่อน (ท่อนแรกสั้นให้เสียงเริ่มเร็ว) แล้วยิง <code>/api/v1/tts/stream</code> ล่วงหน้า 2 ท่อน
+          เล่นต่อกันไม่มีช่องว่าง · ระดับเสียงถูกส่งให้อวตารขยับปาก · ไม่ได้ตั้ง Cartesia จะใช้เสียงไทยของเบราว์เซอร์แทน
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- 08 -->
+    <section id="booking">
+      <h2><span class="n">08</span>จองคิวและหลังบ้าน</h2>
+      <p>
+        จองผ่านป๊อปอัปในแชท ไม่ให้บอทเก็บข้อมูลจากบทสนทนา ทุกขั้นเป็นโค้ด (ไม่ผ่าน LLM) และถ้าขั้นไหนไม่ผ่าน
+        ช่องเวลาที่กันไว้จะถูกคืนทันที ลูกค้าแก้แล้วส่งใหม่ได้โดยข้อมูลที่กรอกไม่หาย
+      </p>
+      <figure>
+        <svg viewBox="0 0 900 360" role="img" aria-label="การจองผ่านการตรวจฟอร์ม กันช่องเวลา ตรวจสลิปด้วย Gemini และกันสลิปซ้ำ ก่อนออกใบจองสถานะรอร้านยืนยัน ขั้นที่ไม่ผ่านจะคืนช่องเวลา เจ้าของร้านยืนยันคิวจากหลังบ้าน">
+          <defs>
+            <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
+            </marker>
+            <marker id="a5n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="#c0503a" />
+            </marker>
+          </defs>
+
+          <rect class="bx" x="16" y="124" width="112" height="56" rx="12" />
+          <text class="t" x="72" y="147" text-anchor="middle">ป๊อปอัป 3 ขั้น</text>
+          <text class="ts" x="72" y="166" text-anchor="middle">ย่อรูปในเบราว์เซอร์</text>
+
+          <rect class="bx" x="156" y="124" width="112" height="56" rx="12" />
+          <text class="t" x="212" y="147" text-anchor="middle">ตรวจฟอร์ม</text>
+          <text class="ts" x="212" y="166" text-anchor="middle">ชื่อ เบอร์ ช่อง รูป</text>
+
+          <rect class="bx" x="296" y="124" width="120" height="56" rx="12" />
+          <text class="t" x="356" y="147" text-anchor="middle">กันช่องเวลา</text>
+          <text class="ts" x="356" y="166" text-anchor="middle">INCR ≤ 2 คิว/ช่อง</text>
+
+          <rect class="bx-ext" x="444" y="124" width="130" height="56" rx="12" />
+          <text class="t" x="509" y="147" text-anchor="middle">ตรวจสลิป</text>
+          <text class="ts" x="509" y="166" text-anchor="middle">Gemini → โค้ดเทียบ</text>
+
+          <rect class="bx" x="602" y="124" width="120" height="56" rx="12" />
+          <text class="t" x="662" y="147" text-anchor="middle">กันสลิปซ้ำ</text>
+          <text class="ts" x="662" y="166" text-anchor="middle">SET NX เลขอ้างอิง</text>
+
+          <rect class="bx-hl" x="750" y="124" width="134" height="56" rx="12" />
+          <text class="t" x="817" y="147" text-anchor="middle">ใบจอง</text>
+          <text class="ts" x="817" y="166" text-anchor="middle">รอร้านยืนยัน</text>
+          <text class="th" x="817" y="108" text-anchor="middle">ไม่มีราคาบนใบจอง</text>
+
+          <line class="ln" x1="128" y1="152" x2="152" y2="152" marker-end="url(#a5)" />
+          <line class="ln" x1="268" y1="152" x2="292" y2="152" marker-end="url(#a5)" />
+          <line class="ln" x1="416" y1="152" x2="440" y2="152" marker-end="url(#a5)" />
+          <line class="ln" x1="574" y1="152" x2="598" y2="152" marker-end="url(#a5)" />
+          <line class="ln" x1="722" y1="152" x2="746" y2="152" marker-end="url(#a5)" />
+          <text class="th" x="72" y="108" text-anchor="middle">POST /api/v1/booking</text>
+
+          <line class="ln-no" x1="212" y1="180" x2="212" y2="232" marker-end="url(#a5n)" />
+          <text class="tn" x="212" y="252" text-anchor="middle">422 บอกช่องที่ผิด</text>
+          <line class="ln-no" x1="356" y1="180" x2="356" y2="232" marker-end="url(#a5n)" />
+          <text class="tn" x="356" y="252" text-anchor="middle">409 ช่องเพิ่งเต็ม</text>
+          <line class="ln-no" x1="509" y1="180" x2="509" y2="232" marker-end="url(#a5n)" />
+          <text class="tn" x="509" y="252" text-anchor="middle">ยอด/บัญชีผิด → คืนช่อง</text>
+          <line class="ln-no" x1="662" y1="180" x2="662" y2="232" marker-end="url(#a5n)" />
+          <text class="tn" x="662" y="252" text-anchor="middle">เคยใช้ → คืนช่อง</text>
+
+          <rect class="bx-core" x="560" y="292" width="150" height="52" rx="12" />
+          <text class="t" x="635" y="314" text-anchor="middle">เจ้าของร้าน /admin</text>
+          <text class="ts" x="635" y="332" text-anchor="middle">ตรวจยอดเข้าบัญชีจริง</text>
+          <path class="ln" d="M710 318 H817 V184" marker-end="url(#a5)" />
+          <text class="tl" x="825" y="262">กด “ยืนยันคิว”</text>
+          <text class="tl" x="825" y="278">→ ยืนยันแล้ว</text>
+          <text class="tl" x="444" y="96">อ่านไม่ได้ / Gemini ล่ม → รับไว้ แต่ติดป้าย ⚠ ให้ร้านตรวจเอง</text>
+        </svg>
+        <figcaption>
+          ลูกค้ากรอกแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร เลือกช่องที่ว่าง (ช่าง 2 คน/ช่อง, ช่องละ 1 ชม., 09:00–16:00, ปิดวันจันทร์,
+          ล่วงหน้า 1–14 วัน) และแนบสลิป · ใบจองแสดงในแชทพร้อม QR เลขจอง บันทึกเป็นรูปได้ ·
+          ยืนยันจากหลังบ้านแล้วลูกค้าเห็นสถานะใหม่จากปุ่ม “ใบจองของฉัน”
+        </figcaption>
+      </figure>
+
+      <h3>หลังบ้าน /admin</h3>
+      <ul class="plain">
+        <li><strong>เข้าสู่ระบบ:</strong> รหัสจาก <code>ADMIN_PASSWORD</code> · cookie <code>หมดอายุ.HMAC</code> (ปลอมไม่ได้, SameSite=Strict, 12 ชม.) · ผิดเกิน 5 ครั้ง/นาที/IP ต้องรอ · ไม่ตั้งรหัส = ปิดหลังบ้าน</li>
+        <li><strong>มุมมอง:</strong> ตารางรายสัปดาห์ (วัน × ช่องเวลา, สีตามสถานะ, ⚠ ต้องตรวจสลิปเอง) · ปฏิทินรายเดือน (จำนวนคิว + รอยืนยัน) · ค้นเลขจอง (สแกน QR หน้าร้าน) · รีเฟรชเองทุก 60 วินาที</li>
+        <li><strong>สถานะ:</strong> รอร้านยืนยัน → ยืนยันแล้ว → มาใช้บริการแล้ว · หรือ ยกเลิก (คืนช่องเวลาทันที) · เปลี่ยนผิดลำดับไม่ได้</li>
+        <li><strong>ที่เก็บ:</strong> Redis / Vercel KV ตัวเดียวกับประวัติแชท — ตัวนับช่อง <code>INCR</code>, เลขสลิป <code>SET NX</code>, ดัชนีเวลา sorted set · Redis ล่ม = ตอบ 503 ไม่ทำเหมือนจองสำเร็จ</li>
+      </ul>
+    </section>
+
+    <!-- 09 -->
+    <section id="folders">
+      <h2><span class="n">09</span>โฟลเดอร์</h2>
+      <div class="table-wrap">
         <table>
-          <thead><tr><th>Key</th><th>บทบาท</th></tr></thead>
+          <thead><tr><th>โฟลเดอร์</th><th>หน้าที่</th></tr></thead>
           <tbody>
-            <tr><td><code>LLM_BASE_URL</code></td><td>ปลายทาง OpenAI-compatible — <code>https://api.opentyphoon.ai/v1</code></td></tr>
-            <tr><td><code>LLM_API_KEY</code></td><td>Typhoon key (ใช้กับ <code>typhoon-ocr</code> ด้วย)</td></tr>
-            <tr><td><code>LLM_MODEL</code></td><td><code>typhoon-v2.5-30b-a3b-instruct</code></td></tr>
-            <tr><td><code>LLM_MAX_TOKENS</code></td><td><code>16384</code> — ถ้าไม่ตั้ง Typhoon default แค่ 512</td></tr>
-            <tr><td><code>SYSTEM_PROMPT</code></td><td>โทนการตอบ (ภาษาไทย เป็นมิตร)</td></tr>
-            <tr><td><code>VISION_BASE_URL / API_KEY / MODEL</code></td><td>Gemini สำหรับบรรยายภาพ — ไม่ตั้ง = อ่านได้แค่ข้อความในรูป (OCR)</td></tr>
-            <tr><td><code>SEARCH_API_KEY</code></td><td>Tavily — ไม่ตั้ง = ปิดค้นเว็บ. ปรับเสริม: <code>SEARCH_MAX_RESULTS</code>, <code>WEB_SEARCH_ENABLED</code></td></tr>
-            <tr><td><code>KV_REST_API_URL / TOKEN</code></td><td>Upstash / Vercel KV — ไม่ตั้ง = ประวัติเก็บในหน่วยความจำ (หายเมื่อ instance ปิด)</td></tr>
-            <tr><td><code>ALLOWED_ORIGINS</code></td><td>เปิด CORS ข้ามโดเมน (ปกติไม่ต้อง — หน้าเว็บเป็น same-origin)</td></tr>
+            <tr><td><code>main.py</code>, <code>config.py</code>, <code>api/index.py</code></td><td>สร้าง app, หน้า <code>/</code> + <code>/avatar</code>, ต่อท้าย css/js ด้วย <code>?v=</code> กัน cache เก่า · อ่าน <code>.env</code> · จุดเข้าของ Vercel</td></tr>
+            <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จองคิว) · <code>admin.py</code> (หลังบ้าน) · <code>line_webhook.py</code> 🚧</td></tr>
+            <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
+            <tr><td><code>rag/</code></td><td><code>chunker.py</code>, <code>embedder.py</code>, <code>retriever.py</code>, <code>build_index.py</code>, <code>index.json</code></td></tr>
+            <tr><td><code>guardrails/</code></td><td><code>input_rules.py</code> + <code>blocklist.txt</code>, <code>judge.py</code>, <code>output_guard.py</code>, <code>pipeline.py</code>, <code>categories.py</code></td></tr>
+            <tr><td><code>booking/</code></td><td><code>slots.py</code> (ช่องเวลาว่าง), <code>store.py</code> (in-memory / Redis), <code>service.py</code> (ขั้นตอนจอง + สถานะ) — ไม่ผ่าน LLM</td></tr>
+            <tr><td><code>vision/</code></td><td><code>documents.py</code>, <code>image_analyzer.py</code>, <code>pet_estimate.py</code>, <code>slip_check.py</code></td></tr>
+            <tr><td><code>shop/</code></td><td><code>catalog.json</code> (แหล่งข้อมูลเดียว), <code>policies.md</code>, <code>faq.md</code>, <code>pricing.py</code></td></tr>
+            <tr><td><code>prompts/</code></td><td><code>chat_system.txt</code>, <code>voice_hint.txt</code>, <code>guard_judge.txt</code>, <code>image_analyze.txt</code></td></tr>
+            <tr><td><code>templates/</code>, <code>static/</code></td><td><code>index.html</code>, <code>avatar.html</code>, <code>admin.html</code> · <code>chat.js</code>, <code>booking.js</code>, <code>admin.js</code>, <code>voice.js</code>, <code>voice-avatar.js</code> · <code>style.css</code> · <code>img/</code> (โลโก้, ภาพ hero, หน้าน้องหอม) · <code>avatar/</code> (VRM + Idle.fbx)</td></tr>
+            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 97 ตัว · <code>system-architecture.md</code>, <code>test-log.md</code>, หน้านี้</td></tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <section id="open">
-      <h2><span class="s-num">11</span>งานที่ยังค้าง</h2>
-      <p class="section-note">สถานะ ณ สาขา <code>feat/landing-ui</code></p>
-      <div class="stack" style="border:none;padding:0;margin-top:0">
-        <span class="chip chip--todo">ยืนยัน Vercel KV</span>
-        <span class="chip chip--todo">merge → main</span>
-        <span class="chip chip--todo">rotate Tavily key</span>
+    <!-- 09 -->
+    <section id="api">
+      <h2><span class="n">10</span>API endpoints</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method · Path</th><th>หน้าที่</th><th>สถานะ</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /</code></td><td>Landing page + หน้าต่างแชท</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /avatar</code></td><td>หน้าอวตารพนักงาน (คุยด้วยเสียง)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /health</code></td><td>เช็คว่าเซิร์ฟเวอร์รันอยู่</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/chat/stream</code></td><td>แชทแบบสตรีม (SSE) ใช้ทั้งหน้าแชทและหน้าอวตาร</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/chat</code></td><td>แชทแบบรอคำตอบเต็ม (สำหรับ LINE)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/history</code></td><td>ข้อความของบทสนทนาปัจจุบัน</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET · POST /api/v1/conversations</code></td><td>รายการบทสนทนา / เริ่มแชทใหม่</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET · POST · DELETE /api/v1/attachments</code></td><td>ส่งรูปน้อง / สลิป / PDF (ได้คำตอบทันทีถ้าเป็นรูปสัตว์หรือสลิป)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/tts/config</code> · <code>POST /api/v1/tts/stream</code></td><td>ใช้ Cartesia ได้ไหม / ข้อความ → เสียง PCM 24 kHz</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/booking/slots</code></td><td>ช่องเวลาที่จองได้ 14 วัน + จำนวนที่ว่าง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/booking</code></td><td>จองคิว (ชื่อน้อง ชื่อเจ้าของ เบอร์ ช่องเวลา รูปน้อง สลิป) → ใบจอง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/booking/mine</code> · <code>…/{id}/image/{pet|slip}</code></td><td>ใบจองของฉัน / รูปบนใบจอง (เฉพาะเจ้าของการจอง)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /admin</code> · <code>POST /admin/login</code> · <code>POST /admin/logout</code></td><td>หลังบ้านเจ้าของร้าน</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/admin/bookings</code> · <code>…/{id}</code> · <code>POST …/{id}/status</code></td><td>คิวตามช่วงวันที่ · ค้นเลขจอง · ยืนยัน/มาแล้ว/ยกเลิก</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /line/webhook</code></td><td>รับ event จาก LINE OA</td><td class="s-todo">ยังไม่ทำ</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="callout">
-        <p>
-          <strong>Vercel KV</strong> — โค้ดพร้อมแล้ว แต่ต้องเชื่อม database ใน Vercel
-          (Storage → Create → KV → Connect ทุก environment → Redeploy) ประวัติ / History
-          จึงจะอยู่ถาวรบน production/preview · จุดสีในแถบ sidebar (<code>#kv-dot</code>) เขียว = ต่อแล้ว
-        </p>
+    </section>
+
+    <!-- 10 -->
+    <section id="services">
+      <h2><span class="n">11</span>บริการภายนอก</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>บริการ</th><th>ใช้ทำอะไร</th><th>ตัวแปรใน <code>.env</code></th></tr></thead>
+          <tbody>
+            <tr><td>Typhoon</td><td>แชท <code>typhoon-v2.5-30b-a3b-instruct</code>, judge ด่าน 2, OCR <code>typhoon-ocr</code></td><td><code>LLM_BASE_URL</code>, <code>LLM_API_KEY</code>, <code>LLM_MODEL</code></td></tr>
+            <tr><td>Gemini</td><td>Vision <code>gemini-flash-latest</code> (สำรอง lite) + embedding ของ RAG</td><td><code>VISION_*</code> (RAG ใช้ key เดียวกัน)</td></tr>
+            <tr><td>Cartesia</td><td>เสียงโคลนของน้องหอม (ไม่ตั้ง = เสียงไทยของเบราว์เซอร์)</td><td><code>CARTESIA_API_KEY</code></td></tr>
+            <tr><td>Redis / Vercel KV</td><td>เก็บประวัติข้าม instance บน serverless</td><td><code>KV_REST_API_URL</code>, <code>KV_REST_API_TOKEN</code></td></tr>
+            <tr><td>LINE Messaging API</td><td>ช่องทาง LINE OA 🚧</td><td>(จะเพิ่ม)</td></tr>
+          </tbody>
+        </table>
       </div>
-      <div class="callout">
-        <p><strong>merge เข้า main</strong> — รอรีวิว Preview แล้วอนุมัติ (เชื่อม KV ก่อน)</p>
-      </div>
-      <div class="callout">
-        <p><strong>rotate Tavily key</strong> — key ตัวปัจจุบันเคยพิมพ์ในแชต ควร Regenerate ที่ tavily.com แล้วอัปเดตทั้ง <code>.env</code> และ Vercel</p>
+      <p>key ทั้งหมดอยู่ฝั่งเซิร์ฟเวอร์เท่านั้น (<code>.env</code> ไม่ขึ้น git) หน้าเว็บไม่เคยเห็น key</p>
+    </section>
+
+    <!-- 11 -->
+    <section id="why">
+      <h2><span class="n">12</span>เหตุผลการออกแบบ (ใช้ตอบ Q&amp;A)</h2>
+      <dl class="why">
+        <dt>ทำไมราคาต้องมาจากโค้ด ไม่ให้ LLM คิด</dt>
+        <dd>LLM ถูกหลอกได้เสมอ (OWASP LLM01) กฎสำคัญจึงอยู่ในโค้ด ต่อให้หลอกบอทสำเร็จ บอทก็ไม่มีสิทธิ์สร้างราคาใหม่ — ด่าน 3 ตัดทิ้ง</dd>
+        <dt>ทำไมมีแกนกลาง assistant.py</dt>
+        <dd>เว็บ เสียง และ LINE ต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่ในช่องทางที่ลืมใส่กฎ</dd>
+        <dt>ทำไม RAG เขียนเอง ไม่ใช้ LightRAG</dt>
+        <dd>คลังความรู้เล็ก (29 ชิ้น) และ Vercel serverless รัน Docker ไม่ได้ จึงสร้าง embedding ล่วงหน้าเป็นไฟล์แล้วค้นในหน่วยความจำ</dd>
+        <dt>ทำไม hybrid (embedding + TF-IDF)</dt>
+        <dd>embedding จับความหมาย (“หมาตัวใหญ่” ≈ “สุนัขใหญ่”) ส่วน TF-IDF จับคำเฉพาะ (“ต่อมกลิ่น”) และเป็นทางสำรองเมื่อ Gemini ล่ม</dd>
+        <dt>ทำไมคำตอบแรกหลังส่งรูปสร้างด้วยโค้ด</dt>
+        <dd>ทดสอบจริงแล้ว Typhoon เล่าผลวิเคราะห์ไม่สม่ำเสมอ (บางรอบตอบว่ารับอาบน้ำจระเข้) — แนวเดียวกับ Workshop Week 10</dd>
+        <dt>ทำไม judge ใช้ Typhoon แทน Llama Guard</dt>
+        <dd>ใช้ key เดิม ไม่มีค่าใช้จ่ายเพิ่ม และเข้าใจภาษาไทยในบริบทร้าน (“หมาดุ กัดคน รับไหม” = SAFE)</dd>
+        <dt>ทำไมจองด้วยฟอร์ม ไม่ให้บอทเก็บข้อมูลจากแชท</dt>
+        <dd>LLM ดึงชื่อ/เบอร์/วันเวลาจากบทสนทนาพลาดได้และตรวจสอบยาก ฟอร์ม 3 ช่อง + ปุ่มเลือกช่องได้ข้อมูลแน่นอน และกันจองซ้อนได้จริง</dd>
+        <dt>ทำไมใบจองไม่มีราคา</dt>
+        <dd>ราคาในแชทเป็นราคาประเมิน ร้านชั่งน้ำหนักจริงหน้าร้านเสมอ ถ้าใบจองมีราคาแล้วไม่ตรง (หรือ Vision เดาน้ำหนักผิด) จะเป็นข้อโต้แย้ง</dd>
+        <dt>ทำไมทำใบจองเป็นรูปในเบราว์เซอร์</dt>
+        <dd>Pillow/WeasyPrint วางสระ-วรรณยุกต์ไทยผิดถ้าไม่มี libraqm และ Vercel ไม่มี library ระบบที่ต้องใช้ เบราว์เซอร์แสดงภาษาไทยถูกเสมอ</dd>
+        <dt>ทำไมปิดค้นเว็บ</dt>
+        <dd>โจทย์ห้ามแต่งข้อมูล ข้อมูลจากเว็บอาจขัดกับราคาและนโยบายจริงของร้าน</dd>
+        <dt>รองรับลูกค้า 10 เท่าได้อย่างไร</dt>
+        <dd>serverless ขยาย instance เอง state ทั้งหมดอยู่ใน Redis · RAG ไม่มี DB · จุดคอขวดคือโควตา Typhoon/Gemini — แก้ด้วย cache คำถามซ้ำ และ rate limit ด่าน 1 ที่ย้ายไปนับใน Redis</dd>
+      </dl>
+    </section>
+
+    <!-- 12 -->
+    <section id="status">
+      <h2><span class="n">13</span>สถานะงาน (ส่ง 17 ต.ค. 2569)</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>งาน</th><th>สถานะ</th></tr></thead>
+          <tbody>
+            <tr><td>โครงโฟลเดอร์ + pipeline กลาง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>RAG ภาษาไทย + คลังความรู้ ≥ 15 รายการ</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>Guardrails 3 ด่าน + ทดสอบ safety 5 กรณี</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>Vision + ทดสอบ 10 ภาพ</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ปรับปรุง 3 จุด before/after</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>UI ใหม่ + หน้าอวตาร + เสียง Cartesia</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>จองคิว: ป๊อปอัป + ตรวจสลิป + ใบจอง (PNG, QR)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>หลังบ้าน /admin รายสัปดาห์ / รายเดือน</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>บอกชื่อร้านกับอาจารย์ (ภายใน 3 ต.ค.)</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>LINE OA webhook</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>ตารางทดสอบ 10 คำถาม + เวลาตอบ</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>Merge เข้า main + deploy Vercel</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>คลิปเดโม ≤ 3 นาที + รายงาน</td><td class="s-todo">ยังไม่ทำ</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
     <footer>
-      Test System · FastAPI + Typhoon · อ้างอิงจากโค้ดสาขา feat/landing-ui
+      Hom Hom Grooming เป็นร้านสมมติสำหรับโปรเจกต์วิชา 06048308 Intelligent Chatbot Development (IT KMITL) ·
+      รายละเอียดฉบับเต็มอยู่ใน <code>docs/system-architecture.md</code>
     </footer>
   </main>
 </div>
-
 </body>
 </html>

@@ -76,7 +76,9 @@ class Blocklist:
 class RateLimiter:
     """นับข้อความต่อ session ในหน้าต่างเวลา 60 วินาที (sliding window)"""
 
-    def __init__(self) -> None:
+    def __init__(self, limit: int | None = None) -> None:
+        # ไม่ระบุ = ใช้เพดานของแชท (GUARD_RATE_LIMIT_PER_MINUTE) · ระบบจองใช้เพดานของตัวเอง
+        self._limit = limit
         self._hits: dict[str, deque[float]] = defaultdict(deque)
 
     def allow(self, session_id: str, now: float | None = None) -> bool:
@@ -84,7 +86,7 @@ class RateLimiter:
         q = self._hits[session_id]
         while q and now - q[0] > 60:
             q.popleft()
-        if len(q) >= settings.GUARD_RATE_LIMIT_PER_MINUTE:
+        if len(q) >= (self._limit or settings.GUARD_RATE_LIMIT_PER_MINUTE):
             return False
         q.append(now)
         return True

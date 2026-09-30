@@ -18,6 +18,8 @@ from fastapi.templating import Jinja2Templates
 
 from config import settings
 from channels.tts import router as tts_router
+from channels import admin
+from channels.booking_api import router as booking_router
 from channels.web_chat import router as chat_router
 from shop.pricing import load_catalog
 
@@ -67,12 +69,30 @@ templates.env.globals["asset_v"] = _asset_version
 
 app.include_router(chat_router)
 app.include_router(tts_router)
+app.include_router(booking_router)
+app.include_router(admin.router)
 
 
 @app.get("/")
 async def index(request: Request):
     # ราคาบนหน้าเว็บดึงจาก catalog.json ไฟล์เดียวกับที่บอทใช้ — ตัวเลขจึงตรงกันเสมอ
     return templates.TemplateResponse(request, "index.html", {"catalog": load_catalog()})
+
+
+@app.get("/admin")
+async def admin_page(request: Request):
+    # หลังบ้านเจ้าของร้าน: ยังไม่ login = ฟอร์มรหัสผ่าน · login แล้ว = ตารางคิว (ข้อมูลโหลดผ่าน /api/v1/admin/*)
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "catalog": load_catalog(),
+            "enabled": admin.enabled(),
+            "logged_in": admin.is_admin(request),
+            "error": request.query_params.get("e"),
+        },
+        headers={"Cache-Control": "no-store", "X-Robots-Tag": "noindex"},
+    )
 
 
 @app.get("/avatar")

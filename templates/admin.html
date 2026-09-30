@@ -1,0 +1,101 @@
+<!doctype html>
+{% set shop = catalog.shop %}
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>หลังบ้าน | {{ shop.name }}</title>
+    <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      crossorigin="anonymous"
+      href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v() }}" />
+  </head>
+  <body class="page-admin">
+    <header class="nav">
+      <span class="nav__brand">
+        <img src="/static/img/logo.svg" alt="" width="40" height="40" />
+        <span>หลังบ้าน<span class="nav__shop"> {{ shop.name }}</span></span>
+      </span>
+      {% if logged_in %}
+      <form method="post" action="/admin/logout" class="nav__logout">
+        <button class="btn btn--ghost btn--small" type="submit">ออกจากระบบ</button>
+      </form>
+      {% endif %}
+    </header>
+
+    {% if not enabled %}
+    <main class="admin-gate">
+      <section class="gate-card">
+        <h1>ยังไม่ได้เปิดหลังบ้าน</h1>
+        <p>ตั้งค่า <code>ADMIN_PASSWORD</code> ในไฟล์ <code>.env</code> (หรือ Environment Variables ของ Vercel) แล้วเปิดเซิร์ฟเวอร์ใหม่</p>
+      </section>
+    </main>
+
+    {% elif not logged_in %}
+    <main class="admin-gate">
+      <form class="gate-card" method="post" action="/admin/login">
+        <h1>เข้าสู่ระบบหลังบ้าน</h1>
+        <p>สำหรับเจ้าของร้านเท่านั้น ใช้ดูตารางคิวและยืนยันการจอง</p>
+        <label class="field">
+          <span>รหัสผ่าน</span>
+          <input type="password" name="password" autocomplete="current-password" required autofocus />
+        </label>
+        {% if error == "wrong" %}<p class="field__error">รหัสผ่านไม่ถูกต้อง</p>{% endif %}
+        {% if error == "wait" %}<p class="field__error">ลองรหัสผ่านผิดหลายครั้ง รอ 1 นาทีแล้วลองใหม่</p>{% endif %}
+        <button class="btn" type="submit">เข้าสู่ระบบ</button>
+      </form>
+    </main>
+
+    {% else %}
+    <main class="admin">
+      <div class="admin__bar">
+        <div class="seg" role="group" aria-label="มุมมอง">
+          <button type="button" data-view="week" aria-pressed="true">สัปดาห์</button>
+          <button type="button" data-view="month" aria-pressed="false">เดือน</button>
+        </div>
+        <div class="admin__nav">
+          <button type="button" class="icon-btn" data-nav="-1" aria-label="ก่อนหน้า">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg>
+          </button>
+          <button type="button" class="btn btn--ghost btn--small" data-nav="0">วันนี้</button>
+          <button type="button" class="icon-btn" data-nav="1" aria-label="ถัดไป">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+          </button>
+        </div>
+        <h1 id="range-label" class="admin__range">กำลังโหลด…</h1>
+        <form id="search" class="admin__search" role="search">
+          <label class="sr-only" for="search-id">ค้นเลขจอง</label>
+          <input id="search-id" placeholder="ค้นเลขจอง เช่น HH-1004-03" autocomplete="off" />
+          <button class="btn btn--small" type="submit">ค้นหา</button>
+        </form>
+      </div>
+
+      <ul id="summary" class="admin__summary" aria-label="สรุปช่วงที่แสดง"></ul>
+      <p id="admin-msg" class="admin__msg" role="status"></p>
+      <div id="board" class="board-wrap"></div>
+    </main>
+
+    <div id="drawer" class="drawer" hidden>
+      <div class="drawer__scrim" data-close-drawer></div>
+      <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+        <header class="drawer__head">
+          <h2 id="drawer-title">รายละเอียดการจอง</h2>
+          <button class="icon-btn" type="button" data-close-drawer aria-label="ปิด">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+        <div id="drawer-body" class="drawer__body"></div>
+      </aside>
+    </div>
+
+    <script src="/static/js/admin.js?v={{ asset_v() }}"></script>
+    {% endif %}
+  </body>
+</html>

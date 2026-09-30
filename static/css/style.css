@@ -1082,6 +1082,886 @@ svg {
 }
 
 /* ============================================================================
+   จองคิว — ป๊อปอัป 3 ขั้น (booking.js) + การ์ดใบจองในแชท
+   ========================================================================== */
+.steps__cta {
+  margin-top: 24px;
+}
+.book-cta {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+.quick__btn--book {
+  background: var(--honey);
+  font-weight: 700;
+}
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+.sheet-open {
+  overflow: hidden;
+}
+.sheet__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(92, 61, 46, 0.4);
+}
+.sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100%);
+  max-height: min(720px, calc(100dvh - 32px));
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 28px;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: sheet-in 260ms cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+.sheet__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 6px 20px;
+}
+.sheet__head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.25rem;
+}
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0;
+  padding: 4px 20px 12px;
+  list-style: none;
+  counter-reset: bk;
+  border-bottom: 2px dashed var(--ink-line);
+}
+.stepper li {
+  counter-increment: bk;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.stepper li::before {
+  content: counter(bk);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 2px solid var(--ink-soft);
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+.stepper li.is-current {
+  color: var(--ink);
+  font-weight: 700;
+}
+.stepper li.is-current::before {
+  background: var(--honey);
+  border-color: var(--ink);
+}
+.stepper li.is-done::before {
+  content: "\2713";
+  background: var(--honey-soft);
+  border-color: var(--ink);
+}
+.sheet__form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.sheet__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px 4px;
+}
+.sheet__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 20px 16px;
+  border-top: 2px dashed var(--ink-line);
+}
+.sheet__foot #bk-back {
+  margin-right: auto;
+}
+.sheet__status {
+  margin: 0;
+  padding: 0 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--honey-deep);
+}
+.sheet__status:empty {
+  display: none;
+}
+.sheet__status.is-error {
+  color: #8a2f1f;
+}
+.sheet.is-busy .sheet__status::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.sheet__label {
+  margin: 4px 0 8px;
+  font-weight: 700;
+}
+.sheet__muted {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+.sheet__summary {
+  margin: 14px 0 0;
+  font-weight: 700;
+}
+.sheet__note {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+
+.field {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.field input {
+  height: 44px;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 400;
+}
+.field input[aria-invalid="true"] {
+  border-color: var(--brick);
+}
+.field__error {
+  margin: 4px 0 0;
+  font-size: 0.84rem;
+  color: #8a2f1f;
+}
+.field__error:empty {
+  display: none;
+}
+
+.photo-pick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 6px;
+}
+.photo-pick__img {
+  width: 84px;
+  height: 84px;
+  object-fit: cover;
+  border: var(--line);
+  border-radius: 18px;
+}
+.photo-pick__label {
+  margin: 0 0 6px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.day-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px 2px 8px;
+  scroll-snap-type: x proximity;
+}
+.day-chip {
+  display: grid;
+  justify-items: center;
+  min-width: 68px;
+  padding: 8px 6px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 16px;
+  font: inherit;
+  cursor: pointer;
+  scroll-snap-align: start;
+}
+.day-chip__wd {
+  font-weight: 700;
+}
+.day-chip__date {
+  font-size: 0.84rem;
+}
+.day-chip__note {
+  min-height: 1.2em;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+.day-chip[aria-checked="true"],
+.time-chip[aria-checked="true"] {
+  background: var(--honey);
+}
+.day-chip:disabled,
+.time-chip:disabled {
+  border-style: dashed;
+  color: var(--ink-soft);
+  background: transparent;
+  cursor: not-allowed;
+}
+.time-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.time-chip {
+  display: grid;
+  padding: 8px 4px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.time-chip__t {
+  font-weight: 800;
+}
+.time-chip__left {
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+}
+.time-chip[aria-checked="true"] .time-chip__left {
+  color: var(--ink);
+}
+
+.pay-box {
+  padding: 12px 14px;
+  background: var(--honey-soft);
+  border: var(--line);
+  border-radius: 16px;
+}
+.pay-box p {
+  margin: 0;
+}
+.pay-box .pay-box__small {
+  margin-top: 4px;
+  font-size: 0.84rem;
+}
+
+/* ---- การ์ดใบจอง ---- */
+.message--card {
+  max-width: min(100%, 360px);
+}
+.ticket {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: var(--hand);
+}
+.ticket__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 2px dashed var(--ink-line);
+}
+.ticket__shop {
+  flex: 1;
+  font-family: "Mali", sans-serif;
+  font-weight: 700;
+}
+.ticket__kind {
+  padding: 2px 10px;
+  background: var(--honey-soft);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.ticket__photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.ticket__photos figure {
+  margin: 0;
+}
+.ticket__photos img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: var(--line);
+  border-radius: 14px;
+  background: var(--cream);
+}
+.ticket__photos figcaption {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  text-align: center;
+}
+.ticket__info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.92rem;
+}
+.ticket__info dt {
+  color: var(--ink-soft);
+}
+.ticket__info dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.ticket__when {
+  font-size: 1.02rem;
+}
+.ticket__id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+.ticket__foot {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--ink-line);
+}
+.ticket__foot > div:first-child {
+  flex: 1;
+}
+.ticket__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 800;
+  color: var(--honey-deep);
+}
+.ticket__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.ticket[data-status="confirmed"] .ticket__status,
+.ticket[data-status="done"] .ticket__status {
+  color: var(--leaf);
+}
+.ticket[data-status="cancelled"] .ticket__status {
+  color: #8a2f1f;
+}
+.ticket__note {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.ticket__qr {
+  width: 76px;
+  height: 76px;
+  flex: none;
+}
+.ticket__qr svg {
+  width: 100%;
+  height: 100%;
+  stroke: none;
+}
+.ticket__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.ticket.is-capturing .ticket__actions {
+  display: none;
+}
+
+/* ============================================================================
+   หลังบ้านเจ้าของร้าน (/admin)
+   ========================================================================== */
+.page-admin {
+  min-height: 100dvh;
+}
+.nav__logout {
+  margin-left: auto;
+}
+.nav__logout .btn {
+  white-space: nowrap;
+}
+.btn--danger {
+  background: #fff;
+  color: #8a2f1f;
+  border-color: var(--brick);
+}
+.admin-gate {
+  display: grid;
+  place-items: center;
+  padding: 48px var(--gutter);
+}
+.gate-card {
+  display: grid;
+  gap: 8px;
+  width: min(420px, 100%);
+  padding: 28px;
+  background: #fff;
+  border: var(--line);
+  border-radius: var(--hand);
+  box-shadow: var(--shadow-lg);
+}
+.gate-card h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.gate-card p {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.gate-card .btn {
+  justify-self: start;
+  margin-top: 12px;
+}
+
+.admin {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px var(--gutter) 48px;
+}
+.admin__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+.seg {
+  display: inline-flex;
+  border: var(--line);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.seg button {
+  padding: 6px 16px;
+  background: #fff;
+  color: var(--ink);
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.seg button + button {
+  border-left: var(--line);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--honey);
+}
+.admin__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.admin__range {
+  margin: 0;
+  font-size: 1.35rem;
+}
+.admin__search {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.admin__search input {
+  width: 220px;
+  height: 38px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 12px;
+  font: inherit;
+}
+.admin__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.admin__summary li {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 14px;
+  background: #fff;
+  border: var(--line);
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+.admin__summary b {
+  font-size: 1.1rem;
+}
+.admin__summary [data-status="pending"] {
+  background: var(--honey-soft);
+}
+.admin__msg {
+  min-height: 1.4em;
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+}
+
+.board-wrap {
+  overflow-x: auto;
+  background: #fff;
+  border: var(--line);
+  border-radius: 20px;
+}
+
+/* ---- ตารางรายสัปดาห์ ---- */
+.week {
+  width: 100%;
+  min-width: 860px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.week th,
+.week td {
+  border-bottom: 1px dashed var(--ink-line);
+  border-left: 1px dashed var(--ink-line);
+  vertical-align: top;
+}
+.week thead th {
+  position: sticky;
+  top: 0;
+  padding: 10px 6px;
+  background: var(--cream);
+  border-bottom: var(--line);
+  font-weight: 600;
+  text-align: center;
+}
+.week thead th:first-child,
+.week tbody th {
+  width: 64px;
+}
+.week tbody th {
+  position: sticky;
+  left: 0;
+  padding: 10px 8px;
+  background: var(--cream);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+  text-align: right;
+}
+.week__wd,
+.week__date,
+.week__count {
+  display: block;
+}
+.week__wd {
+  font-family: "Mali", sans-serif;
+  font-weight: 700;
+}
+.week__date {
+  font-size: 0.85rem;
+}
+.week__count {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+}
+.week thead th.is-today {
+  background: var(--honey-soft);
+}
+.week thead th.is-closed,
+.week td.is-closed {
+  background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(92, 61, 46, 0.05) 8px 16px);
+  color: var(--ink-soft);
+}
+.week td {
+  height: 64px;
+  padding: 4px;
+}
+.week td.is-past {
+  background: rgba(92, 61, 46, 0.03);
+}
+.week td.is-full {
+  box-shadow: inset 0 0 0 2px var(--honey);
+}
+
+.bk-chip {
+  display: grid;
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  background: var(--honey-soft);
+  color: var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bk-chip:hover {
+  transform: translateY(-1px);
+}
+.bk-chip__name {
+  font-weight: 700;
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bk-chip__meta {
+  font-size: 0.7rem;
+}
+.bk-chip[data-status="confirmed"] {
+  background: #e3efd8;
+  border-color: var(--leaf);
+}
+.bk-chip[data-status="done"] {
+  background: #fff;
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+}
+.bk-chip[data-status="cancelled"] {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--ink-soft);
+  color: var(--ink-soft);
+  opacity: 0.7;
+}
+.bk-chip[data-status="cancelled"] .bk-chip__name {
+  text-decoration: line-through;
+}
+
+/* ---- ปฏิทินรายเดือน ---- */
+.month {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(92px, 1fr));
+  min-width: 680px;
+}
+.month__wd {
+  padding: 8px;
+  background: var(--cream);
+  border-bottom: var(--line);
+  font-family: "Mali", sans-serif;
+  font-weight: 700;
+  text-align: center;
+}
+.month__day {
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 2px;
+  min-height: 92px;
+  padding: 8px;
+  background: #fff;
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px dashed var(--ink-line);
+  border-left: 1px dashed var(--ink-line);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.month__day:hover {
+  background: var(--cream);
+}
+.month__day.is-other {
+  color: var(--ink-soft);
+  background: rgba(92, 61, 46, 0.03);
+}
+.month__day.is-today .month__num {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  background: var(--honey);
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+}
+.month__day.is-closed {
+  background: repeating-linear-gradient(135deg, transparent 0 8px, rgba(92, 61, 46, 0.05) 8px 16px);
+}
+.month__num {
+  font-weight: 800;
+}
+.month__count {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+.month__pending {
+  padding: 0 8px;
+  background: var(--honey-soft);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.month__pending:empty,
+.month__count:empty {
+  display: none;
+}
+
+/* ---- แผงรายละเอียด ---- */
+.drawer {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+}
+.drawer__scrim {
+  position: absolute;
+  inset: 0;
+  background: rgba(92, 61, 46, 0.35);
+}
+.drawer__panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  background: var(--paper);
+  border-left: var(--line);
+  animation: drawer-in 240ms cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+}
+.drawer__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 10px 20px;
+  border-bottom: 2px dashed var(--ink-line);
+}
+.drawer__head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.2rem;
+}
+.drawer__body {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+}
+.drawer__status {
+  justify-self: start;
+  margin: 0;
+  padding: 2px 14px;
+  background: var(--honey-soft);
+  border: var(--line);
+  border-radius: 999px;
+  font-weight: 800;
+}
+.drawer__status[data-status="confirmed"] {
+  background: #e3efd8;
+}
+.drawer__status[data-status="done"],
+.drawer__status[data-status="cancelled"] {
+  background: #fff;
+  color: var(--ink-soft);
+}
+.drawer__photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.drawer__photos a {
+  display: grid;
+  gap: 2px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  text-align: center;
+  text-decoration: none;
+}
+.drawer__photos img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: var(--line);
+  border-radius: 14px;
+  background: var(--cream);
+}
+.drawer__info {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0;
+}
+.drawer__info dt {
+  color: var(--ink-soft);
+}
+.drawer__info dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.drawer__info .mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-weight: 500;
+}
+.drawer__info a {
+  color: var(--ink);
+}
+.drawer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--ink-line);
+}
+.drawer__done,
+.drawer__msg {
+  margin: 0;
+  color: var(--ink-soft);
+}
+.drawer__msg:empty {
+  display: none;
+}
+
+/* ============================================================================
    จอเล็ก
    ========================================================================== */
 @media (max-width: 860px) {
@@ -1107,9 +1987,32 @@ svg {
   }
 }
 @media (max-width: 640px) {
+  /* หลังบ้านบนมือถือ: ช่องค้นหาเต็มแถว ตารางเลื่อนแนวนอน (คอลัมน์เวลาติดซ้าย) */
+  .admin__search {
+    width: 100%;
+    margin-left: 0;
+  }
+  .admin__search input {
+    flex: 1;
+    width: auto;
+  }
+  .page-admin .nav__shop {
+    display: none;
+  }
+  /* ป๊อปอัปจองบนมือถือ = แผ่นเลื่อนขึ้นจากด้านล่าง */
+  .sheet {
+    align-items: end;
+    padding: 0;
+  }
+  .sheet__panel {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+  }
   /* จอเล็กมีปุ่มลอยมุมขวาล่างอยู่แล้ว ซ่อนเมนูและปุ่มบนแถบ */
   .nav__links,
-  .nav .btn {
+  .page-shop .nav > .btn {
     display: none;
   }
   .nav__brand,

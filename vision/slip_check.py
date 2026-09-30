@@ -14,7 +14,7 @@ def _norm(s: str) -> str:
     return re.sub(r"[\s\W_]+", "", s.lower())
 
 
-def _receiver_matches(name: str | None) -> bool | None:
+def receiver_matches(name: str | None) -> bool | None:
     """True/False = ชื่อผู้รับตรง/ไม่ตรงกับร้าน, None = อ่านชื่อไม่ได้"""
     if not name:
         return None
@@ -38,7 +38,7 @@ def slip_text(slip: Slip) -> str:
             f"ยอดโอนในสลิปคือ {slip.amount:,.0f} บาท ไม่ตรงกับค่ามัดจำการจองคิว {deposit} บาท"
         )
 
-    match = _receiver_matches(slip.receiver_name)
+    match = receiver_matches(slip.receiver_name)
     if match is True:
         lines.append("- ชื่อผู้รับเงินตรงกับบัญชีของร้าน")
     elif match is False:
@@ -72,7 +72,7 @@ def customer_reply(slip: Slip) -> str:
         problems.append("อ่านยอดเงินในสลิปไม่ได้ รบกวนส่งรูปสลิปที่ชัดขึ้นนะคะ")
     elif slip.amount != deposit:
         problems.append(f"ยอดโอนในสลิปคือ {slip.amount:,.0f} บาท แต่ค่ามัดจำการจองคิวคือ {deposit} บาทค่ะ")
-    if _receiver_matches(slip.receiver_name) is False:
+    if receiver_matches(slip.receiver_name) is False:
         problems.append(f"ชื่อผู้รับเงินในสลิป ({slip.receiver_name}) ไม่ใช่บัญชีของร้าน รบกวนตรวจสอบว่าโอนถูกบัญชีไหมคะ")
 
     if problems:
