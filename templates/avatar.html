@@ -40,6 +40,16 @@
       </div>
 
       <div class="avatar__side">
+      <!-- เด้งขึ้นเมื่อคุยเรื่องจองคิว (voice.js → offerBooking) · พาไปหน้าแรกแล้วเปิดป๊อปอัปจองทันที -->
+      <section id="voice-book" class="voice-book" role="status" aria-live="polite" hidden>
+        <img src="/static/img/mascot.webp" alt="" width="56" height="56" />
+        <div class="voice-book__text">
+          <p class="voice-book__title">พร้อมจองคิวแล้ว</p>
+          <p>กรอกชื่อน้อง ชื่อเจ้าของ เบอร์โทร เลือกเวลาที่ว่าง แล้วแนบสลิปมัดจำ {{ catalog.payment.deposit }} บาท</p>
+        </div>
+        <a class="btn" href="/?book=1">จองคิว</a>
+      </section>
+
       <!-- ก่อนเริ่ม: เบราว์เซอร์ต้องให้ผู้ใช้กดเองก่อนจึงเปิดไมค์/เล่นเสียงได้ -->
       <section class="avatar__intro">
         <h1>คุยกับ{{ shop.assistant_name }}ด้วยเสียง</h1>

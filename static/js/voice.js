@@ -618,6 +618,19 @@
     abortCtrl = null;
     if (pendingBuf.trim()) enqueueSpeech(pendingBuf.trim(), session);
     finishSpeechQueue(session);
+    offerBooking(text, reply);
+  }
+
+  /* ---------------- ปุ่มจองคิว (หน้า /avatar) ---------------- */
+
+  // คุยเรื่องจองแล้ว (ลูกค้าพูดถึงการจอง/นัด/คิว หรือบอทบอกให้กดจองคิว) → เด้งปุ่มจองขึ้นบนหน้าจอ
+  // ตัดสินด้วยคำในข้อความ ไม่ใช้ LLM · ปุ่มพาไปหน้าแรกพร้อมเปิดป๊อปอัปจอง (ใช้ session เดียวกัน)
+  const BOOK_WORDS = /จอง|นัด|คิว/;
+  function offerBooking(userText, reply) {
+    const card = document.getElementById("voice-book");
+    if (!card || !card.hidden) return;
+    if (!BOOK_WORDS.test(userText || "") && !/จองคิว/.test(reply || "")) return;
+    card.hidden = false;
   }
 
   /* ---------------- พูดแทรก (barge-in) ---------------- */

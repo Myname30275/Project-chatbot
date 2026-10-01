@@ -502,4 +502,12 @@
       if (BOOK_WORDS.test(userText || "")) addCta(bubble);
     },
   };
+
+  // มาจากปุ่ม "จองคิว" ในหน้าอวตาร (/?book=1) → เปิดแชท + ป๊อปอัปจองทันที แล้วล้าง ?book ออกจาก URL
+  // (กดรีเฟรชจะได้ไม่เด้งซ้ำ) — ใบจองที่ได้จะขึ้นในแชท ซึ่งมีบทสนทนาจากโหมดเสียงอยู่แล้ว (session เดียวกัน)
+  if (new URLSearchParams(location.search).has("book")) {
+    history.replaceState(null, "", location.pathname + location.hash);
+    window.hhChat?.ensureOpen();
+    open();
+  }
 })();
