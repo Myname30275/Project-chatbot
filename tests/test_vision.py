@@ -100,6 +100,29 @@ class SlipTests(unittest.TestCase):
         self.assertIn("500 บาท", r)
         self.assertIn("ไม่ใช่บัญชีของร้าน", r)
 
+    def test_receiver_name_formats_seen_on_thai_bank_slips(self):
+        for name, expected in [
+            ("นายภาณุพงศ์ บุตรดี", True),
+            ("นาย ภาณุพงศ์ บุตรดี", True),
+            ("นาย ภาณุพงศ์ บ", True),          # ธนาคารปิดนามสกุลเหลือตัวแรก
+            ("ภาณุพงศ์ บุ***", True),           # ไม่มีคำนำหน้า + ปิดนามสกุลด้วย *
+            ("ภาณุพงศ์ บุตรดี.", True),
+            ("Hom Hom Grooming", True),         # บัญชีร้านค้า/พร้อมเพย์ชื่อร้าน
+            ("นาย ภาณุพงศ์ สมใจ", False),       # ชื่อเหมือน นามสกุลไม่ใช่
+            ("นาย ภาณุ บุตรดี", False),          # ชื่อจริงไม่ตรงทั้งคำ
+            ("นางสาว สมใจ ใจดี", False),
+            ("MR. PANUPONG B", None),           # ชื่ออังกฤษตรวจด้วยโค้ดไม่ได้ → ให้ร้านตรวจเอง ไม่ปฏิเสธลูกค้า
+            ("", None),
+            (None, None),
+        ]:
+            with self.subTest(name=name):
+                self.assertIs(slip_check.receiver_matches(name), expected)
+
+    def test_slip_to_owner_account_is_accepted(self):
+        r = slip_check.customer_reply(Slip(amount=50, receiver_name="นาย ภาณุพงศ์ บ"))
+        self.assertNotIn("ไม่ใช่บัญชีของร้าน", r)
+        self.assertIn("แอดมินจะตรวจ", r)
+
     def test_unreadable_amount(self):
         self.assertIn("อ่านยอดเงินในสลิปไม่ได้", slip_check.customer_reply(Slip()))
 

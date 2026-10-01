@@ -18,6 +18,11 @@ SLIPS = {
         "amount": "50.00", "receiver": "Hom Hom Grooming", "receiver_acc": "xxx-x-x4521-x",
         "date": "29 ก.ย. 69", "time": "14:32", "ref": "20260929143215842",
     },
+    # โอนเข้าบัญชีบุคคลของร้าน — ธนาคารส่วนใหญ่ปิดนามสกุลเหลือตัวแรก
+    "slip_owner_50.png": {
+        "amount": "50.00", "receiver": "นาย ภาณุพงศ์ บ", "receiver_acc": "xxx-x-x7731-x",
+        "date": "1 ต.ค. 69", "time": "10:15", "ref": "20261001101502231",
+    },
     "slip_wrong_500.png": {
         "amount": "500.00", "receiver": "นาย สมมติ ทดสอบ", "receiver_acc": "xxx-x-x9087-x",
         "date": "29 ก.ย. 69", "time": "15:05", "ref": "20260929150533120",

@@ -14,14 +14,54 @@ def _norm(s: str) -> str:
     return re.sub(r"[\s\W_]+", "", s.lower())
 
 
+# คำนำหน้าชื่อที่สลิปแต่ละธนาคารใส่มา (ยาวก่อน เพื่อให้ "นางสาว" ไม่ถูกตัดเหลือ "สาว")
+_TITLES = sorted(
+    ["นางสาว", "น.ส.", "นาง", "นาย", "ด.ช.", "ด.ญ.", "mrs.", "mrs", "miss", "ms.", "ms", "mr.", "mr"],
+    key=len,
+    reverse=True,
+)
+_THAI = re.compile(r"[฀-๿]")
+_MASK_TAIL = re.compile(r"[\s*xX.•\-]+$")  # ส่วนที่ธนาคารปิดไว้ท้ายนามสกุล เช่น "บุ***", "บ."
+
+
+def _strip_title(s: str) -> str:
+    s = re.sub(r"\(.*?\)", "", s).strip()  # ตัดหมายเหตุในวงเล็บ เช่น "(ข้อมูลสมมติ)"
+    low = s.lower()
+    for t in _TITLES:
+        if low.startswith(t):
+            return s[len(t):].strip(" .")
+    return s
+
+
+def _person_matches(got: str, account: str) -> bool:
+    """ชื่อจริงต้องตรงทั้งคำ · นามสกุลในสลิปมักถูกปิดบางส่วน (บุ***, บ.) จึงยอมให้เป็นส่วนต้นของนามสกุลจริง"""
+    g = _strip_title(got).split()
+    a = _strip_title(account).split()
+    if not g or not a or _norm(g[0]) != _norm(a[0]):
+        return False
+    if len(g) == 1:
+        return True
+    shown = _norm(_MASK_TAIL.sub("", " ".join(g[1:])))
+    return not shown or (len(a) > 1 and _norm(" ".join(a[1:])).startswith(shown))
+
+
 def receiver_matches(name: str | None) -> bool | None:
-    """True/False = ชื่อผู้รับตรง/ไม่ตรงกับร้าน, None = อ่านชื่อไม่ได้"""
-    if not name:
+    """True = โอนเข้าบัญชีร้าน · False = โอนให้คนอื่นแน่ ๆ · None = ตรวจด้วยโค้ดไม่ได้ (ให้ร้านตรวจเอง)
+
+    บัญชีร้านเป็นชื่อบุคคล (payment.account_name ใน catalog) และรับชื่อร้านด้วย (บัญชีร้านค้า/พร้อมเพย์)
+    ชื่อภาษาอังกฤษที่ไม่ใช่ชื่อร้าน → None เพราะการสะกดชื่อไทยเป็นอังกฤษไม่แน่นอน ห้ามปฏิเสธลูกค้าเพราะเดาผิด
+    """
+    if not name or not name.strip():
         return None
-    shop = pricing.load_catalog()["shop"]
-    candidates = {_norm(shop["name"]), _norm(shop["name_en"]), _norm("หอมหอม")}
+    catalog = pricing.load_catalog()
+    shop = catalog["shop"]
     got = _norm(name)
-    return any(c and c in got for c in candidates)
+    business = {_norm(shop["name"]), _norm(shop["name_en"]), _norm("หอมหอม")}
+    if any(c and c in got for c in business):
+        return True
+    if _person_matches(name, catalog["payment"]["account_name"]):
+        return True
+    return False if _THAI.search(name) else None
 
 
 def slip_text(slip: Slip) -> str:
