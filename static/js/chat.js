@@ -380,8 +380,37 @@ function renderAttachments() {
   });
 }
 
-async function uploadFile(file) {
-  if (!file) return;
+// Vercel รับ request ได้ไม่เกิน 4.5 MB — รูปจากมือถือมักใหญ่กว่านั้น จึงย่อในเบราว์เซอร์ก่อนส่ง
+// (ด้านยาวสุด 1600 px ยังละเอียดพอให้ Vision แยกพันธุ์/อ่านตัวหนังสือในสลิปได้)
+const UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+const SHRINK_ABOVE_BYTES = 1.5 * 1024 * 1024;
+
+async function shrinkImage(file, maxSide = 1600) {
+  if (!file.type.startsWith("image/") || file.size <= SHRINK_ABOVE_BYTES) return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    bmp.close && bmp.close();
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    // นามสกุลต้องเป็น .jpg — ฝั่งเซิร์ฟเวอร์ดูชนิดไฟล์จากนามสกุล
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", { type: "image/jpeg" }) : file;
+  } catch (err) {
+    console.warn("[chat] ย่อรูปไม่สำเร็จ ส่งไฟล์เดิม:", err);
+    return file;
+  }
+}
+
+async function uploadFile(original) {
+  if (!original) return;
+  const file = await shrinkImage(original);
+  if (file.size > UPLOAD_MAX_BYTES) {
+    showError("ไฟล์ใหญ่เกิน 4 MB ลองส่งไฟล์ที่เล็กลง หรือถ่ายรูปหน้าที่ต้องการแทน");
+    return;
+  }
   clearError();
   hideEmptyState();
   attachButton.disabled = true;

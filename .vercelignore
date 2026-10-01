@@ -1,0 +1,6 @@
+# ไฟล์ที่ไม่ต้องขึ้น Vercel (ใช้ตอนพัฒนา/อ้างอิงเท่านั้น) — ทำให้ deploy เร็วและ bundle เล็กลง
+Example UI
+tests
+.venv
+*.vroid
+~$*
