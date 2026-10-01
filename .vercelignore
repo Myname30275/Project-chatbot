@@ -1,4 +1,9 @@
 # ไฟล์ที่ไม่ต้องขึ้น Vercel (ใช้ตอนพัฒนา/อ้างอิงเท่านั้น) — ทำให้ deploy เร็วและ bundle เล็กลง
+# .env ห้ามขึ้นเด็ดขาด: key ทั้งหมดตั้งเป็น Environment Variables ใน Vercel แทน
+.env
+.env.*
+!.env.example
+__pycache__
 Example UI
 tests
 .venv

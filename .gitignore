@@ -19,3 +19,5 @@ Example UI/Design skill/anthropic-skills/
 
 # ไฟล์ล็อกชั่วคราวของ Word/Office ตอนเปิดเอกสารค้างไว้
 ~$*
+.vercel
+.env*
