@@ -12,9 +12,9 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 
 // ไฟล์ .vrm ที่ export จาก VRoid Studio (ไฟล์ .vroid เป็นไฟล์โปรเจกต์ เว็บโหลดตรงไม่ได้)
 const VRM_URL = "/static/avatar/Avatar%20grooming.vrm";
-// ใช้ท่า Idle ท่าเดียววนตลอดทุกสถานะ (ยืนรอ / ฟัง / คิด / พูด) — ปาก ตา กระพริบตา
+// ใช้ท่า Standing Idle (Mixamo) ท่าเดียววนตลอดทุกสถานะ (ยืนรอ / ฟัง / คิด / พูด) — ปาก ตา กระพริบตา
 // ยังขยับตามเสียงจริงด้วยโค้ดเหมือนเดิม ไม่ได้มาจากไฟล์ท่าทาง
-const ANIM_TALK_URL = "/static/avatar/anim/Idle.fbx";
+const ANIM_TALK_URL = "/static/avatar/anim/Standing%20Idle.fbx";
 const ANIM_THINKING_URL = null;
 const ANIM_ROAM_URLS = [];
 
