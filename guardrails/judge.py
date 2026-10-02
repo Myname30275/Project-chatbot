@@ -24,7 +24,7 @@ from chatbot import llm_client, prompt_builder
 
 logger = logging.getLogger(__name__)
 
-CATEGORIES = {"SAFE", "INJECTION", "PRIVACY", "HARMFUL"}
+CATEGORIES = {"SAFE", "OFF_TOPIC", "INJECTION", "PRIVACY", "HARMFUL"}
 _TIMEOUT = httpx.Timeout(connect=5.0, write=5.0, read=8.0, pool=5.0)
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
 

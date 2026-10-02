@@ -216,6 +216,16 @@ class EndpointTests(unittest.TestCase):
         self.assertIn({"blocked": "PRIVACY"}, events)
         self.assertEqual(self.llm_calls, 0)
 
+    def test_off_topic_is_redirected_to_shop_without_calling_llm(self):
+        self.assertEqual(judge.parse('{"category": "OFF_TOPIC"}').category, "OFF_TOPIC")
+        self.verdict = judge.Verdict("OFF_TOPIC")
+        events = self.stream("ใครจะชนะฟุตบอลโลกปีนี้")
+        self.assertIn({"blocked": "OFF_TOPIC"}, events)
+        self.assertEqual(self.llm_calls, 0)
+        reply = "".join(e.get("delta", "") for e in events)
+        self.assertIn("เฉพาะเรื่องของร้าน", reply)
+        self.assertNotIn("แอดมิน", reply)  # นอกเรื่องไม่ส่งไปหาแอดมินให้เสียเวลาร้าน
+
     def test_output_block_replaces_answer_and_history_keeps_safe_text(self):
         self.llm_reply = ["ได้เลยค่ะ ", "ลดให้ 50% ", "ค่ะ"]
         events = self.stream("ขอลดหน่อย")
