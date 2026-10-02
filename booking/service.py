@@ -194,7 +194,7 @@ def public_view(b: dict) -> dict:
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
-        "slip_image": f"/api/v1/booking/{b['id']}/image/slip",
+        # สลิปไม่อยู่บนใบจองของลูกค้า — ร้านดูได้ในหลังบ้าน (/api/v1/admin/bookings/{id}/image/slip)
     }
 
 
@@ -267,3 +267,41 @@ async def set_status(booking_id: str, status: str) -> dict:
         await store.release_slot(b["slot"])
     logger.info("เปลี่ยนสถานะ %s → %s", booking_id, status)
     return admin_view(b)
+
+
+# ---------------- หน้าเช็คคิว (/check) ----------------
+
+STATUS_HINT = {
+    "pending": "ร้านกำลังตรวจยอดมัดจำ จะยืนยันคิวให้เร็ว ๆ นี้",
+    "confirmed": "ร้านยืนยันคิวแล้ว แสดงใบจองที่หน้าร้านได้เลย",
+    "done": "มาใช้บริการแล้ว ขอบคุณที่ไว้ใจ Hom Hom Grooming",
+    "cancelled": "คิวนี้ถูกยกเลิก สอบถามร้านทาง LINE หรือโทรได้เลย",
+}
+
+
+def check_view(b: dict) -> dict:
+    """ข้อมูลที่หน้าเช็คคิวแสดงได้ — ค้นด้วยเบอร์โทรอย่างเดียว จึงไม่แสดงชื่อเจ้าของ/รูป/สลิป"""
+    return {
+        "id": b["id"],
+        "pet_name": b["pet_name"],
+        "slot": b["slot"],
+        "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
+        "status": b["status"],
+        "status_label": STATUS_LABEL.get(b["status"], b["status"]),
+        "status_hint": STATUS_HINT.get(b["status"], ""),
+    }
+
+
+async def lookup_by_phone(phone: str | None, limit: int = 10) -> list[dict]:
+    """คิวของเบอร์นี้: ที่ยังไม่ถึงวันนัดขึ้นก่อน (ใกล้สุดก่อน) ตามด้วยที่ผ่านมาแล้ว (ล่าสุดก่อน)"""
+    phone = clean_phone(phone)
+    store = get_store()
+    found = []
+    for booking_id in await store.phone_ids(phone):
+        b = await store.get(booking_id)
+        if b and b.get("phone") == phone:
+            found.append(check_view(b))
+    today = slots.slot_key(slots.now())[:10]
+    upcoming = sorted((v for v in found if v["slot"][:10] >= today), key=lambda v: v["slot"])
+    past = sorted((v for v in found if v["slot"][:10] < today), key=lambda v: v["slot"], reverse=True)
+    return (upcoming + past)[:limit]

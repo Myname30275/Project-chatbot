@@ -70,7 +70,12 @@
       </section>
 
       <!-- ระหว่างคุย (voice.js สลับ hidden เอง) -->
-      <div id="voice-overlay" class="voice hidden" aria-hidden="true">
+      <div
+        id="voice-overlay"
+        class="voice hidden"
+        aria-hidden="true"
+        data-greeting="สวัสดีค่ะ ยินดีต้อนรับสู่{{ shop.name_th }}ค่ะ {{ shop.assistant_name }}พร้อมช่วยแล้วนะคะ อยากรู้ราคาอาบน้ำตัดขน เวลาเปิดร้าน หรืออยากจองคิว สามารถสอบถามมาได้เลยค่ะ"
+      >
         <div class="voice__panel" role="region" aria-label="กำลังคุยด้วยเสียง">
           <p id="voice-status" class="voice__status">กำลังเริ่ม…</p>
 

@@ -23,7 +23,6 @@
   };
 
   const DRAFT_KEY = "hh.bookingDraft";
-  const ID_RE = /^HH-\d{4}-\d{2,}$/;
   const PHONE_RE = /^0\d{9}$/;
   const BOOK_WORDS = /จอง|นัด|คิว/;
 
@@ -367,21 +366,7 @@
       document.head.appendChild(s);
     });
   }
-  const QR_LIB = "https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js";
   const PNG_LIB = "https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js";
-
-  async function drawQr(box, id) {
-    if (!ID_RE.test(id)) return;
-    try {
-      await loadScript(QR_LIB);
-      const qr = window.qrcode(0, "M");
-      qr.addData(id);
-      qr.make();
-      box.innerHTML = qr.createSvgTag({ cellSize: 3, margin: 0, scalable: true });
-    } catch (err) {
-      console.warn("[booking] วาด QR ไม่สำเร็จ:", err);
-    }
-  }
 
   async function saveAsImage(card, id, btn) {
     btn.disabled = true;
@@ -389,14 +374,29 @@
     btn.textContent = "กำลังสร้างรูป…";
     try {
       await loadScript(PNG_LIB);
-      const bg = getComputedStyle(card).backgroundColor;
-      // ซ่อนปุ่มจริง ๆ ระหว่างถ่าย (filter ตัดแค่ปุ่มแต่เหลือช่องว่างท้ายรูป)
-      card.classList.add("is-capturing");
+      // เว้นขอบรอบการ์ดทุกด้านให้กรอบไม่ชนขอบรูป: วางสำเนาการ์ดในกรอบชั่วคราวที่มี padding
+      // (สีพื้นกระดาษของเว็บ) แล้วถ่ายกรอบนั้นแทน — สำเนาซ่อนปุ่ม "บันทึกเป็นรูป" ด้วย is-capturing
+      const pad = 32;
+      const paper = getComputedStyle(document.documentElement).getPropertyValue("--paper").trim() || "#fffbf3";
+      const frame = document.createElement("div");
+      frame.style.cssText =
+        `position:fixed;left:0;top:0;z-index:-1;pointer-events:none;box-sizing:content-box;` +
+        `width:${card.offsetWidth}px;padding:${pad}px;background:${paper}`;
+      const copy = card.cloneNode(true);
+      copy.classList.add("is-capturing");
+      frame.appendChild(copy);
+      document.body.appendChild(frame);
       let url;
       try {
-        url = await window.htmlToImage.toPng(card, { pixelRatio: 2, backgroundColor: bg });
+        await Promise.all([...copy.querySelectorAll("img")].map((img) => (img.decode ? img.decode().catch(() => {}) : null)));
+        url = await window.htmlToImage.toPng(frame, {
+          pixelRatio: 2,
+          backgroundColor: paper,
+          // สไตล์ fixed/z-index ของกรอบชั่วคราวไม่ต้องติดไปในรูป
+          style: { position: "static", zIndex: "auto" },
+        });
       } finally {
-        card.classList.remove("is-capturing");
+        frame.remove();
       }
       const a = document.createElement("a");
       a.href = url;
@@ -414,39 +414,36 @@
   function ticketCard(b) {
     const card = document.createElement("article");
     card.className = "ticket";
-    card.dataset.status = b.status;
     card.innerHTML = `
       <header class="ticket__head">
         <img src="/static/img/logo.svg" alt="" width="36" height="36" />
         <span class="ticket__shop">Hom Hom Grooming</span>
         <span class="ticket__kind">ใบจองคิว</span>
       </header>
-      <div class="ticket__photos">
-        <figure><img class="ticket__pet" alt="รูปน้อง" /><figcaption>น้อง</figcaption></figure>
-        <figure><img class="ticket__slip" alt="สลิปมัดจำ" /><figcaption>สลิปมัดจำ</figcaption></figure>
+      <div class="ticket__hero">
+        <figure class="ticket__photo"><img class="ticket__pet" alt="รูปน้อง" /></figure>
+        <div>
+          <p class="ticket__pet-name" data-f="pet_name"></p>
+          <p class="ticket__when-label">วันเวลานัด</p>
+          <p class="ticket__when" data-f="slot_label"></p>
+        </div>
       </div>
       <dl class="ticket__info">
-        <dt>น้อง</dt><dd data-f="pet_name"></dd>
         <dt>เจ้าของ</dt><dd data-f="owner"></dd>
-        <dt>วันเวลา</dt><dd data-f="slot_label" class="ticket__when"></dd>
+        <dt>เบอร์โทร</dt><dd data-f="phone"></dd>
         <dt>เลขจอง</dt><dd data-f="id" class="ticket__id"></dd>
       </dl>
       <div class="ticket__foot">
-        <div>
-          <p class="ticket__status"><span class="ticket__dot"></span><span data-f="status_label"></span></p>
-          <p class="ticket__note">ราคาจริงแจ้งหลังชั่งน้ำหนักที่หน้าร้าน · แสดงใบนี้ที่หน้าร้าน</p>
-        </div>
-        <div class="ticket__qr" aria-label="QR เลขจอง"></div>
+        <p class="ticket__note">แสดงใบนี้ที่หน้าร้าน · ราคาจริงแจ้งหลังชั่งน้ำหนักน้องที่ร้าน</p>
       </div>
       <div class="ticket__actions"><button type="button" class="btn btn--small">บันทึกเป็นรูป</button></div>`;
+    // สลิปไม่อยู่บนใบจอง (เก็บไว้ให้ร้านดูในหลังบ้านเท่านั้น)
     card.querySelector('[data-f="pet_name"]').textContent = b.pet_name;
-    card.querySelector('[data-f="owner"]').textContent = `คุณ${b.owner_name} · ${b.phone}`;
+    card.querySelector('[data-f="owner"]').textContent = `คุณ ${b.owner_name}`;
+    card.querySelector('[data-f="phone"]').textContent = b.phone;
     card.querySelector('[data-f="slot_label"]').textContent = b.slot_label;
     card.querySelector('[data-f="id"]').textContent = b.id;
-    card.querySelector('[data-f="status_label"]').textContent = b.status_label;
     card.querySelector(".ticket__pet").src = b.pet_image;
-    card.querySelector(".ticket__slip").src = b.slip_image;
-    drawQr(card.querySelector(".ticket__qr"), b.id);
     const btn = card.querySelector(".ticket__actions button");
     btn.addEventListener("click", () => saveAsImage(card, b.id, btn));
     return card;

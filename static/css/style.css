@@ -228,8 +228,36 @@ svg {
 .hero__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin: 22px 0 16px;
+  align-items: center;
+  gap: 12px 14px;
+  margin: 22px 0 12px;
+}
+.btn--big {
+  padding: 14px 30px;
+  font-size: 1.15rem;
+}
+.hero__or {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.hero__voice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-color: var(--honey);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+.hero__voice svg {
+  width: 18px;
+  height: 18px;
+}
+.hero__voice:hover {
+  text-decoration-style: wavy;
 }
 .hero__hours {
   margin: 0;
@@ -1463,28 +1491,39 @@ svg {
   font-size: 0.8rem;
   font-weight: 700;
 }
-.ticket__photos {
+/* รูปน้องขนาดกลางข้างชื่อ + วันเวลานัด (ข้อมูลสำคัญที่สุดของใบจอง) แบบตั๋วโดยสาร */
+.ticket__hero {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  grid-template-columns: 112px 1fr;
+  align-items: center;
+  gap: 16px;
 }
-.ticket__photos figure {
+.ticket__photo {
   margin: 0;
 }
-.ticket__photos img {
+.ticket__photo img {
   display: block;
-  width: 100%;
-  aspect-ratio: 1;
+  width: 112px;
+  height: 112px;
   object-fit: cover;
   border: var(--line);
-  border-radius: 14px;
+  border-radius: 20px;
   background: var(--cream);
 }
-.ticket__photos figcaption {
-  margin-top: 2px;
-  font-size: 0.75rem;
+.ticket__hero p {
+  margin: 0;
+}
+.ticket__pet-name {
+  font-family: "Mali", sans-serif;
+  font-weight: 700;
+  font-size: 1.45rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.ticket__when-label {
+  margin-top: 8px !important;
+  font-size: 0.78rem;
   color: var(--ink-soft);
-  text-align: center;
 }
 .ticket__info {
   display: grid;
@@ -1502,57 +1541,22 @@ svg {
   overflow-wrap: anywhere;
 }
 .ticket__when {
-  font-size: 1.02rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1.35;
 }
 .ticket__id {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   letter-spacing: 0.04em;
 }
 .ticket__foot {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
   padding-top: 10px;
   border-top: 2px dashed var(--ink-line);
 }
-.ticket__foot > div:first-child {
-  flex: 1;
-}
-.ticket__status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  font-weight: 800;
-  color: var(--honey-deep);
-}
-.ticket__dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.ticket[data-status="confirmed"] .ticket__status,
-.ticket[data-status="done"] .ticket__status {
-  color: var(--leaf);
-}
-.ticket[data-status="cancelled"] .ticket__status {
-  color: #8a2f1f;
-}
 .ticket__note {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 0.75rem;
   color: var(--ink-soft);
-}
-.ticket__qr {
-  width: 76px;
-  height: 76px;
-  flex: none;
-}
-.ticket__qr svg {
-  width: 100%;
-  height: 100%;
-  stroke: none;
 }
 .ticket__actions {
   display: flex;
@@ -2008,6 +2012,137 @@ svg {
 }
 
 /* ============================================================================
+   หน้าเช็คคิว (/check)
+   ========================================================================== */
+.page-check {
+  min-height: 100dvh;
+}
+.page-check .nav__brand {
+  margin-left: auto;
+}
+.check {
+  display: grid;
+  gap: 24px;
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 40px var(--gutter) 64px;
+}
+.check__card {
+  display: grid;
+  gap: 6px;
+  padding: clamp(22px, 5vw, 32px);
+  background: #fff;
+  border: var(--line);
+  border-radius: var(--hand);
+  box-shadow: var(--shadow-lg);
+}
+.check__card h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 4vw, 2.2rem);
+}
+.check__card > p {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+}
+.check__card .btn {
+  justify-self: start;
+  margin-top: 12px;
+}
+.check__results:empty {
+  display: none;
+}
+.check__results {
+  display: grid;
+  gap: 12px;
+}
+.check__title {
+  margin: 0;
+  font-size: 1.2rem;
+}
+.check-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  padding: 16px 18px;
+  background: #fff;
+  border: var(--line);
+  border-radius: 20px;
+}
+.check-item p {
+  margin: 0;
+}
+.check-item__pet {
+  font-family: "Mali", sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+}
+.check-item__when {
+  font-weight: 800;
+}
+.check-item__id {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.check-item__state {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 6px;
+  max-width: 170px;
+  text-align: right;
+}
+.check-item__badge {
+  padding: 2px 12px;
+  background: var(--honey-soft);
+  border: var(--line);
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.check-item__hint {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.check-item[data-status="confirmed"] .check-item__badge {
+  background: #e3efd8;
+  border-color: var(--leaf);
+  color: var(--leaf);
+}
+.check-item[data-status="done"] .check-item__badge {
+  background: #fff;
+  color: var(--ink-soft);
+  border-color: var(--ink-soft);
+}
+.check-item[data-status="cancelled"] {
+  border-style: dashed;
+}
+.check-item[data-status="cancelled"] .check-item__badge {
+  background: var(--brick-bg);
+  border-color: var(--brick);
+  color: #8a2f1f;
+}
+.check__empty {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 18px 20px;
+  background: var(--cream);
+  border: 2px dashed var(--ink-line);
+  border-radius: 20px;
+}
+.check__empty p {
+  margin: 0;
+}
+.check__empty .btn {
+  margin-top: 6px;
+}
+.nav__check {
+  white-space: nowrap;
+}
+
+/* ============================================================================
    จอเล็ก
    ========================================================================== */
 @media (max-width: 860px) {
@@ -2058,15 +2193,58 @@ svg {
   }
   /* จอเล็กมีปุ่มลอยมุมขวาล่างอยู่แล้ว ซ่อนเมนูและปุ่มบนแถบ */
   .nav__links,
-  .page-shop .nav > .btn {
+  .page-shop .nav > .btn:not(.nav__check) {
     display: none;
+  }
+  .page-shop .nav__check {
+    margin-left: auto;
+  }
+  .page-shop .nav {
+    gap: 10px;
+  }
+  .page-shop .nav__brand {
+    gap: 6px;
+    font-size: 1.12rem;
+  }
+  .page-shop .nav__brand img {
+    width: 38px;
+    height: 38px;
+  }
+  /* ปุ่มหน้าแรกบนมือถือ: เต็มความกว้าง เรียงลงมา "หรือ" อยู่กลาง */
+  .hero__actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .hero__actions .btn {
+    justify-content: center;
+  }
+  .hero__or {
+    text-align: center;
+  }
+  .check-item {
+    grid-template-columns: 1fr;
+  }
+  .check-item__state {
+    justify-items: start;
+    max-width: none;
+    text-align: left;
   }
   .nav__brand,
   .nav__back {
     white-space: nowrap;
   }
-  .page-avatar .nav {
+  .page-avatar .nav,
+  .page-check .nav {
     gap: 12px;
+  }
+  .page-check .nav__brand {
+    gap: 6px;
+    font-size: 1.05rem;
+  }
+  .page-check .nav__brand img {
+    width: 38px;
+    height: 38px;
   }
   .page-avatar .nav__brand {
     gap: 6px;

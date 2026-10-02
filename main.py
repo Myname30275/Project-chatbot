@@ -95,6 +95,12 @@ async def admin_page(request: Request):
     )
 
 
+@app.get("/check")
+async def check_page(request: Request):
+    # เช็คคิว: ลูกค้ากรอกเบอร์ที่ใช้จอง → ดูวันเวลา เลขจอง และสถานะว่าร้านยืนยันแล้วหรือยัง
+    return templates.TemplateResponse(request, "check.html", {"catalog": load_catalog()})
+
+
 @app.get("/avatar")
 async def avatar(request: Request):
     # โหมดเสียง: อวตารพนักงานร้าน คุยผ่าน /api/v1/chat/stream เดิม (session เดียวกับหน้าแชท)

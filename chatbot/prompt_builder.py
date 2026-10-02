@@ -37,7 +37,8 @@ def system_prompt() -> str:
         load_prompt("chat_system.txt"),
         {
             "ASSISTANT_NAME": catalog["shop"]["assistant_name"],
-            "SHOP_NAME": catalog["shop"]["name"],
+            "SHOP_NAME": f'{catalog["shop"]["name_th"]} ({catalog["shop"]["name"]})',
+            "SHOP_NAME_TH": catalog["shop"]["name_th"],
             "FALLBACK": catalog["fallback_message"],
             # ราคา/นโยบาย/FAQ ไม่อยู่ใน system prompt แล้ว — มาจาก RAG ตามคำถาม (ดู rag/)
             "SHOP_INFO": pricing.shop_info_text(),

@@ -1,0 +1,49 @@
+<!doctype html>
+{% set shop = catalog.shop %}
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>เช็คคิว | {{ shop.name }}</title>
+    <meta name="description" content="กรอกเบอร์โทรที่ใช้จอง ดูวันเวลานัดและสถานะคิวของน้องที่ {{ shop.name }}" />
+    <link rel="icon" href="/static/img/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      crossorigin="anonymous"
+      href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css?v={{ asset_v() }}" />
+  </head>
+  <body class="page-check">
+    <header class="nav">
+      <a class="nav__back" href="/">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H6M11 6l-6 6 6 6" /></svg>
+        กลับหน้าร้าน
+      </a>
+      <span class="nav__brand">
+        <img src="/static/img/logo.svg" alt="" width="40" height="40" />
+        <span>{{ shop.name }}</span>
+      </span>
+    </header>
+
+    <main class="check">
+      <form id="check-form" class="check__card" novalidate>
+        <h1>เช็คคิว</h1>
+        <p>กรอกเบอร์โทรที่ใช้ตอนจอง ดูวันเวลานัดและสถานะว่าร้านยืนยันคิวแล้วหรือยัง</p>
+        <label class="field">
+          <span>เบอร์โทรที่ใช้จอง</span>
+          <input id="check-phone" name="phone" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="08xxxxxxxx" required />
+        </label>
+        <p id="check-error" class="field__error" role="alert"></p>
+        <button class="btn" type="submit" id="check-submit">ดูคิวของฉัน</button>
+      </form>
+
+      <section id="check-results" class="check__results" aria-live="polite"></section>
+    </main>
+
+    <script src="/static/js/check.js?v={{ asset_v() }}"></script>
+  </body>
+</html>

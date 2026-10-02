@@ -7,6 +7,7 @@ import logging
 
 from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 from booking import service, slots
 from booking.service import BookingError
@@ -21,7 +22,10 @@ router = APIRouter(prefix="/api/v1/booking")
 # นับ 2 ชั้น: ต่อ session (ลูกค้าทั่วไป) และต่อ IP (กันคนที่ไม่ส่ง cookie กลับมาเพื่อได้ session ใหม่ทุกครั้ง)
 _attempts = RateLimiter(limit=5)
 _attempts_ip = RateLimiter(limit=20)
-_IMAGE_KINDS = {"pet", "slip"}
+# หน้าเช็คคิวค้นด้วยเบอร์โทร — จำกัดถี่กันไล่เดาเบอร์คนอื่น
+_checks = RateLimiter(limit=10)
+_checks_ip = RateLimiter(limit=10)
+_IMAGE_KINDS = {"pet"}  # สลิปให้ดูเฉพาะหลังบ้าน (channels/admin.py)
 
 
 def _error(status: int, message: str, field: str | None = None) -> JSONResponse:
@@ -90,6 +94,29 @@ async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_ph
     return JSONResponse(status_code=201, content={"ok": True, "booking": service.public_view(booking)})
 
 
+class CheckRequest(BaseModel):
+    phone: str = ""
+
+
+@router.post("/check")
+async def check_by_phone(body: CheckRequest, request: Request):
+    """หน้าเช็คคิว: ใส่เบอร์ที่ใช้จอง → ชื่อน้อง วันเวลา เลขจอง สถานะ (ไม่มีชื่อเจ้าของ/รูป/สลิป)
+    ใช้ POST เพื่อไม่ให้เบอร์โทรไปอยู่ใน URL / log ของเซิร์ฟเวอร์"""
+    session_id, is_new = _resolve_session(request)
+    if not _checks.allow(session_id) or not _checks_ip.allow(_client_ip(request)):
+        resp = _error(429, "ค้นหาถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
+    else:
+        try:
+            resp = JSONResponse({"bookings": await service.lookup_by_phone(body.phone)})
+        except BookingError as exc:
+            resp = _error(exc.status, exc.message, exc.field)
+        except StoreError as exc:
+            resp = _error(503, str(exc))
+    if is_new:
+        _set_session_cookie(resp, session_id)
+    return resp
+
+
 @router.get("/mine")
 async def get_mine(request: Request):
     session_id, _ = _resolve_session(request)
@@ -101,7 +128,7 @@ async def get_mine(request: Request):
 
 @router.get("/{booking_id}/image/{kind}")
 async def get_image(booking_id: str, kind: str, request: Request):
-    """รูปน้อง/สลิปบนใบจอง — เฉพาะเจ้าของการจอง (คนอื่นได้ 404 เหมือนไม่มีการจองนี้)"""
+    """รูปน้องบนใบจอง — เฉพาะเจ้าของการจอง (คนอื่นได้ 404 เหมือนไม่มีการจองนี้)"""
     session_id, _ = _resolve_session(request)
     if kind not in _IMAGE_KINDS:
         return _error(404, "ไม่พบรูป")

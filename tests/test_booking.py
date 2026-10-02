@@ -199,6 +199,8 @@ class ApiTests(unittest.TestCase):
             (slots, "now", lambda: NOW),
             (booking_api, "_attempts", RateLimiter(limit=5)),
             (booking_api, "_attempts_ip", RateLimiter(limit=20)),
+            (booking_api, "_checks", RateLimiter(limit=10)),
+            (booking_api, "_checks_ip", RateLimiter(limit=10)),
         ]:
             p = patch.object(target, attr, value)
             p.start()
@@ -233,12 +235,51 @@ class ApiTests(unittest.TestCase):
         slot = next(s for d in left for s in d["slots"] if s["key"] == slot_at())
         self.assertEqual(slot["left"], 1)
 
+    def test_ticket_has_no_slip_and_customer_cannot_fetch_slip(self):
+        ticket = self.post().json()["booking"]
+        self.assertFalse(contains_key(ticket, "slip"))  # สลิปอยู่เฉพาะหลังบ้าน
+        own_slip = self.client.get(f"/api/v1/booking/{ticket['id']}/image/slip")
+        self.assertEqual(own_slip.status_code, 404)
+
+    def check(self, phone, client=None):
+        return (client or self.client).post("/api/v1/booking/check", json={"phone": phone})
+
+    def test_check_page_finds_bookings_by_phone_from_any_device(self):
+        self.post(slot=slot_at(14))
+        self.post(slot=slot_at(9), phone="081-234-5678")
+        other_device = TestClient(self.app)  # ไม่มี cookie ของคนจอง — ค้นด้วยเบอร์อย่างเดียว
+        r = self.check("081 234 5678", client=other_device)
+        self.assertEqual(r.status_code, 200)
+        found = r.json()["bookings"]
+        self.assertEqual([b["slot"][11:] for b in found], ["09:00", "14:00"])  # นัดใกล้สุดก่อน
+        self.assertEqual(found[0]["status_label"], "รอร้านยืนยัน")
+        self.assertTrue(found[0]["status_hint"])
+        # ค้นด้วยเบอร์อย่างเดียว จึงไม่ส่งชื่อเจ้าของ เบอร์ รูป สลิป หรือราคา
+        for field in ("owner", "phone", "image", "slip", "price", "session"):
+            self.assertFalse(contains_key(found, field), field)
+
+    def test_check_other_phone_and_bad_input(self):
+        self.post()
+        self.assertEqual(self.check("0899999999").json()["bookings"], [])
+        bad = self.check("12345")
+        self.assertEqual((bad.status_code, bad.json()["field"]), (422, "phone"))
+
+    def test_check_is_rate_limited(self):
+        codes = [self.check("0899999999").status_code for _ in range(11)]
+        self.assertEqual(codes[:10], [200] * 10)
+        self.assertEqual(codes[10], 429)
+
+    def test_check_page_renders(self):
+        page = self.client.get("/check")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('id="check-form"', page.text)
+        self.assertIn('href="/check"', self.client.get("/").text)  # มีเมนูบนหน้าแรก
+
     def test_other_customer_cannot_see_ticket_or_images(self):
         ticket = self.post().json()["booking"]
         stranger = TestClient(self.app)
         stranger.cookies.set("session_id", "someone-else")
         self.assertEqual(stranger.get(ticket["pet_image"]).status_code, 404)
-        self.assertEqual(stranger.get(ticket["slip_image"]).status_code, 404)
         self.assertEqual(stranger.get("/api/v1/booking/mine").json()["bookings"], [])
 
     def test_validation_error_names_the_field(self):

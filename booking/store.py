@@ -8,6 +8,7 @@ key ใน Redis (ดู docs/booking-plan.md §5)
   booking_img:<id>:<kind>      รูป base64 (kind = pet | slip) ย่อมาจากเบราว์เซอร์แล้ว
   bookings:by_time             sorted set  score = เวลานัด (epoch)  member = id
   bookings:session:<sid>       list ของ id ของ session นั้น ("ใบจองของฉัน")
+  bookings:phone:<phone>       list ของ id ตามเบอร์โทร (หน้าเช็คคิว /check)
   slotcount:<slot>             ตัวนับคิวในช่องเวลา (INCR แบบ atomic กันจองซ้อน)
   slipref:<reference>          id ของการจองที่ใช้สลิปใบนี้ (SET NX กันใช้สลิปซ้ำ)
   seq:<YYYYMMDD>               ตัวนับเลขจองรายวัน
@@ -71,6 +72,9 @@ class BookingStore(ABC):
     async def session_ids(self, session_id: str) -> list[str]: ...
 
     @abstractmethod
+    async def phone_ids(self, phone: str) -> list[str]: ...
+
+    @abstractmethod
     async def save_image(self, booking_id: str, kind: str, data: bytes) -> None: ...
 
     @abstractmethod
@@ -85,6 +89,7 @@ class InMemoryBookingStore(BookingStore):
         self._bookings: dict[str, dict] = {}
         self._by_time: dict[str, float] = {}
         self._sessions: dict[str, list[str]] = {}
+        self._phones: dict[str, list[str]] = {}
         self._images: dict[tuple[str, str], bytes] = {}
 
     async def reserve_slot(self, slot, capacity):
@@ -122,12 +127,16 @@ class InMemoryBookingStore(BookingStore):
     async def index(self, booking):
         self._by_time[booking["id"]] = booking["slot_ts"]
         self._sessions.setdefault(booking["session_id"], []).insert(0, booking["id"])
+        self._phones.setdefault(booking["phone"], []).insert(0, booking["id"])
 
     async def ids_between(self, start_ts, end_ts):
         return [i for i, ts in sorted(self._by_time.items(), key=lambda x: x[1]) if start_ts <= ts < end_ts]
 
     async def session_ids(self, session_id):
         return list(self._sessions.get(session_id, []))
+
+    async def phone_ids(self, phone):
+        return list(self._phones.get(phone, []))
 
     async def save_image(self, booking_id, kind, data):
         self._images[(booking_id, kind)] = data
@@ -206,6 +215,9 @@ class RedisBookingStore(BookingStore):
         key = f"bookings:session:{booking['session_id']}"
         await self._cmd("LPUSH", key, booking["id"])
         await self._cmd("EXPIRE", key, _TTL_BOOKING)
+        pkey = f"bookings:phone:{booking['phone']}"
+        await self._cmd("LPUSH", pkey, booking["id"])
+        await self._cmd("EXPIRE", pkey, _TTL_BOOKING)
 
     async def ids_between(self, start_ts, end_ts):
         # "(" = ไม่รวมขอบบน — ช่วง [start, end)
@@ -213,6 +225,9 @@ class RedisBookingStore(BookingStore):
 
     async def session_ids(self, session_id):
         return list(await self._cmd("LRANGE", f"bookings:session:{session_id}", 0, 49) or [])
+
+    async def phone_ids(self, phone):
+        return list(await self._cmd("LRANGE", f"bookings:phone:{phone}", 0, 49) or [])
 
     async def save_image(self, booking_id, kind, data):
         await self._cmd("SET", f"booking_img:{booking_id}:{kind}", base64.b64encode(data).decode(), "EX", _TTL_BOOKING)

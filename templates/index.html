@@ -34,6 +34,7 @@
         <a href="#booking">วิธีจอง</a>
         <a href="#contact">ติดต่อร้าน</a>
       </nav>
+      <a class="btn btn--ghost btn--small nav__check" href="/check">เช็คคิว</a>
       <button class="btn btn--small" type="button" data-open-chat>ถามน้องหอม</button>
     </header>
 
@@ -48,16 +49,22 @@
             ร้านอาบน้ำ-ตัดขนหมาแมว ซอยลาดกระบัง 1 อยากรู้ราคา ทักแชทถามได้เลย
             น้องหอมตอบได้ทุกเวลา
           </p>
+          <!-- ปุ่มหลัก = จองคิว (เป้าหมายของร้าน) · ทางเลือกสำหรับคนที่ยังไม่พร้อมจอง = ประเมินราคาจากรูป -->
           <div class="hero__actions">
-            <button class="btn" type="button" data-open-chat data-pick-photo>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8l1.4-2h4.6l1.4 2h1.8A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z" /><circle cx="12" cy="13" r="3.5" /></svg>
-              ส่งรูปน้องให้ประเมินราคา
+            <button class="btn btn--big" type="button" data-open-booking>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" /><path d="M4 10h16M9 3v4M15 3v4M9.5 15l2 2 3.5-4" /></svg>
+              จองคิว
             </button>
-            <a class="btn btn--ghost" href="/avatar">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
-              คุยด้วยเสียง
-            </a>
+            <span class="hero__or" aria-hidden="true">หรือ</span>
+            <button class="btn btn--ghost" type="button" data-open-chat data-pick-photo>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8.5A2.5 2.5 0 0 1 6.5 6h1.8l1.4-2h4.6l1.4 2h1.8A2.5 2.5 0 0 1 20 8.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5z" /><circle cx="12" cy="13" r="3.5" /></svg>
+              ส่งรูปให้ประเมินราคาก่อน
+            </button>
           </div>
+          <a class="hero__voice" href="/avatar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+            ไม่สะดวกพิมพ์? คุยกับน้องหอมด้วยเสียง
+          </a>
           <p class="hero__hours">{{ shop.hours }}<br />{{ shop.last_queue }}</p>
         </div>
         <figure class="hero__art">

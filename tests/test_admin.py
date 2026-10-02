@@ -134,6 +134,8 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(r.json()["booking"]["status_label"], "ยืนยันแล้ว")
         mine = self.customer.get("/api/v1/booking/mine").json()["bookings"]
         self.assertEqual(mine[0]["status_label"], "ยืนยันแล้ว")
+        checked = TestClient(self.app).post("/api/v1/booking/check", json={"phone": "0812345678"}).json()
+        self.assertEqual(checked["bookings"][0]["status_label"], "ยืนยันแล้ว")  # หน้าเช็คคิวเห็นสถานะใหม่
 
     def test_illegal_transitions_are_refused(self):
         b = self.book()

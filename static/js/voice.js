@@ -800,7 +800,25 @@
     setState("listening");
     await startMeter();
     await cartesiaConfig;
-    if (state !== "off") startListening();
+    if (state !== "off" && !greet()) startListening();
+  }
+
+  // ทักทายครั้งแรกที่กดเริ่มคุย (ครั้งเดียวต่อการเปิดหน้า) — ข้อความคงที่จาก data-greeting ของหน้า
+  // พูดผ่านคิวเสียงเดิมโดยไม่เรียก LLM (เร็ว ไม่เปลืองโควตา) · พูดจบแล้วคิวเสียงเริ่มฟังต่อเอง ·
+  // แตะตัวละครระหว่างพูด = ข้ามคำทักทาย (เหมือนพูดแทรกปกติ) · ไม่บันทึกลงประวัติแชท
+  let greeted = false;
+  function greet() {
+    const text = (overlay.dataset.greeting || "").trim();
+    if (greeted || !text) return false;
+    greeted = true;
+    saidEl.textContent = "";
+    replyEl.textContent = text;
+    const session = ++speakSession;
+    resetSpeakQueue();
+    setState("speaking");
+    enqueueSpeech(text, session);
+    finishSpeechQueue(session);
+    return true;
   }
 
   function close() {

@@ -88,7 +88,7 @@ def shop_info_text() -> str:
     """ข้อมูลพื้นฐานร้าน + การชำระเงิน + บริการที่ร้านไม่มี สำหรับใส่ใน system prompt"""
     c = load_catalog()
     s, pay = c["shop"], c["payment"]
-    name = s["name"] if s["name_en"] == s["name"] else f"{s['name']} ({s['name_en']})"
+    name = f"{s['name_th']} ({s['name']})" if s.get("name_th") else s["name"]
     lines = [
         f"- ชื่อร้าน: {name}",
         f"- เกี่ยวกับร้าน: {s['description']}",

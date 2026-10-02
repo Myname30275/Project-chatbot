@@ -1,5 +1,6 @@
 """Cartesia PCM streaming proxy. Credentials stay on the server."""
 import logging
+import re
 import ssl
 
 import httpx
@@ -8,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from config import settings
+from shop import pricing
 
 router = APIRouter(prefix="/api/v1/tts")
 logger = logging.getLogger(__name__)
@@ -17,6 +19,17 @@ class SpeechRequest(BaseModel):
     text: str = Field(min_length=1, max_length=2000)
     # เลือกเสียงโคลนจากรายการใน voice.js (เผื่อมีหลายเสียงในอนาคต) — ไม่ส่งมา = ใช้ค่า default ของเซิร์ฟเวอร์
     voice_id: str | None = Field(default=None, max_length=100)
+
+
+# Cartesia อ่านชื่ออังกฤษ "Hom Hom Grooming" เพี้ยนเมื่ออยู่ในประโยคไทย → เปลี่ยนเป็นชื่อไทยก่อนส่งเสมอ
+# (prompt สั่งให้บอทใช้ชื่อไทยอยู่แล้ว ตรงนี้กันกรณีที่บอทยังเขียนเป็นอังกฤษ)
+_SHOP_NAME_RE = re.compile(r"hom\s*-?\s*hom(\s*grooming)?", re.IGNORECASE)
+
+
+def speakable(text: str) -> str:
+    name_th = pricing.load_catalog()["shop"].get("name_th") or "หอมหอม กรูมมิ่ง"
+    short = name_th.split()[0]
+    return _SHOP_NAME_RE.sub(lambda m: name_th if m.group(1) else short, text)
 
 
 @router.get("/config")
@@ -30,7 +43,8 @@ async def stream(req: SpeechRequest):
         raise HTTPException(503, "ยังไม่ได้ตั้งค่า Cartesia")
     if not req.text.strip():
         raise HTTPException(422, "กรุณาใส่ข้อความ")
-    language = "th" if any("฀" <= c <= "๿" for c in req.text) else "en"
+    text = speakable(req.text)
+    language = "th" if any("฀" <= c <= "๿" for c in text) else "en"
     client = httpx.AsyncClient(timeout=30, verify=ssl.create_default_context())
     try:
         response = await client.send(client.build_request(
@@ -38,7 +52,7 @@ async def stream(req: SpeechRequest):
             headers={"Authorization": f"Bearer {settings.CARTESIA_API_KEY}",
                      "Cartesia-Version": "2026-08-14"},
             json={"model_id": settings.CARTESIA_MODEL,
-                  "transcript": req.text,
+                  "transcript": text,
                   "voice": req.voice_id or settings.CARTESIA_VOICE_ID,
                   "language": language,
                   "output_format": {"container": "raw", "encoding": "pcm_s16le", "sample_rate": 24000}},
