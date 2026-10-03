@@ -1,13 +1,14 @@
 """เทสระบบจองคิว (ไม่เรียก API จริง — Gemini ถูกจำลอง, ที่เก็บเป็น in-memory)"""
 
 import asyncio
+import math
 import unittest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from booking import service, slots
+from booking import pickup, service, slots
 from booking import store as store_module
 from booking.service import BookingError
 from booking.store import InMemoryBookingStore, StoreError
@@ -185,13 +186,82 @@ class ServiceTests(unittest.TestCase):
         b = self.book(pet_name="ถั่ว​แดง\n\n", owner_name="  สม   ใจ ")
         self.assertEqual((b["pet_name"], b["owner_name"]), ("ถั่วแดง", "สม ใจ"))
 
+    def test_no_pickup_expects_deposit_only(self):
+        b = self.book()
+        self.assertIsNone(b["pickup"])
+        self.assertEqual(b["amount_due"], 50)
+        self.assertIsNone(service.public_view(b)["pickup_time"])
+
+    def test_pickup_slip_must_cover_deposit_plus_fee(self):
+        ride = dict(lat=SHOP_LAT, lng=east_of_shop(2), address="บ้านเลขที่ 9 ซอย 3")
+        # สลิป 50 (มัดจำอย่างเดียว) ไม่พอ ต้อง 50 + 150
+        with self.assertRaises(BookingError) as ctx:
+            self.book(pickup=ride)
+        self.assertIn("200", ctx.exception.message)
+        self.assertIn("ค่ารับส่ง 150", ctx.exception.message)
+        self.assertEqual(self.count(), 0)
+
+        self.analysis = good_slip(amount=200.0)
+        b = self.book(pickup=ride)
+        self.assertTrue(b["slip"]["auto_ok"])
+        self.assertEqual((b["pickup"]["fee"], b["amount_due"]), (150, 200))
+        self.assertEqual(b["pickup"]["time"], "09:30")  # นัด 10:00 → ไปรับก่อน 30 นาที
+        view = service.public_view(b)
+        self.assertEqual(view["pickup_time"], "09:30")
+        self.assertFalse(contains_key(view, "address"))  # ที่อยู่อยู่เฉพาะหลังบ้าน
+        self.assertEqual(service.admin_view(b)["pickup"]["address"], "บ้านเลขที่ 9 ซอย 3")
+
+    def test_bad_pickup_is_rejected_before_slot_is_held(self):
+        for ride, word in [
+            (dict(lat="", lng="", address="บ้าน"), "ปักหมุด"),
+            (dict(lat=SHOP_LAT, lng=east_of_shop(9), address="บ้าน"), "ไม่เกิน 10 กม."),
+            (dict(lat=SHOP_LAT, lng=east_of_shop(1), address="  "), "ที่อยู่"),
+        ]:
+            with self.subTest(word=word):
+                with self.assertRaises(BookingError) as ctx:
+                    self.book(pickup=ride)
+                self.assertIn(word, ctx.exception.message)
+                self.assertEqual(ctx.exception.field, "pickup")
+        self.assertEqual(self.count(), 0)
+
+
+SHOP_LAT = pickup.config()["shop_lat"]
+
+
+def east_of_shop(km):
+    """ลองจิจูดของจุดที่อยู่ทางตะวันออกของร้าน km กิโลเมตร (เส้นตรง)"""
+    c = pickup.config()
+    return c["shop_lng"] + km / (111.32 * math.cos(math.radians(c["shop_lat"])))
+
+
+class PickupTests(unittest.TestCase):
+    def test_fee_by_zone_with_road_factor(self):
+        for straight_km, fee in [(1, 150), (3.5, 150), (4, 250), (7.5, 250)]:
+            with self.subTest(km=straight_km):
+                q = pickup.quote(SHOP_LAT, east_of_shop(straight_km))
+                self.assertAlmostEqual(q["km"], straight_km * 1.3, delta=0.1)
+                self.assertEqual(q["fee"], fee)
+
+    def test_too_far_or_invalid(self):
+        for lat, lng in [(SHOP_LAT, east_of_shop(8)), ("abc", 100.7), (float("nan"), 100.7), (95, 100.7)]:
+            with self.subTest(lat=lat, lng=lng):
+                with self.assertRaises(pickup.PickupError):
+                    pickup.quote(lat, lng)
+
+    def test_address_cleaning(self):
+        self.assertEqual(pickup.clean_address(" 9/1  ซอย 3\x00\n\n\n\nหน้าเซเว่น "), "9/1 ซอย 3\n\nหน้าเซเว่น")
+        with self.assertRaises(pickup.PickupError):
+            pickup.clean_address("ก" * 201)
+
 
 class ApiTests(unittest.TestCase):
     def setUp(self):
         from main import app
 
+        self.analysis = good_slip(reference=None)
+
         async def fake_analyze(data, mime):
-            return good_slip(reference=None)
+            return self.analysis
 
         for target, attr, value in [
             (store_module, "_store", InMemoryBookingStore()),
@@ -240,6 +310,29 @@ class ApiTests(unittest.TestCase):
         self.assertFalse(contains_key(ticket, "slip"))  # สลิปอยู่เฉพาะหลังบ้าน
         own_slip = self.client.get(f"/api/v1/booking/{ticket['id']}/image/slip")
         self.assertEqual(own_slip.status_code, 404)
+
+    def test_pickup_endpoint(self):
+        cfg = self.client.get("/api/v1/booking/pickup").json()
+        self.assertEqual([z["fee"] for z in cfg["zones"]], [150, 250])
+        q = self.client.get("/api/v1/booking/pickup", params={"lat": SHOP_LAT, "lng": east_of_shop(5)}).json()
+        self.assertEqual((q["fee"], q["total"]), (250, 300))
+        far = self.client.get("/api/v1/booking/pickup", params={"lat": SHOP_LAT, "lng": east_of_shop(20)})
+        self.assertEqual((far.status_code, far.json()["field"]), (422, "pickup"))
+
+    def test_book_with_pickup_shows_time_on_ticket_and_check_page(self):
+        self.analysis = good_slip(amount=200.0, reference=None)
+        r = self.post(want_pickup="1", pickup_lat=str(SHOP_LAT), pickup_lng=str(east_of_shop(1)),
+                      pickup_address="บ้านเลขที่ 9")
+        self.assertEqual(r.status_code, 201, r.json())
+        self.assertEqual(r.json()["booking"]["pickup_time"], "09:30")
+        self.assertFalse(contains_key(r.json(), "address"))
+        found = self.check("0812345678").json()["bookings"]
+        self.assertEqual(found[0]["pickup_time"], "09:30")
+
+    def test_unticked_pickup_ignores_map_fields(self):
+        r = self.post(pickup_lat=str(SHOP_LAT), pickup_lng=str(east_of_shop(1)), pickup_address="x")
+        self.assertEqual(r.status_code, 201)
+        self.assertIsNone(r.json()["booking"]["pickup_time"])
 
     def check(self, phone, client=None):
         return (client or self.client).post("/api/v1/booking/check", json={"phone": phone})

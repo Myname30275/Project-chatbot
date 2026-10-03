@@ -1,15 +1,18 @@
 """ขั้นตอนการจองคิว: ตรวจฟอร์ม → กันช่องเวลา (atomic) → ตรวจสลิป → ออกเลขจอง → บันทึก
 
 ข้อตกลงของร้าน (docs/booking-plan.md §1)
-- ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + ช่องเวลา + รูปน้อง + สลิป
+- ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + ช่องเวลา + รูปน้อง + สลิป (+ จุดรับน้อง ถ้าติ๊กรับ-ส่ง)
 - **ไม่มีราคา** ในข้อมูลการจอง — ราคาในแชทเป็นราคาประเมิน ร้านชั่งน้ำหนักจริงหน้าร้าน
+  (ยอดที่ต้องโอน = มัดจำ + ค่ารับส่ง ถ้ามี — จ่ายล่วงหน้า ไม่ใช่ราคาบริการ)
 - บอทไม่ยืนยันการชำระเงินเอง: จองสำเร็จ = สถานะ "รอร้านยืนยัน" เจ้าของร้านเป็นคนยืนยัน
 """
 
 import logging
 import re
 import unicodedata
+from datetime import timedelta
 
+from booking import pickup as pickup_zone
 from booking import slots
 from booking.store import StoreError, get_store
 from shop import pricing
@@ -80,9 +83,18 @@ def _check_image(data: bytes | None, label: str, field: str) -> str:
     return mime
 
 
-async def check_slip(data: bytes, mime: str) -> dict:
-    """ตรวจสลิปด้วย Vision ตัวเดิม — ไม่ผ่านชัดเจนแล้ว raise · อ่านไม่ได้ = รับไว้ให้ร้านตรวจเอง"""
-    deposit = pricing.load_catalog()["payment"]["deposit"]
+def deposit() -> int:
+    return pricing.load_catalog()["payment"]["deposit"]
+
+
+def _due_text(due: int, fee: int) -> str:
+    return f"ยอดที่ต้องโอนคือ {due:,} บาท (มัดจำ {deposit()} + ค่ารับส่ง {fee})" if fee else f"ค่ามัดจำคือ {due:,} บาท"
+
+
+async def check_slip(data: bytes, mime: str, fee: int = 0) -> dict:
+    """ตรวจสลิปด้วย Vision ตัวเดิม — ไม่ผ่านชัดเจนแล้ว raise · อ่านไม่ได้ = รับไว้ให้ร้านตรวจเอง
+    ยอดที่ต้องตรงกับสลิป = มัดจำ + ค่ารับส่ง (0 ถ้าไม่ได้ติ๊กรับ-ส่ง)"""
+    due = deposit() + fee
     try:
         analysis = await image_analyzer.analyze(data, mime)
     except VisionError as exc:
@@ -92,9 +104,9 @@ async def check_slip(data: bytes, mime: str) -> dict:
     if analysis.image_type != "slip":
         raise BookingError("รูปนี้ไม่ใช่สลิปโอนเงิน รบกวนแนบรูปสลิปมัดจำอีกครั้ง", field="slip")
     slip = analysis.slip
-    if slip.amount is not None and slip.amount != deposit:
+    if slip.amount is not None and slip.amount != due:
         raise BookingError(
-            f"ยอดในสลิปคือ {slip.amount:,.0f} บาท แต่ค่ามัดจำคือ {deposit} บาท รบกวนตรวจสอบสลิปอีกครั้ง",
+            f"ยอดในสลิปคือ {slip.amount:,.0f} บาท แต่{_due_text(due, fee)} รบกวนตรวจสอบสลิปอีกครั้ง",
             field="slip",
         )
     receiver = slip_check.receiver_matches(slip.receiver_name)
@@ -104,7 +116,7 @@ async def check_slip(data: bytes, mime: str) -> dict:
             field="slip",
         )
     return {
-        "auto_ok": slip.amount == deposit and receiver is True,
+        "auto_ok": slip.amount == due and receiver is True,
         "amount": slip.amount,
         "receiver_ok": receiver,
         "reference": slip.reference or None,
@@ -120,15 +132,18 @@ async def create(
     slot: str | None,
     pet_photo: bytes | None,
     slip: bytes | None,
+    pickup: dict | None = None,
     at=None,
 ) -> dict:
-    """คืนข้อมูลการจอง (dict) — raise BookingError / StoreError ถ้าไม่สำเร็จ"""
+    """คืนข้อมูลการจอง (dict) — raise BookingError / StoreError ถ้าไม่สำเร็จ
+    pickup = {"lat", "lng", "address"} จากฟอร์มเมื่อลูกค้าติ๊กรับ-ส่ง (None = มาที่ร้านเอง)"""
     pet_name = clean_name(pet_name, "ชื่อน้อง", "pet_name")
     owner_name = clean_name(owner_name, "ชื่อเจ้าของ", "owner_name")
     phone = clean_phone(phone)
     dt = slots.parse_slot(slot or "", at)
     if dt is None:
         raise BookingError("ช่องเวลานี้จองไม่ได้แล้ว รบกวนเลือกช่องใหม่", status=409, field="slot")
+    ride = _pickup(pickup, dt)
     _check_image(pet_photo, "รูปน้อง", "pet_photo")
     slip_mime = _check_image(slip, "รูปสลิป", "slip")
 
@@ -139,7 +154,7 @@ async def create(
 
     reference = None
     try:
-        slip_info = await check_slip(slip, slip_mime)
+        slip_info = await check_slip(slip, slip_mime, ride["fee"] if ride else 0)
         seq = await store.next_seq(dt.strftime("%Y%m%d"))
         booking_id = f"HH-{dt:%m%d}-{seq:02d}"
         if slip_info["reference"]:
@@ -158,6 +173,8 @@ async def create(
             "slot_ts": dt.timestamp(),
             "status": "pending",
             "slip": slip_info,
+            "pickup": ride,
+            "amount_due": deposit() + (ride["fee"] if ride else 0),
             "created_at": created,
             "updated_at": created,
         }
@@ -178,6 +195,19 @@ async def create(
         raise
 
 
+def _pickup(raw: dict | None, dt) -> dict | None:
+    """ตรวจจุดรับ + คิดค่ารับส่งที่เซิร์ฟเวอร์ · เวลารับ = ก่อนเวลานัด lead_minutes นาที"""
+    if not raw:
+        return None
+    try:
+        ride = pickup_zone.quote(raw.get("lat"), raw.get("lng"))
+        ride["address"] = pickup_zone.clean_address(raw.get("address"))
+    except pickup_zone.PickupError as exc:
+        raise BookingError(str(exc), field="pickup") from None
+    ride["time"] = (dt - timedelta(minutes=pickup_zone.config()["lead_minutes"])).strftime("%H:%M")
+    return ride
+
+
 def mask_phone(phone: str) -> str:
     return f"{phone[:3]}-xxx-{phone[6:]}" if len(phone) == 10 else "xxx"
 
@@ -194,6 +224,8 @@ def public_view(b: dict) -> dict:
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
+        # ใบจองบอกแค่ว่ามีรับ-ส่งกี่โมง — ที่อยู่/พิกัดอยู่เฉพาะหลังบ้าน
+        "pickup_time": (b.get("pickup") or {}).get("time"),
         # สลิปไม่อยู่บนใบจองของลูกค้า — ร้านดูได้ในหลังบ้าน (/api/v1/admin/bookings/{id}/image/slip)
     }
 
@@ -231,6 +263,8 @@ def admin_view(b: dict) -> dict:
     view.update(
         phone=b["phone"],
         slip=b.get("slip", {}),
+        pickup=b.get("pickup"),
+        amount_due=b.get("amount_due", deposit()),
         created_at=b.get("created_at"),
         updated_at=b.get("updated_at"),
         next_status=sorted(TRANSITIONS.get(b["status"], set())),
@@ -289,6 +323,7 @@ def check_view(b: dict) -> dict:
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "status_hint": STATUS_HINT.get(b["status"], ""),
+        "pickup_time": (b.get("pickup") or {}).get("time"),
     }
 
 

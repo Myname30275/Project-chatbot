@@ -1341,6 +1341,86 @@ svg {
   font: inherit;
   font-weight: 400;
 }
+.field textarea {
+  padding: 10px 14px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 400;
+  resize: vertical;
+}
+
+/* ---- รับ-ส่งน้อง (ขั้นวันเวลา) ---- */
+.pickup {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 2px dashed rgba(92, 61, 46, 0.25);
+}
+.pickup__toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.pickup__toggle input {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  accent-color: var(--ink);
+  flex: none;
+}
+.pickup__toggle small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.pickup__box {
+  margin-top: 10px;
+}
+.pickup__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pickup__hint {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.pickup__map {
+  height: 230px;
+  border: var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--cream);
+  z-index: 0;
+}
+.pickup__quote {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-size: 0.92rem;
+}
+.pickup__shop {
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.pickup__pin span {
+  display: block;
+  width: 28px;
+  height: 28px;
+  background: var(--brick, #c2562f);
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
 .field input[aria-invalid="true"] {
   border-color: var(--brick);
 }
@@ -1986,6 +2066,9 @@ svg {
 .drawer__info .mono {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-weight: 500;
+}
+.drawer__info .pre {
+  white-space: pre-wrap;
 }
 .drawer__info a {
   color: var(--ink);

@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from booking import service, slots
+from booking import pickup, service, slots
 from booking.service import BookingError
 from booking.store import StoreError, get_store
 from channels.web_chat import _resolve_session, _set_session_cookie
@@ -55,6 +55,19 @@ async def get_slots():
     return {"days": slots.availability(counts), "capacity": slots.config()["capacity_per_slot"]}
 
 
+@router.get("/pickup")
+async def get_pickup(lat: float | None = None, lng: float | None = None):
+    """ไม่มีพิกัด = ข้อมูลวาดแผนที่ (ตำแหน่งร้าน + ตารางค่ารับส่ง) · มีพิกัด = ระยะทาง + ค่ารับส่งของจุดนั้น
+    หน้าเว็บใช้แสดงผลเท่านั้น ตอนจองจริงเซิร์ฟเวอร์คิดใหม่เองทุกครั้ง"""
+    if lat is None or lng is None:
+        return pickup.public_config()
+    try:
+        q = pickup.quote(lat, lng)
+    except pickup.PickupError as exc:
+        return _error(422, str(exc), "pickup")
+    return {"km": q["km"], "fee": q["fee"], "deposit": service.deposit(), "total": service.deposit() + q["fee"]}
+
+
 @router.post("")
 async def post_booking(
     request: Request,
@@ -64,16 +77,21 @@ async def post_booking(
     slot: str = Form(""),
     pet_photo: UploadFile | None = File(None),
     slip: UploadFile | None = File(None),
+    want_pickup: str = Form(""),
+    pickup_lat: str = Form(""),
+    pickup_lng: str = Form(""),
+    pickup_address: str = Form(""),
 ):
     session_id, is_new = _resolve_session(request)
-    resp = await _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip)
+    ride = {"lat": pickup_lat, "lng": pickup_lng, "address": pickup_address} if want_pickup else None
+    resp = await _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride)
     if is_new:
         # ส่ง cookie กลับทุกกรณี (รวมตอน error) — ไม่งั้นคนที่จองไม่ผ่านจะได้ session ใหม่ทุกครั้งและหลุด rate limit
         _set_session_cookie(resp, session_id)
     return resp
 
 
-async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip) -> JSONResponse:
+async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride) -> JSONResponse:
     if not _attempts.allow(session_id) or not _attempts_ip.allow(_client_ip(request)):
         return _error(429, "ส่งคำขอจองถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
     try:
@@ -85,6 +103,7 @@ async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_ph
             slot=slot,
             pet_photo=await _read(pet_photo),
             slip=await _read(slip),
+            pickup=ride,
         )
     except BookingError as exc:
         return _error(exc.status, exc.message, exc.field)

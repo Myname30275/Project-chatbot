@@ -279,7 +279,7 @@
           <li data-dot="3">มัดจำ</li>
         </ol>
 
-        <form id="booking-form" class="sheet__form" novalidate>
+        <form id="booking-form" class="sheet__form" novalidate data-deposit="{{ catalog.payment.deposit }}">
           <div class="sheet__body" data-step="1">
             <div class="photo-pick">
               <img id="bk-pet-preview" class="photo-pick__img" alt="รูปน้องที่จะอยู่บนใบจอง" hidden />
@@ -314,11 +314,36 @@
             <p class="sheet__label" id="bk-time-label">เลือกเวลา</p>
             <div id="bk-times" class="time-grid" role="radiogroup" aria-labelledby="bk-time-label"></div>
             <p class="field__error" data-error-for="slot"></p>
+
+            <!-- รับ-ส่งน้อง: ปักหมุดบนแผนที่ → ระยะทางโดยประมาณ → ค่ารับส่ง (เซิร์ฟเวอร์คิดซ้ำตอนจอง) -->
+            <div class="pickup">
+              <label class="pickup__toggle">
+                <input type="checkbox" id="bk-pickup" name="want_pickup" />
+                <span>
+                  ให้ร้านไปรับ-ส่งน้องที่บ้าน (ไป-กลับ)
+                  <small>{% for d in catalog.delivery | sort(attribute="max_km") %}{% if not loop.first %} · {% endif %}ไม่เกิน {{ d.max_km }} กม. {{ d.price }} บาท{% endfor %} · จ่ายพร้อมมัดจำ</small>
+                </span>
+              </label>
+              <div id="bk-pickup-box" class="pickup__box" hidden>
+                <div class="pickup__bar">
+                  <span class="pickup__hint">แตะแผนที่หรือลากหมุดไปที่บ้าน</span>
+                  <button type="button" class="btn btn--ghost btn--small" id="bk-locate">ใช้ตำแหน่งปัจจุบัน</button>
+                </div>
+                <div id="bk-map" class="pickup__map" role="application" aria-label="แผนที่ปักหมุดจุดรับน้อง"></div>
+                <p id="bk-pickup-quote" class="pickup__quote" aria-live="polite"></p>
+                <label class="field">
+                  <span>ที่อยู่ / จุดสังเกตให้คนขับ</span>
+                  <textarea name="pickup_address" rows="2" maxlength="200" autocomplete="street-address"
+                    placeholder="บ้านเลขที่ ซอย หมู่บ้าน จุดสังเกต"></textarea>
+                </label>
+              </div>
+              <p class="field__error" data-error-for="pickup"></p>
+            </div>
           </div>
 
           <div class="sheet__body" data-step="3" hidden>
             <div class="pay-box">
-              <p>โอนมัดจำ <b>{{ catalog.payment.deposit }} บาท</b> เข้าบัญชี <b>{{ catalog.payment.account_name }}</b></p>
+              <p>โอน<span id="bk-due">มัดจำ <b>{{ catalog.payment.deposit }} บาท</b></span> เข้าบัญชี <b>{{ catalog.payment.account_name }}</b></p>
               <p class="pay-box__small">{{ catalog.payment.methods | join(" หรือ ") }} · มัดจำหักจากค่าบริการวันที่มารับบริการ</p>
             </div>
             <div class="photo-pick">

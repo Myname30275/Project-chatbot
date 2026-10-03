@@ -1,6 +1,7 @@
 /* จองคิวในแชท: ป๊อปอัป 3 ขั้น → POST /api/v1/booking → การ์ดใบจองในแชท
  *
  * ข้อตกลงของร้าน (docs/booking-plan.md): ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + เลือกช่องเวลา + สลิป
+ * ติ๊ก "รับ-ส่งน้อง" ได้ (ขั้น 2): ปักหมุดบนแผนที่ → ค่ารับส่งตามระยะ → ยอดโอน = มัดจำ + ค่ารับส่ง
  * ใบจองไม่มีราคา (ร้านชั่งน้ำหนักจริงหน้าร้าน) และสถานะเริ่มที่ "รอร้านยืนยัน" เสมอ
  * รูปถูกย่อในเบราว์เซอร์ก่อนส่ง (เซิร์ฟเวอร์ไม่ต้องมี Pillow และเก็บใน Redis ได้พอดี)
  */
@@ -109,6 +110,10 @@
       if (!PHONE_RE.test(phoneDigits())) { showError("phone", "เบอร์โทรต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0"); ok = false; }
     } else if (n === 2) {
       if (!chosenSlot) { showError("slot", "กรุณาเลือกวันและเวลา"); ok = false; }
+      if (wantPickup()) {
+        if (!ride) { showError("pickup", "กรุณาปักหมุดจุดรับน้องในระยะที่ร้านให้บริการ"); ok = false; }
+        else if (!value("pickup_address")) { showError("pickup", "กรุณากรอกที่อยู่หรือจุดสังเกตให้คนขับ"); ok = false; }
+      }
     } else if (n === 3) {
       if (!pick.slip.blob) { showError("slip", "กรุณาแนบสลิปมัดจำ"); ok = false; }
     }
@@ -120,6 +125,163 @@
       clearError(name);
       saveDraft();
     });
+  });
+
+  /* ---------------- รับ-ส่งน้อง (แผนที่ Leaflet + OpenStreetMap — ฟรี ไม่ต้องใช้ API key) ---------------- */
+
+  const pickupToggle = document.getElementById("bk-pickup");
+  const pickupBox = document.getElementById("bk-pickup-box");
+  const quoteEl = document.getElementById("bk-pickup-quote");
+  const dueEl = document.getElementById("bk-due");
+  const DEPOSIT = Number(form.dataset.deposit) || 50;
+  const LEAFLET = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/";
+  let map = null;
+  let pin = null;
+  let pickupCfg = null;
+  let ride = null; // { lat, lng, km, fee } — ค่าที่เซิร์ฟเวอร์คิดให้ (ตอนจองเซิร์ฟเวอร์คิดซ้ำเองอีกรอบ)
+  let quoteSeq = 0;
+
+  function wantPickup() {
+    return pickupToggle.checked;
+  }
+
+  function loadCss(href) {
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const l = document.createElement("link");
+    l.rel = "stylesheet";
+    l.href = href;
+    document.head.appendChild(l);
+  }
+
+  async function ensureMap() {
+    if (map) { map.invalidateSize(); return; }
+    try {
+      loadCss(LEAFLET + "leaflet.min.css");
+      const [cfg] = await Promise.all([
+        fetch("/api/v1/booking/pickup", { cache: "no-store" }).then((r) => r.json()),
+        loadScript(LEAFLET + "leaflet.min.js"),
+      ]);
+      pickupCfg = cfg;
+    } catch (err) {
+      console.error("[booking] โหลดแผนที่ไม่สำเร็จ:", err);
+      showError("pickup", "โหลดแผนที่ไม่สำเร็จ ลองติ๊กใหม่อีกครั้ง หรือติดต่อร้านทาง LINE");
+      return;
+    }
+    if (map) return; // ติ๊กรัว ๆ ระหว่างโหลด
+    const L = window.L;
+    const shop = [pickupCfg.shop.lat, pickupCfg.shop.lng];
+    map = L.map("bk-map", { scrollWheelZoom: false }).setView(shop, 12);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+    L.marker(shop, {
+      icon: L.icon({ iconUrl: "/static/img/logo-badge.png", iconSize: [40, 40], className: "pickup__shop" }),
+      title: "ร้าน",
+      keyboard: false,
+    }).addTo(map);
+    // วงระยะให้บริการ (เส้นตรง) — ระยะถนนโดยประมาณ = เส้นตรง × road_factor
+    const maxKm = pickupCfg.zones[pickupCfg.zones.length - 1].max_km;
+    L.circle(shop, {
+      radius: (maxKm / pickupCfg.road_factor) * 1000,
+      color: "#5c3d2e", weight: 2, dashArray: "6 6", fillColor: "#e8a840", fillOpacity: 0.08,
+      interactive: false,
+    }).addTo(map);
+    map.on("click", (e) => setPin(e.latlng));
+    requestAnimationFrame(() => map.invalidateSize());
+  }
+
+  function setPin(latlng) {
+    const L = window.L;
+    if (!pin) {
+      pin = L.marker(latlng, {
+        draggable: true,
+        title: "จุดรับน้อง",
+        icon: L.divIcon({ className: "pickup__pin", html: "<span></span>", iconSize: [28, 28], iconAnchor: [14, 28] }),
+      }).addTo(map);
+      pin.on("dragend", () => fetchQuote(pin.getLatLng()));
+    } else {
+      pin.setLatLng(latlng);
+    }
+    fetchQuote(latlng);
+  }
+
+  async function fetchQuote(latlng) {
+    const seq = ++quoteSeq;
+    ride = null;
+    updateDue();
+    clearError("pickup");
+    quoteEl.textContent = "กำลังคำนวณระยะทาง…";
+    try {
+      const r = await fetch(`/api/v1/booking/pickup?lat=${latlng.lat.toFixed(6)}&lng=${latlng.lng.toFixed(6)}`, { cache: "no-store" });
+      const body = await r.json();
+      if (seq !== quoteSeq) return; // ลากหมุดต่อแล้ว ผลเก่าทิ้ง
+      if (!r.ok) {
+        quoteEl.textContent = "";
+        showError("pickup", body.message || "จุดนี้คิดค่ารับส่งไม่ได้");
+        return;
+      }
+      ride = { lat: latlng.lat, lng: latlng.lng, km: body.km, fee: body.fee };
+      quoteEl.innerHTML = "";
+      const b = document.createElement("b");
+      b.textContent = `ค่ารับส่ง ${body.fee} บาท`;
+      quoteEl.append(`ระยะทางประมาณ ${body.km} กม. · `, b, " (ไป-กลับ)");
+    } catch (err) {
+      if (seq !== quoteSeq) return;
+      console.error("[booking] quote:", err);
+      quoteEl.textContent = "";
+      showError("pickup", "คำนวณค่ารับส่งไม่สำเร็จ ลองแตะแผนที่อีกครั้ง");
+    }
+    updateDue();
+  }
+
+  function pickupFee() {
+    return wantPickup() && ride ? ride.fee : 0;
+  }
+
+  function updateDue() {
+    const fee = pickupFee();
+    dueEl.innerHTML = "";
+    const b = document.createElement("b");
+    b.textContent = `${DEPOSIT + fee} บาท`;
+    if (fee) dueEl.append("ยอด ", b, ` (มัดจำ ${DEPOSIT} + ค่ารับส่ง ${fee})`);
+    else dueEl.append("มัดจำ ", b);
+  }
+
+  // เวลาที่ร้านไปรับ = เวลานัด − lead_minutes (ตรงกับที่เซิร์ฟเวอร์คิด)
+  function pickupTime() {
+    if (!chosenSlot || !pickupCfg) return "";
+    const [h, m] = chosenSlot.key.slice(11).split(":").map(Number);
+    const t = h * 60 + m - pickupCfg.lead_minutes;
+    return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
+  }
+
+  pickupToggle.addEventListener("change", () => {
+    pickupBox.hidden = !wantPickup();
+    clearError("pickup");
+    if (wantPickup()) ensureMap();
+    updateDue();
+  });
+  form.elements.pickup_address.addEventListener("input", () => clearError("pickup"));
+
+  document.getElementById("bk-locate").addEventListener("click", () => {
+    if (!navigator.geolocation || !map) {
+      showError("pickup", "อุปกรณ์นี้หาตำแหน่งไม่ได้ แตะแผนที่ตรงบ้านแทนได้เลยค่ะ");
+      return;
+    }
+    quoteEl.textContent = "กำลังหาตำแหน่ง…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const ll = window.L.latLng(pos.coords.latitude, pos.coords.longitude);
+        map.setView(ll, 15);
+        setPin(ll);
+      },
+      () => {
+        quoteEl.textContent = "";
+        showError("pickup", "เปิดตำแหน่งไม่ได้ แตะแผนที่ตรงบ้านแทนได้เลยค่ะ");
+      },
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
   });
 
   /* ---------------- ร่างข้อมูล (ปิดกลางคันแล้วไม่หาย) ---------------- */
@@ -159,9 +321,12 @@
     nextBtn.hidden = n === 3;
     submitBtn.hidden = n !== 3;
     if (n === 2 && !days.length) loadSlots();
+    if (n === 2 && map) requestAnimationFrame(() => map.invalidateSize());
     if (n === 3) {
       summaryEl.textContent =
-        `น้อง${value("pet_name")} · ${chosenSlot ? chosenSlot.label : ""}`;
+        `น้อง${value("pet_name")} · ${chosenSlot ? chosenSlot.label : ""}` +
+        (wantPickup() && ride ? ` · ร้านไปรับน้อง ${pickupTime()} น.` : "");
+      updateDue();
     }
     const first = form.querySelector(`[data-step="${n}"] input:not([type=file]), [data-step="${n}"] button`);
     if (first) first.focus({ preventScroll: true });
@@ -251,7 +416,7 @@
 
   /* ---------------- ส่งจอง ---------------- */
 
-  const STEP_OF_FIELD = { pet_photo: 1, pet_name: 1, owner_name: 1, phone: 1, slot: 2, slip: 3 };
+  const STEP_OF_FIELD = { pet_photo: 1, pet_name: 1, owner_name: 1, phone: 1, slot: 2, pickup: 2, slip: 3 };
 
   function setBusy(on) {
     busy = on;
@@ -273,6 +438,12 @@
     data.append("slot", chosenSlot.key);
     data.append("pet_photo", pick.pet.blob, "pet.jpg");
     data.append("slip", pick.slip.blob, "slip.jpg");
+    if (wantPickup() && ride) {
+      data.append("want_pickup", "1");
+      data.append("pickup_lat", ride.lat.toFixed(6));
+      data.append("pickup_lng", ride.lng.toFixed(6));
+      data.append("pickup_address", form.elements.pickup_address.value.trim());
+    }
 
     setBusy(true);
     statusEl.textContent = "กำลังตรวจสลิป… อาจใช้เวลา 10–20 วินาที";
@@ -319,6 +490,12 @@
     chosenSlot = null;
     chosenDay = null;
     days = [];
+    pickupBox.hidden = true;
+    ride = null;
+    quoteSeq++;
+    quoteEl.textContent = "";
+    if (pin) { pin.remove(); pin = null; }
+    updateDue();
   }
 
   /* ---------------- เปิด / ปิด ---------------- */
@@ -443,6 +620,14 @@
     card.querySelector('[data-f="phone"]').textContent = b.phone;
     card.querySelector('[data-f="slot_label"]').textContent = b.slot_label;
     card.querySelector('[data-f="id"]').textContent = b.id;
+    if (b.pickup_time) {
+      // ติ๊กรับ-ส่ง: บอกแค่เวลารับ (ที่อยู่อยู่เฉพาะหลังบ้าน) แทรกก่อนเลขจอง
+      const dt = document.createElement("dt");
+      dt.textContent = "รับ-ส่ง";
+      const dd = document.createElement("dd");
+      dd.textContent = `ร้านไปรับ ${b.pickup_time} น.`;
+      card.querySelector('[data-f="id"]').previousElementSibling.before(dt, dd);
+    }
     card.querySelector(".ticket__pet").src = b.pet_image;
     const btn = card.querySelector(".ticket__actions button");
     btn.addEventListener("click", () => saveAsImage(card, b.id, btn));

@@ -108,12 +108,14 @@
     {
       "id": "pickup_5km",
       "name": "รับ-ส่งถึงบ้าน ระยะไม่เกิน 5 กม. จากร้าน (ไป-กลับ)",
-      "price": 150
+      "price": 150,
+      "max_km": 5
     },
     {
       "id": "pickup_10km",
       "name": "รับ-ส่งถึงบ้าน ระยะ 5–10 กม. จากร้าน (ไป-กลับ)",
-      "price": 250
+      "price": 250,
+      "max_km": 10
     }
   ],
 
@@ -146,7 +148,13 @@
     "capacity_per_slot": 2,
     "closed_weekdays": [0],
     "min_days_ahead": 1,
-    "max_days_ahead": 14
+    "max_days_ahead": 14,
+    "pickup": {
+      "shop_lat": 13.7230,
+      "shop_lng": 100.7280,
+      "road_factor": 1.3,
+      "lead_minutes": 30
+    }
   },
 
   "not_offered": [

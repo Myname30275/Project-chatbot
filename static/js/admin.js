@@ -137,7 +137,7 @@
     btn.className = "bk-chip";
     btn.dataset.status = b.status;
     btn.dataset.id = b.id;
-    const flag = b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "";
+    const flag = (b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "") + (b.pickup ? " 🚗" : "");
     btn.innerHTML = '<span class="bk-chip__name"></span><span class="bk-chip__meta"></span>';
     btn.querySelector(".bk-chip__name").textContent = b.pet_name + flag;
     btn.querySelector(".bk-chip__meta").textContent = b.status_label;
@@ -237,13 +237,32 @@
     return [dt, dd];
   }
 
-  function slipText(s) {
+  function baht(n) {
+    return `${Number(n).toLocaleString("th-TH")} บาท`;
+  }
+
+  function slipText(s, due) {
     if (!s || s.auto_ok === undefined) return "—";
-    if (s.auto_ok) return "✓ ยอด 50 บาท และชื่อบัญชีตรงกับร้าน (ตรวจอัตโนมัติ)";
+    if (s.auto_ok) return `✓ ยอด ${baht(due)} และชื่อบัญชีตรงกับร้าน (ตรวจอัตโนมัติ)`;
     const bits = ["⚠ ระบบตรวจอัตโนมัติไม่ครบ — ตรวจยอดเข้าบัญชีเอง"];
-    if (s.amount != null) bits.push(`ยอดที่อ่านได้ ${Number(s.amount).toLocaleString("th-TH")} บาท`);
+    if (s.amount != null) bits.push(`ยอดที่อ่านได้ ${baht(s.amount)} (ต้องได้ ${baht(due)})`);
     if (s.receiver_ok == null) bits.push("อ่านชื่อผู้รับไม่ได้");
     return bits.join(" · ");
+  }
+
+  // รับ-ส่งน้อง: เวลารับ ที่อยู่ ระยะทาง + ลิงก์เปิด Google Maps นำทางไปหมุดที่ลูกค้าปัก
+  function pickupRows(b) {
+    const p = b.pickup;
+    if (!p) return [row("รับ-ส่ง", "ไม่ใช้ (มาที่ร้านเอง)")];
+    const nav = document.createElement("a");
+    nav.href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+    nav.target = "_blank";
+    nav.rel = "noopener";
+    nav.textContent = `เปิดแผนที่ (~${p.km} กม.)`;
+    const addr = document.createElement("span");
+    addr.className = "pre";
+    addr.textContent = p.address;
+    return [row("รับ-ส่ง", `รับที่บ้าน ${p.time} น. · ไป-กลับ`), row("ที่อยู่รับ", addr), row("หมุด", nav)];
   }
 
   function openDrawer(b, trigger) {
@@ -284,7 +303,9 @@
       row("น้อง", b.pet_name),
       row("เจ้าของ", b.owner_name),
       row("เบอร์โทร", tel),
-      row("สลิป", slipText(b.slip)),
+      ...pickupRows(b),
+      row("ยอดที่ต้องโอน", b.pickup ? `${baht(b.amount_due)} (มัดจำ + ค่ารับส่ง ${baht(b.pickup.fee)})` : baht(b.amount_due)),
+      row("สลิป", slipText(b.slip, b.amount_due)),
       row("เลขอ้างอิงสลิป", (b.slip && b.slip.reference) || "—", "mono"),
       row("จองเมื่อ", (b.created_at || "").replace("T", " ").slice(0, 16)),
     ].forEach(([dt, dd]) => dl.append(dt, dd));
