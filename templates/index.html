@@ -65,6 +65,13 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
             ไม่สะดวกพิมพ์? คุยกับน้องหอมด้วยเสียง
           </a>
+          <!-- ลูกค้าที่จองแล้ว: ทางลัดรองลงมา (ไม่แข่งกับปุ่มจองคิว) · ยกเลิกคิว = ป๊อปอัปยืนยันตัวตน (cancel.js) -->
+          <p class="hero__manage">
+            จองไว้แล้ว?
+            <a class="hero__link" href="/check">เช็คคิว</a>
+            <span aria-hidden="true">·</span>
+            <button type="button" class="hero__link" data-cancel-booking>ยกเลิกคิว</button>
+          </p>
           <p class="hero__hours">{{ shop.hours }}<br />{{ shop.last_queue }}</p>
         </div>
         <figure class="hero__art">
@@ -161,7 +168,10 @@
           </article>
         </div>
 
-        <p class="visit__check">จองแล้ว? ดูว่าร้านยืนยันคิวหรือยังที่ <a class="btn btn--ghost btn--small" href="/check">เช็คคิว</a></p>
+        <p class="visit__check">
+          จองแล้ว? ดูว่าร้านยืนยันคิวหรือยังที่ <a class="btn btn--ghost btn--small" href="/check">เช็คคิว</a>
+          หรือเปลี่ยนใจ <button type="button" class="btn btn--ghost btn--small" data-cancel-booking>ยกเลิกคิว</button>
+        </p>
 
         <div class="not-offered">
           <h3>ร้านยังไม่มีบริการเหล่านี้</h3>
