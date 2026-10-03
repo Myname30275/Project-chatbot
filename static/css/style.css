@@ -378,44 +378,42 @@ svg {
   font-weight: 600;
 }
 
-/* วิธีจอง — เป็นลำดับขั้นจริง จึงใส่หมายเลข */
-.steps {
+/* ก่อนพาน้องมาร้าน — การ์ด 3 หัวข้อ (นโยบายสรุป) */
+.visit {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 20px;
-  margin: 28px 0 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: step;
 }
-.steps li {
-  counter-increment: step;
-  padding: 22px;
+.visit__card {
+  padding: 22px 22px 16px;
   background: var(--paper);
   border: var(--line);
   border-radius: 24px;
 }
-.steps li::before {
-  content: counter(step);
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 12px;
-  background: var(--honey);
-  border: var(--line);
-  border-radius: 50%;
-  font-family: "Mali", sans-serif;
-  font-weight: 700;
-  font-size: 1.25rem;
+.visit__card h3 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
 }
-.steps h3 {
-  margin: 0 0 6px;
-  font-size: 1.1rem;
-}
-.steps p {
+.visit__card ul {
   margin: 0;
+  padding-left: 1.1em;
+}
+.visit__card li {
+  margin: 0 0 8px;
   color: var(--ink-soft);
+}
+.visit__check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0 0;
+  font-weight: 600;
+}
+.footer__link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .not-offered {
   margin-top: 40px;
@@ -1158,9 +1156,6 @@ svg {
 /* ============================================================================
    จองคิว — ป๊อปอัป 3 ขั้น (booking.js) + การ์ดใบจองในแชท
    ========================================================================== */
-.steps__cta {
-  margin-top: 24px;
-}
 .book-cta {
   align-self: flex-start;
   margin-top: 8px;
@@ -2146,6 +2141,9 @@ svg {
    จอเล็ก
    ========================================================================== */
 @media (max-width: 860px) {
+  .visit {
+    grid-template-columns: 1fr;
+  }
   .avatar {
     grid-template-columns: minmax(0, 1fr);
     padding-top: 20px;
@@ -2159,9 +2157,6 @@ svg {
   .hero__art {
     grid-row: 2;
     margin: 0 -8px;
-  }
-  .steps {
-    grid-template-columns: 1fr;
   }
   .footer__grid {
     grid-template-columns: 1fr;

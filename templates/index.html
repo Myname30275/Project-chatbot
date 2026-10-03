@@ -31,7 +31,7 @@
       </a>
       <nav class="nav__links" aria-label="เมนูหลัก">
         <a href="#prices">ราคา</a>
-        <a href="#booking">วิธีจอง</a>
+        <a href="#before-visit">ก่อนมาร้าน</a>
         <a href="#contact">ติดต่อร้าน</a>
       </nav>
       <a class="btn btn--ghost btn--small nav__check" href="/check">เช็คคิว</a>
@@ -129,24 +129,39 @@
         </div>
       </section>
 
-      <section id="booking" class="section section--cream">
-        <h2 class="section__title">จองคิวใน 3 ขั้น</h2>
-        <ol class="steps">
-          <li>
-            <h3>ส่งรูปน้องในแชท</h3>
-            <p>น้องหอมประเมินราคาคร่าว ๆ ตามไซส์ให้ก่อนตัดสินใจ</p>
-          </li>
-          <li>
-            <h3>กดจองคิว แล้วโอนมัดจำ {{ catalog.payment.deposit }} บาท</h3>
-            <p>กรอกชื่อน้อง ชื่อเจ้าของ เบอร์โทร เลือกวันเวลาที่ว่าง แล้วแนบสลิป ได้ใบจองทันที</p>
-          </li>
-          <li>
-            <h3>แสดงใบจองที่หน้าร้าน</h3>
-            <p>ร้านยืนยันคิวให้ ชั่งน้ำหนักน้องแล้วแจ้งราคาจริง มัดจำหักจากค่าบริการวันนั้น</p>
-          </li>
-        </ol>
+      <!-- ก่อนพาน้องมาร้าน: สรุปนโยบายร้าน (จาก shop/policies.md + catalog.json) — ปุ่มจองอยู่ด้านบนแล้ว -->
+      <section id="before-visit" class="section section--cream">
+        <h2 class="section__title">ก่อนพาน้องมาร้าน</h2>
+        <p class="section__lead">จองผ่านปุ่มจองคิวแล้ว อ่านสิ่งที่ควรรู้ก่อนวันนัดได้ที่นี่</p>
+        <div class="visit">
+          <article class="visit__card">
+            <h3>การจองและมัดจำ</h3>
+            <ul>
+              <li>โอนมัดจำ {{ catalog.payment.deposit }} บาทตอนจอง หักจากค่าบริการวันที่มารับบริการ</li>
+              <li>ยกเลิกหรือเลื่อนนัด แจ้งล่วงหน้าอย่างน้อย 3 ชั่วโมง ไม่งั้นร้านขอเก็บมัดจำ</li>
+              <li>ร้านตรวจยอดโอนแล้วยืนยันคิวให้ ดูสถานะได้ที่หน้าเช็คคิว</li>
+            </ul>
+          </article>
+          <article class="visit__card">
+            <h3>สุขภาพน้อง</h3>
+            <ul>
+              <li>งดรับน้องที่ป่วย มีแผลเปิด มีโรคผิวหนังที่ยังไม่รักษา หรือตั้งท้อง แนะนำพบสัตวแพทย์ก่อน</li>
+              <li>ลูกสุนัข ลูกแมว อายุ 3 เดือนขึ้นไป และได้วัคซีนเข็มแรกแล้ว</li>
+              <li>น้องดุหรือกลัวคน แจ้งร้านก่อน มีค่าดูแลพิเศษ</li>
+            </ul>
+          </article>
+          <article class="visit__card">
+            <h3>วันนัด</h3>
+            <ul>
+              <li>แสดงใบจองที่เคาน์เตอร์</li>
+              <li>ร้านชั่งน้ำหนักน้องแล้วแจ้งราคาจริงก่อนเริ่มบริการ</li>
+              <li>มาสายเกิน 30 นาทีโดยไม่แจ้ง ร้านเลื่อนไปคิวว่างถัดไป</li>
+              <li>{{ shop.last_queue }}</li>
+            </ul>
+          </article>
+        </div>
 
-        <button class="btn steps__cta" type="button" data-open-booking>จองคิว</button>
+        <p class="visit__check">จองแล้ว? ดูว่าร้านยืนยันคิวหรือยังที่ <a class="btn btn--ghost btn--small" href="/check">เช็คคิว</a></p>
 
         <div class="not-offered">
           <h3>ร้านยังไม่มีบริการเหล่านี้</h3>
@@ -170,7 +185,7 @@
           <p>{{ shop.last_queue }}</p>
         </div>
         <div>
-          <p>LINE {{ shop.contacts.line }}</p>
+          <p>LINE <a class="footer__link" href="https://line.me/R/ti/p/{{ shop.contacts.line }}" target="_blank" rel="noopener">{{ shop.contacts.line }}</a></p>
           <p>โทร {{ shop.contacts.phone }}</p>
         </div>
       </div>
