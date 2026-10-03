@@ -22,6 +22,7 @@
 """
 
 import asyncio
+import re
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
@@ -112,6 +113,29 @@ def _refusal(decision: guard.Decision) -> list[dict]:
     return [{"blocked": decision.code}, {"delta": decision.message}, {"done": True}]
 
 
+_WEIGHT_RE = re.compile(r"(\d+(?:[.,]\d+)?)\s*(กิโลกรัม|กิโล|กก\.?|kg|กรัม|gram|g\b)", re.IGNORECASE)
+
+
+def weight_check_note(message: str) -> str | None:
+    """น้ำหนักผิดปกติในข้อความลูกค้า (กรัม / < 0.5 กก. / > 100 กก.) → โน้ตให้ LLM ทำตามกฎข้อ 12
+    ตรวจด้วยโค้ด ไม่ปล่อยให้ LLM ตัดสินเอง — ทดสอบจริงแล้วบางรอบบอกราคา หรือแต่งกฎว่าร้านไม่รับตัวใหญ่"""
+    for m in _WEIGHT_RE.finditer(message or ""):
+        value = float(m.group(1).replace(",", "."))
+        grams = m.group(2).lower() in ("กรัม", "g", "gram")
+        kg = value / 1000 if grams else value
+        if grams or kg < 0.5 or kg > 100:
+            said = m.group(0).strip()
+            # หน่วยกรัมมักพิมพ์ผิดจากกิโลกรัม → เสนอทางเลือกให้ · ค่าอื่นแค่ขอให้ตรวจอีกครั้ง
+            ask = (f"น้องหนัก {said} จริงไหมคะ หรือหมายถึง {m.group(1)} กิโลกรัมคะ" if grams and value <= 100
+                   else f"น้องหนัก {said} จริงไหมคะ รบกวนตรวจสอบน้ำหนักอีกครั้งนะคะ")
+            return (
+                f"[ตรวจโดยระบบ] ลูกค้าแจ้งน้ำหนัก {said} ซึ่งผิดปกติ — ทำตาม \"ต้องทำ\" ข้อ 12: "
+                f"ถ้ายังไม่เคยถามยืนยันในบทสนทนานี้ ให้ตอบประโยคนี้ตรงตัวเท่านั้น: \"{ask}\" "
+                "(ห้ามบอกราคา ห้ามบอกว่าร้านรับหรือไม่รับ) · ถ้าลูกค้ากำลังยืนยันค่าเดิม ให้แนะนำโทรหาร้าน"
+            )
+    return None
+
+
 async def respond_stream(
     session_id: str,
     message: str,
@@ -145,6 +169,9 @@ async def respond_stream(
     yield {"knowledge": sources}
     if from_images:
         knowledge = from_images + ("\n\n" + knowledge if knowledge else "")
+    weight_note = weight_check_note(message)
+    if weight_note:
+        knowledge = weight_note + ("\n\n" + knowledge if knowledge else "")
 
     # ด่าน 3: ปล่อยคำตอบทีละประโยคที่ตรวจผ่านแล้วเท่านั้น
     out_guard = guard.OutputGuard(_user_texts(history, message), _slip_amounts(attachments))

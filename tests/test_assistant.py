@@ -86,3 +86,25 @@ class AssistantTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WeightCheckTests(unittest.TestCase):
+    def test_abnormal_weights_get_a_confirm_note(self):
+        cases = {
+            "สุนัขหนัก 15 กรัม": "หรือหมายถึง 15 กิโลกรัม",
+            "หนัก 15g": "หรือหมายถึง 15 กิโลกรัม",
+            "แมวหนัก 300 กรัม": "รบกวนตรวจสอบน้ำหนัก",   # 300 กก. ไม่สมเหตุผล → ไม่เสนอ
+            "หมาหนัก 200 กิโล": "รบกวนตรวจสอบน้ำหนัก",
+            "0.3 กก.": "รบกวนตรวจสอบน้ำหนัก",
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                note = assistant.weight_check_note(text)
+                self.assertIsNotNone(note)
+                self.assertIn(expected, note)
+                self.assertIn("ห้ามบอกราคา", note)
+
+    def test_normal_weights_and_prices_are_left_alone(self):
+        for text in ["หมาหนัก 8 กิโล", "30kg", "แมว 4.5 กก", "หมาใหญ่ 40 กิโลกรัม", "ราคา 250 บาท", "อาบน้ำเท่าไหร่"]:
+            with self.subTest(text=text):
+                self.assertIsNone(assistant.weight_check_note(text))
