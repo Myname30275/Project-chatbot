@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     ADMIN_SECRET: str | None = None
     ADMIN_SESSION_HOURS: int = 12
 
+    # --- LINE OA (Messaging API) — ไม่ตั้ง = ปิดช่องทาง LINE (webhook ตอบ 503) ---
+    LINE_CHANNEL_SECRET: str | None = None
+    LINE_CHANNEL_ACCESS_TOKEN: str | None = None
+    # ลิงก์หน้าเว็บที่บอทใน LINE ส่งให้ลูกค้าไปจองคิว/เช็คคิว
+    PUBLIC_SITE_URL: str = "https://hom-hom-grooming.vercel.app"
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )

@@ -46,6 +46,15 @@ def system_prompt() -> str:
     )
 
 
+@lru_cache
+def line_hint() -> str:
+    """system message เสริมสำหรับ LINE (ข้อความล้วน ไม่มีปุ่ม → ส่งลิงก์จอง/เช็คคิวของเว็บแทน)"""
+    from config import settings
+
+    site = settings.PUBLIC_SITE_URL.rstrip("/")
+    return render(load_prompt("line_hint.txt"), {"BOOK_URL": f"{site}/?book=1", "CHECK_URL": f"{site}/check"})
+
+
 def voice_hint() -> str:
     """system message เสริมสำหรับโหมดเสียง (ตอบสั้น ไม่มี markdown)"""
     return load_prompt("voice_hint.txt")

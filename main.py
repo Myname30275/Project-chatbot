@@ -20,6 +20,7 @@ from config import settings
 from channels.tts import router as tts_router
 from channels import admin
 from channels.booking_api import router as booking_router
+from channels.line_webhook import router as line_router
 from channels.web_chat import router as chat_router
 from shop.pricing import load_catalog
 
@@ -71,6 +72,7 @@ app.include_router(chat_router)
 app.include_router(tts_router)
 app.include_router(booking_router)
 app.include_router(admin.router)
+app.include_router(line_router)
 
 
 @app.get("/")
