@@ -180,6 +180,24 @@ async def cancel_booking(body: CancelRequest, request: Request):
     return {"ok": True, "booking": service.verify_view(b), "refund_amount": b["refund"]["amount"]}
 
 
+@router.post("/refund-proof")
+async def get_refund_proof(body: VerifyRequest, request: Request):
+    """หน้าเช็คคิว: ดูสลิปที่ร้านโอนเงินคืน — ต้องยืนยันตัวตน (เลขจอง + เบอร์ + ชื่อเจ้าของ) เหมือนตอนยกเลิก"""
+    if not _cancels.allow(_client_ip(request)):
+        return _error(429, "ส่งคำขอถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
+    try:
+        data = await service.refund_proof(body.booking_id, body.phone, body.owner_name)
+    except BookingError as exc:
+        return _error(exc.status, exc.message, exc.field)
+    except StoreError as exc:
+        return _error(503, str(exc))
+    return Response(
+        content=data,
+        media_type=service.sniff_image(data) or "application/octet-stream",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @router.get("/cancel-options")
 async def cancel_options():
     return {"banks": service.BANKS, "hours": service.cancel_hours()}

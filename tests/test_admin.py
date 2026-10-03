@@ -221,10 +221,42 @@ class AdminTests(unittest.TestCase):
         self.login()
         refund = self.owner.get(f"/api/v1/admin/bookings/{b['id']}").json()["booking"]["refund"]
         self.assertEqual((refund["status"], refund["account"], refund["amount"]), ("pending", "0812345678", 50))
-        self.assertEqual(self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 200)
-        self.assertEqual(self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 409)
+        self.assertEqual(self.check_item()["refund_status"], "pending")
+        self.assertEqual(self.proof(b["id"]).status_code, 404)  # ร้านยังไม่ได้โอน/แนบสลิป
+
+        # ต้องแนบสลิปโอนคืนก่อน ถึงจะกดยืนยันโอนคืนได้
+        no_proof = self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refunded")
+        self.assertEqual(no_proof.status_code, 422)
+        self.assertIn("สลิปโอนคืน", no_proof.json()["message"])
+        bad = self.refunded(b["id"], data=b"GIF89a" + b"0" * 50)
+        self.assertEqual(bad.status_code, 422)
+        self.assertEqual(self.refunded(b["id"]).status_code, 200)
+        self.assertEqual(self.refunded(b["id"]).status_code, 409)
+        self.assertEqual(self.refunded(b["id"], client=self.customer).status_code, 401)
         self.assertIn("โอนคืน 50 บาท แล้ว", self.check_hint())
-        self.assertEqual(self.customer.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 401)
+        admin_img = self.owner.get(f"/api/v1/admin/bookings/{b['id']}/image/refund")
+        self.assertEqual(admin_img.content, JPEG)
+
+        # หน้าเช็คคิว: เห็นสถานะ + มีสลิป แต่ไม่มีเลขบัญชี · ดูรูปสลิปต้องยืนยันชื่อเจ้าของ
+        item = self.check_item()
+        self.assertEqual((item["refund_status"], item["refund_amount"], item["refund_proof"]), ("done", 50, True))
+        self.assertTrue(item["refunded_at"])
+        self.assertNotIn("0812345678", str(item))
+        self.assertEqual(self.proof(b["id"], owner_name="คนอื่น").status_code, 404)
+        r = self.proof(b["id"], client=TestClient(self.app))
+        self.assertEqual((r.status_code, r.headers["content-type"], r.content), (200, "image/jpeg", JPEG))
+
+    def refunded(self, booking_id, data=JPEG, client=None):
+        return (client or self.owner).post(
+            f"/api/v1/admin/bookings/{booking_id}/refunded", files={"proof": ("refund.jpg", data, "image/jpeg")})
+
+    def proof(self, booking_id, client=None, **who):
+        body = {"booking_id": booking_id, **self.OWNER, **who}
+        return (client or self.customer).post("/api/v1/booking/refund-proof", json=body)
+
+    def check_item(self):
+        r = self.customer.post("/api/v1/booking/check", json={"phone": "0812345678"})
+        return r.json()["bookings"][0]
 
     def test_wrong_identity_is_rejected_without_saying_which_field(self):
         b = self.book()

@@ -5,7 +5,8 @@
 
 key ใน Redis (ดู docs/booking-plan.md §5)
   booking:<id>                 JSON ข้อมูลการจอง (ไม่มีราคา)
-  booking_img:<id>:<kind>      รูป base64 (kind = pet | slip) ย่อมาจากเบราว์เซอร์แล้ว
+  booking_img:<id>:<kind>      รูป base64 (kind = pet | slip | refund) ย่อมาจากเบราว์เซอร์แล้ว
+                               refund = สลิปที่ร้านโอนเงินคืนให้ลูกค้า (แนบตอนกด "โอนคืนแล้ว")
   bookings:by_time             sorted set  score = เวลานัด (epoch)  member = id
   bookings:session:<sid>       list ของ id ของ session นั้น ("ใบจองของฉัน")
   bookings:phone:<phone>       list ของ id ตามเบอร์โทร (หน้าเช็คคิว /check)

@@ -12,7 +12,7 @@ import logging
 import time
 from datetime import date, datetime, timedelta
 
-from fastapi import APIRouter, Form, Request, Response
+from fastapi import APIRouter, File, Form, Request, Response, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
@@ -173,11 +173,13 @@ async def change_status(booking_id: str, body: StatusRequest, request: Request):
 
 
 @router.post("/api/v1/admin/bookings/{booking_id}/refunded")
-async def mark_refunded(booking_id: str, request: Request):
+async def mark_refunded(booking_id: str, request: Request, proof: UploadFile | None = File(None)):
+    """กด "ยืนยันโอนคืนแล้ว" — ต้องแนบสลิปโอนคืน (multipart field: proof)"""
     if not is_admin(request):
         return _denied()
+    data = await proof.read(service.MAX_IMAGE_BYTES + 1) if proof else None
     try:
-        return {"booking": await service.mark_refunded(booking_id)}
+        return {"booking": await service.mark_refunded(booking_id, data)}
     except BookingError as exc:
         return _error(exc.status, exc.message)
     except StoreError as exc:
@@ -188,7 +190,7 @@ async def mark_refunded(booking_id: str, request: Request):
 async def admin_image(booking_id: str, kind: str, request: Request):
     if not is_admin(request):
         return _denied()
-    if kind not in {"pet", "slip"}:
+    if kind not in {"pet", "slip", "refund"}:
         return _error(404, "ไม่พบรูป")
     try:
         data = await get_store().get_image(booking_id, kind)

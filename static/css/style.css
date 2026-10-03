@@ -1675,6 +1675,72 @@ svg {
   font-size: 1rem;
   line-height: 1.6;
 }
+/* สถานะคืนเงิน + สลิปโอนคืน (หน้าเช็คคิว) */
+.check-refund {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px 14px;
+  background: var(--brick-bg);
+  border-radius: 14px;
+}
+.check-refund[data-state="done"] {
+  background: var(--honey-soft);
+}
+.check-refund p {
+  margin: 0;
+}
+.check-refund__line span {
+  color: var(--ink-soft);
+}
+.check-refund__hint {
+  font-size: 0.86rem;
+  color: var(--ink-soft);
+}
+.check-refund__form {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  justify-items: start;
+}
+.check-refund__form .field {
+  width: 100%;
+  margin-top: 0;
+}
+.check-refund__img {
+  width: min(100%, 320px);
+  border: var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+.refund-proof {
+  flex-basis: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--honey-soft);
+  border: var(--line);
+  border-radius: 16px;
+}
+.refund-proof p {
+  margin: 0;
+}
+.refund-proof__hint {
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.refund-proof__img {
+  width: min(100%, 220px);
+  border: var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+.refund-proof__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .check__cancel {
   display: flex;
   flex-wrap: wrap;

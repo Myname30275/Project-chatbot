@@ -289,6 +289,87 @@
     ];
   }
 
+  /* ---------------- ยืนยันโอนคืน: ต้องแนบสลิปโอนคืนก่อน ---------------- */
+
+  // ย่อรูปในเบราว์เซอร์ก่อนส่ง (เหมือนหน้าจองคิว) — สลิปย่อน้อยให้ตัวหนังสือยังอ่านออก
+  async function shrink(file, maxSide = 1200) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      bmp.close && bmp.close();
+      return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+    } catch (err) {
+      console.warn("[admin] ย่อรูปไม่สำเร็จ ใช้ไฟล์เดิม:", err);
+      return file;
+    }
+  }
+
+  function refundBox(b) {
+    const box = document.createElement("div");
+    box.className = "refund-proof";
+    box.innerHTML = `
+      <p class="refund-proof__title">ยืนยันโอนคืน <b></b></p>
+      <p class="refund-proof__hint">แนบสลิปที่โอนคืนให้ลูกค้าก่อน ลูกค้าดูสลิปนี้ได้ที่หน้าเช็คคิว (หลังยืนยันตัวตน)</p>
+      <img class="refund-proof__img" alt="สลิปโอนคืนที่แนบ" hidden />
+      <input type="file" accept="image/jpeg,image/png,image/webp" hidden />
+      <div class="refund-proof__actions">
+        <button type="button" class="btn btn--ghost btn--small" data-pick>แนบสลิปโอนคืน</button>
+        <button type="button" class="btn btn--small" data-confirm disabled>ยืนยันโอนคืนแล้ว</button>
+      </div>`;
+    box.querySelector("b").textContent = baht(b.refund.amount);
+    const input = box.querySelector("input");
+    const img = box.querySelector("img");
+    const pickBtn = box.querySelector("[data-pick]");
+    const confirmBtn = box.querySelector("[data-confirm]");
+    let blob = null;
+
+    pickBtn.addEventListener("click", () => input.click());
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      input.value = "";
+      if (!file) return;
+      blob = await shrink(file);
+      if (img.src) URL.revokeObjectURL(img.src);
+      img.src = URL.createObjectURL(blob);
+      img.hidden = false;
+      pickBtn.textContent = "เปลี่ยนสลิป";
+      confirmBtn.disabled = false;
+    });
+    confirmBtn.addEventListener("click", async () => {
+      if (!blob) return;
+      if (!window.confirm(`ยืนยันว่าโอนคืน ${baht(b.refund.amount)} ให้ลูกค้าแล้ว?`)) return;
+      const note = drawerBody.querySelector(".drawer__msg");
+      drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = true));
+      note.textContent = "กำลังบันทึก…";
+      const upload = new FormData();
+      upload.append("proof", blob, "refund.jpg");
+      try {
+        const r = await fetch(`/api/v1/admin/bookings/${encodeURIComponent(b.id)}/refunded`, { method: "POST", body: upload });
+        if (r.status === 401) { location.reload(); return; }
+        const body = await r.json();
+        if (!r.ok) throw new Error(body.message || "บันทึกไม่สำเร็จ");
+        replaceBooking(body.booking);
+        drawerBody.querySelector(".drawer__msg").textContent = "บันทึกแล้ว: โอนคืนแล้ว (แนบสลิปแล้ว)";
+      } catch (err) {
+        note.textContent = err.message || "บันทึกไม่สำเร็จ ลองอีกครั้ง";
+        drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = false));
+        confirmBtn.disabled = !blob;
+      }
+    });
+    return box;
+  }
+
+  function replaceBooking(updated) {
+    const i = data.bookings.findIndex((x) => x.id === updated.id);
+    if (i >= 0) data.bookings[i] = updated;
+    render();
+    openDrawer(updated, lastTrigger);
+  }
+
   function openDrawer(b, trigger) {
     openId = b.id;
     lastTrigger = trigger || document.activeElement;
@@ -296,7 +377,9 @@
 
     const photos = document.createElement("div");
     photos.className = "drawer__photos";
-    for (const [kind, label] of [["pet", "รูปน้อง"], ["slip", "สลิปมัดจำ"]]) {
+    const kinds = [["pet", "รูปน้อง"], ["slip", "สลิปมัดจำ"]];
+    if (b.refund && b.refund.proof) kinds.push(["refund", "สลิปโอนคืน"]);
+    for (const [kind, label] of kinds) {
       const a = document.createElement("a");
       a.href = `/api/v1/admin/bookings/${encodeURIComponent(b.id)}/image/${kind}`;
       a.target = "_blank";
@@ -347,15 +430,7 @@
       btn.addEventListener("click", () => changeStatus(b, s, btn));
       actions.appendChild(btn);
     });
-    if (refundPending(b)) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "btn btn--small";
-      btn.textContent = "โอนคืนแล้ว";
-      btn.addEventListener("click", () =>
-        save(b, "refunded", null, `ยืนยันว่าโอนคืน ${baht(b.refund.amount)} ให้ลูกค้าแล้ว?`, "บันทึกแล้ว: โอนคืนแล้ว"));
-      actions.appendChild(btn);
-    }
+    if (refundPending(b)) actions.appendChild(refundBox(b));
     if (!actions.children.length) {
       const p = document.createElement("p");
       p.className = "drawer__done";

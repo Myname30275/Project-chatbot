@@ -378,8 +378,9 @@ async def cancel_by_owner(booking_id, phone, owner_name, refund: dict, at=None) 
     return b
 
 
-async def mark_refunded(booking_id: str) -> dict:
-    """หลังบ้าน: ร้านโอนคืนให้ลูกค้าแล้ว"""
+async def mark_refunded(booking_id: str, proof: bytes | None) -> dict:
+    """หลังบ้าน: ร้านโอนคืนให้ลูกค้าแล้ว — ต้องแนบสลิปโอนคืน (ลูกค้าดูได้ที่หน้าเช็คคิวหลังยืนยันตัวตน)"""
+    _check_image(proof, "สลิปโอนคืน", "proof")
     store = get_store()
     b = await store.get(booking_id)
     if not b:
@@ -387,8 +388,9 @@ async def mark_refunded(booking_id: str) -> dict:
     refund = b.get("refund")
     if not refund or refund.get("status") != "pending":
         raise BookingError("คิวนี้ไม่มีรายการรอโอนคืน", status=409)
+    await store.save_image(booking_id, "refund", proof)
     stamp = slots.now().isoformat(timespec="seconds")
-    refund.update(status="done", refunded_at=stamp)
+    refund.update(status="done", refunded_at=stamp, proof=True)
     b["updated_at"] = stamp
     await store.save(b)
     logger.info("โอนคืนแล้ว %s", booking_id)
@@ -475,6 +477,32 @@ def _hint(b: dict) -> str:
     return STATUS_HINT.get(b["status"], "")
 
 
+def refund_view(b: dict) -> dict:
+    """สถานะคืนเงินบนหน้าเช็คคิว — ไม่มีเลขบัญชี/ชื่อบัญชี (ค้นด้วยเบอร์โทรอย่างเดียว)"""
+    refund = b.get("refund")
+    if not refund:
+        return {"refund_status": None}
+    return {
+        "refund_status": refund["status"],
+        "refund_status_label": "โอนคืนแล้ว" if refund["status"] == "done" else "รอร้านโอนคืน",
+        "refund_amount": refund["amount"],
+        "refunded_at": refund.get("refunded_at"),
+        "refund_proof": bool(refund.get("proof")),
+    }
+
+
+async def refund_proof(booking_id, phone, owner_name) -> bytes:
+    """สลิปโอนคืนให้ลูกค้าดู — ยืนยันตัวตนซ้ำ (สลิปมีชื่อ/เลขบัญชีของลูกค้า ห้ามเห็นแค่เพราะรู้เบอร์)"""
+    b = await verify_owner(booking_id, phone, owner_name)
+    refund = b.get("refund") or {}
+    if refund.get("status") != "done" or not refund.get("proof"):
+        raise BookingError("ร้านยังไม่ได้แนบสลิปโอนคืนของคิวนี้", status=404)
+    data = await get_store().get_image(b["id"], "refund")
+    if not data:
+        raise BookingError("ร้านยังไม่ได้แนบสลิปโอนคืนของคิวนี้", status=404)
+    return data
+
+
 def check_view(b: dict) -> dict:
     """ข้อมูลที่หน้าเช็คคิวแสดงได้ — ค้นด้วยเบอร์โทรอย่างเดียว จึงไม่แสดงชื่อเจ้าของ/รูป/สลิป"""
     return {
@@ -486,6 +514,7 @@ def check_view(b: dict) -> dict:
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "status_hint": _hint(b),
         "pickup_time": (b.get("pickup") or {}).get("time"),
+        **refund_view(b),
     }
 
 
