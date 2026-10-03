@@ -1152,6 +1152,11 @@ svg {
   align-self: flex-start;
   margin-top: 8px;
 }
+.chat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .quick__btn--book {
   background: var(--honey);
   font-weight: 700;

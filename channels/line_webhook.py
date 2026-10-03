@@ -76,7 +76,7 @@ async def _show_loading(client: httpx.AsyncClient, user_id: str, seconds: int = 
 
 
 async def _handle_text(client, session_id: str, text: str) -> str:
-    reply = await assistant.respond(session_id, text, extra_system=prompt_builder.line_hint())
+    reply = await assistant.respond(session_id, text, channel="line", extra_system=prompt_builder.line_hint())
     return reply.text or reply.error or prompt_builder.fallback_message()
 
 

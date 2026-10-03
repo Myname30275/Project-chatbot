@@ -16,6 +16,7 @@
     {"delta": text}        ข้อความที่ผ่านการตรวจแล้ว ส่งให้ลูกค้าได้เลย
     {"replace": text}      คำตอบถูกบล็อกที่ด่าน 3 — แทนข้อความทั้งหมดด้วยค่านี้
     {"error": True, "message": text}
+    {"actions": [...]}     ปุ่มทางลัดที่ควรแสดงใต้คำตอบ ("check" / "cancel" / "book") — chatbot/actions.py
     {"done": True}         จบเสมอด้วย event นี้
 
 ช่องทางที่สตรีมได้ (เว็บ) ใช้ respond_stream() ส่วน /chat (ต้องได้คำตอบเต็มก้อน) ใช้ respond()
@@ -27,7 +28,7 @@ import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 
-from chatbot import llm_client
+from chatbot import actions, llm_client
 from chatbot.conversation_store import get_store
 from guardrails import pipeline as guard
 from rag import retriever
@@ -141,14 +142,25 @@ async def respond_stream(
     message: str,
     *,
     extra_blocks: list[str] | None = None,
+    channel: str = "web",
     **llm_overrides,
 ) -> AsyncGenerator[dict, None]:
-    """ตอบ 1 ข้อความแบบสตรีม — llm_overrides ส่งต่อให้ llm_client (temperature, max_tokens, extra_system)"""
+    """ตอบ 1 ข้อความแบบสตรีม — llm_overrides ส่งต่อให้ llm_client (temperature, max_tokens, extra_system)
+    channel = "web" | "line" (LINE ไม่มีปุ่ม คำตอบสำเร็จรูปจึงใส่ลิงก์แทน)"""
     # ด่าน 1: กฎในโค้ด (ถูกและเร็วสุด ทำก่อนแม้แต่โหลดประวัติ)
     decision = guard.check_rules(message, session_id)
     if not decision.allowed:
         for event in _refusal(decision):
             yield event
+        return
+
+    # ลูกค้าส่งเบอร์โทร/เลขจองมาให้เช็คคิว — แชทเปิดดูคิวไม่ได้ (ต้องยืนยันตัวตนในระบบจอง)
+    # ตอบสำเร็จรูปพาไปปุ่มเช็คคิวเลย ไม่ส่งต่อให้ LLM/ด่าน 2 (เคยถูกปฏิเสธว่าเป็นข้อมูลลูกค้าคนอื่น)
+    # และไม่บันทึกเบอร์ลงประวัติแชท
+    if actions.lookup_request(message):
+        yield {"delta": actions.lookup_reply(channel)}
+        yield {"actions": ["check"]}
+        yield {"done": True}
         return
 
     history = await store.get_history(session_id)
@@ -215,6 +227,9 @@ async def respond_stream(
             session_id,
             history + [{"role": "user", "content": message}, {"role": "assistant", "content": shown}],
         )
+        suggested = actions.suggest(message, shown)
+        if suggested and not out_guard.blocked:
+            yield {"actions": suggested}
     yield {"done": True}
 
 

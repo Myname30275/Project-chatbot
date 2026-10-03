@@ -558,6 +558,7 @@
     resetSpeakQueue();
     const opts = typeof window.chatOptions === "function" ? window.chatOptions() : {};
     let reply = "";
+    let actions = null;
     let pendingBuf = "";
     let haveSpokenFirst = false;
     try {
@@ -585,6 +586,8 @@
           try { pl = JSON.parse(line.slice(5).trim()); } catch { continue; }
           if (pl.search !== undefined) {
             statusEl.textContent = pl.search ? "กำลังค้นเว็บ: " + pl.search : "กำลังค้นข้อมูลล่าสุด…";
+          } else if (pl.actions) {
+            actions = pl.actions;
           } else if (pl.delta) {
             reply += pl.delta;
             pendingBuf += pl.delta;
@@ -618,7 +621,8 @@
     abortCtrl = null;
     if (pendingBuf.trim()) enqueueSpeech(pendingBuf.trim(), session);
     finishSpeechQueue(session);
-    offerBooking(text, reply);
+    if (actions && (actions.includes("check") || actions.includes("cancel"))) offerCheck();
+    else offerBooking(text, reply);
   }
 
   /* ---------------- ปุ่มจองคิว (หน้า /avatar) ---------------- */
@@ -626,11 +630,38 @@
   // คุยเรื่องจองแล้ว (ลูกค้าพูดถึงการจอง/นัด/คิว หรือบอทบอกให้กดจองคิว) → เด้งปุ่มจองขึ้นบนหน้าจอ
   // ตัดสินด้วยคำในข้อความ ไม่ใช้ LLM · ปุ่มพาไปหน้าแรกพร้อมเปิดป๊อปอัปจอง (ใช้ session เดียวกัน)
   const BOOK_WORDS = /จอง|นัด|คิว/;
-  function offerBooking(userText, reply) {
+  const CARDS = {
+    book: { title: "พร้อมจองคิวแล้ว", link: "/?book=1", label: "จองคิว", text: null },
+    check: {
+      title: "เช็คคิว / ยกเลิกคิว",
+      link: "/check",
+      label: "เช็คคิว",
+      text: "กรอกเบอร์โทรที่ใช้จอง ดูสถานะคิว การคืนเงิน หรือกดยกเลิกคิวได้ในหน้านั้น",
+    },
+  };
+  let bookText = null; // ข้อความเดิมของการ์ดจองคิว (มีค่ามัดจำจาก template)
+
+  function showCard(kind) {
     const card = document.getElementById("voice-book");
-    if (!card || !card.hidden) return;
-    if (!BOOK_WORDS.test(userText || "") && !/จองคิว/.test(reply || "")) return;
+    if (!card) return;
+    const c = CARDS[kind];
+    const textEl = card.querySelector("[data-card-text]");
+    if (bookText === null) bookText = textEl.textContent;
+    card.querySelector("[data-card-title]").textContent = c.title;
+    textEl.textContent = c.text || bookText;
+    const link = card.querySelector("[data-card-link]");
+    link.href = c.link;
+    link.textContent = c.label;
     card.hidden = false;
+  }
+
+  function offerBooking(userText, reply) {
+    if (!BOOK_WORDS.test(userText || "") && !/จองคิว/.test(reply || "")) return;
+    showCard("book");
+  }
+
+  function offerCheck() {
+    showCard("check");
   }
 
   /* ---------------- พูดแทรก (barge-in) ---------------- */

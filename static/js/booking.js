@@ -719,6 +719,43 @@
     wrap.appendChild(btn);
   }
 
+  // ปุ่มทางลัดใต้คำตอบ ตาม event "actions" ของเซิร์ฟเวอร์ (chatbot/actions.py) — สิ่งที่แชททำแทนไม่ได้
+  // (เช็คคิว / ยกเลิกคิว) ก็พาไปฟังก์ชันที่ทำได้จริงด้วยปุ่มเดียว เหมือนปุ่มจองคิว
+  const ACTION_BUTTONS = {
+    check: () => {
+      const a = document.createElement("a");
+      a.href = "/check";
+      a.className = "btn btn--small";
+      a.textContent = "เช็คคิว";
+      return a;
+    },
+    cancel: () => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn--small btn--ghost";
+      b.dataset.cancelBooking = "";
+      b.textContent = "ยกเลิกคิว";
+      return b;
+    },
+    book: () => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn--small";
+      b.dataset.openBooking = "";
+      b.textContent = "จองคิว";
+      return b;
+    },
+  };
+
+  function addActions(bubble, list) {
+    const wrap = bubble && bubble.parentElement;
+    if (!wrap || wrap.querySelector(".book-cta")) return;
+    const row = document.createElement("div");
+    row.className = "book-cta chat-actions";
+    (list || []).forEach((name) => ACTION_BUTTONS[name] && row.appendChild(ACTION_BUTTONS[name]()));
+    if (row.children.length) wrap.appendChild(row);
+  }
+
   // ลูกค้าพิมพ์ "ยกเลิก…" → ปุ่มเปิดใบจองที่ยกเลิกได้ใต้คำตอบของบอท
   function addCancelCta(bubble) {
     const wrap = bubble && bubble.parentElement;
@@ -734,7 +771,8 @@
   window.hhBooking = {
     open,
     addCta,
-    // เรียกจาก chat.js หลังบอทตอบ — ลูกค้าพูดถึงการจอง/นัด/คิว ก็ต่อปุ่มจองให้เลย (ไม่ใช้ LLM ตัดสิน)
+    addActions,
+    // สำรองเมื่อเซิร์ฟเวอร์ไม่ส่ง "actions" — เรียกจาก chat.js หลังบอทตอบ — ลูกค้าพูดถึงการจอง/นัด/คิว ก็ต่อปุ่มจองให้เลย (ไม่ใช้ LLM ตัดสิน)
     maybeAddCta(userText, bubble) {
       if (CANCEL_WORDS.test(userText || "")) addCancelCta(bubble);
       else if (BOOK_WORDS.test(userText || "")) addCta(bubble);

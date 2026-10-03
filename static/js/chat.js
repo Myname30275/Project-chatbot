@@ -231,6 +231,7 @@ async function sendMessage(message) {
   let accumulatedText = "";
   let receivedDone = false;
   let knowledge = null;
+  let actions = null; // ปุ่มทางลัดใต้คำตอบ ("check" / "cancel" / "book") — เซิร์ฟเวอร์เลือกให้
 
   try {
     const response = await fetch("/api/v1/chat/stream", {
@@ -270,6 +271,8 @@ async function sendMessage(message) {
 
         if (payload.knowledge !== undefined) {
           knowledge = payload.knowledge;
+        } else if (payload.actions) {
+          actions = payload.actions;
         } else if (payload.blocked) {
           // guardrails ปฏิเสธคำถามนี้ — ข้อความปฏิเสธตามมาใน delta
           aiBubble.classList.add("bubble--refusal");
@@ -299,7 +302,8 @@ async function sendMessage(message) {
       aiBubble.parentElement.remove();
     } else if (!aiBubble.classList.contains("bubble--refusal")) {
       renderKnowledge(aiBubble, knowledge);
-      window.hhBooking?.maybeAddCta(message, aiBubble);
+      if (actions) window.hhBooking?.addActions(aiBubble, actions);
+      else window.hhBooking?.maybeAddCta(message, aiBubble);
     }
   } catch (err) {
     if (err.name === "AbortError") {

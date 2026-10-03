@@ -79,6 +79,7 @@ def _chat_overrides(req: ChatRequest) -> dict:
         out["max_tokens"] = min(max(int(req.max_tokens), 1), 16384)
     if req.voice:
         out["extra_system"] = prompt_builder.voice_hint()
+        out["channel"] = "voice"
     return out
 
 
