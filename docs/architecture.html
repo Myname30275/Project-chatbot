@@ -216,11 +216,11 @@
     <section id="layers">
       <h2><span class="n">02</span>ภาพรวมระบบ</h2>
       <p>
-        ทั้งหน้าแชทและหน้าอวตารเรียกแกนกลาง <code>chatbot/assistant.py</code> ตัวเดียว
+        ทุกช่องทาง (หน้าแชท, หน้าอวตาร, LINE) เรียกแกนกลาง <code>chatbot/assistant.py</code> ตัวเดียว
         จึงผ่าน guardrails, RAG และ prompt ชุดเดียวกันทั้งหมด แต่ละกล่องในรูปคือโฟลเดอร์หรือไฟล์จริงในโค้ด
       </p>
       <figure>
-        <svg viewBox="0 0 900 540" role="img" aria-label="หน้าแชทและหน้าอวตารเรียก assistant.py ตัวเดียว ซึ่งใช้ vision, rag, guardrails และ llm_client โดยต่อกับ Gemini, Typhoon, Cartesia และ Redis">
+        <svg viewBox="0 0 900 540" role="img" aria-label="ช่องทางทั้งสามเรียก assistant.py ตัวเดียว ซึ่งใช้ vision, rag, guardrails และ llm_client โดยต่อกับ Gemini, Typhoon, Cartesia และ Redis">
           <defs>
             <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0 0 10 5 0 10Z" fill="currentColor" />
@@ -228,6 +228,9 @@
           </defs>
 
           <!-- แถว 1: ผู้ใช้ -->
+          <rect class="bx" x="40" y="16" width="190" height="48" rx="12" />
+          <text class="t" x="135" y="37" text-anchor="middle">LINE OA</text>
+          <text class="ts" x="135" y="54" text-anchor="middle">@103fgxwt · แชท + รูป</text>
           <rect class="bx" x="255" y="16" width="190" height="48" rx="12" />
           <text class="t" x="350" y="37" text-anchor="middle">หน้า /</text>
           <text class="ts" x="350" y="54" text-anchor="middle">landing + หน้าต่างแชท</text>
@@ -236,12 +239,15 @@
           <text class="ts" x="565" y="54" text-anchor="middle">อวตาร + คุยด้วยเสียง</text>
 
           <!-- แถว 2: channels/ -->
+          <rect class="bx" x="40" y="116" width="190" height="48" rx="12" />
+          <text class="t" x="135" y="145" text-anchor="middle">line_webhook.py</text>
           <rect class="bx" x="255" y="116" width="190" height="48" rx="12" />
           <text class="t" x="350" y="145" text-anchor="middle">web_chat.py</text>
           <rect class="bx" x="470" y="116" width="190" height="48" rx="12" />
           <text class="t" x="565" y="145" text-anchor="middle">tts.py</text>
-          <text class="ts" x="236" y="145" text-anchor="end">channels/</text>
+          <text class="ts" x="24" y="145" text-anchor="end" transform="rotate(-90 24 145)">channels/</text>
 
+          <line class="ln" x1="135" y1="64" x2="135" y2="112" marker-end="url(#a1)" />
           <line class="ln" x1="350" y1="64" x2="350" y2="112" marker-end="url(#a1)" />
           <text class="tl" x="342" y="93" text-anchor="end">SSE</text>
           <line class="ln" x1="565" y1="64" x2="565" y2="112" marker-end="url(#a1)" />
@@ -257,6 +263,7 @@
           <text class="t" x="590" y="238" text-anchor="middle">conversation</text>
           <text class="t" x="590" y="256" text-anchor="middle">_store</text>
 
+          <line class="ln" x1="135" y1="164" x2="135" y2="210" marker-end="url(#a1)" />
           <line class="ln" x1="350" y1="164" x2="350" y2="210" marker-end="url(#a1)" />
           <line class="ln" x1="480" y1="242" x2="516" y2="242" marker-end="url(#a1)" />
           <text class="tl" x="498" y="206" text-anchor="middle">ประวัติ</text>
@@ -322,7 +329,7 @@
         </ul>
         <figcaption>
           ช่องทางทำแค่รับ-ส่งข้อความในรูปแบบของตัวเอง ส่วนกฎทั้งหมดอยู่ใต้ <code>assistant.py</code>
-          — หน้าแชทและโหมดเสียงจึงได้ guardrails, RAG และ Vision ชุดเดียวกัน ·
+          — LINE OA จึงได้ guardrails, RAG และ Vision ชุดเดียวกับหน้าเว็บโดยไม่ต้องเขียนกฎซ้ำ ·
           ระบบจองคิว (<code>booking/</code>) แยกออกไปและไม่ผ่าน LLM ดูหัวข้อ 08
         </figcaption>
       </figure>
@@ -649,7 +656,7 @@
           <thead><tr><th>โฟลเดอร์</th><th>หน้าที่</th></tr></thead>
           <tbody>
             <tr><td><code>main.py</code>, <code>config.py</code>, <code>api/index.py</code></td><td>สร้าง app, หน้า <code>/</code> + <code>/avatar</code>, ต่อท้าย css/js ด้วย <code>?v=</code> กัน cache เก่า · อ่าน <code>.env</code> · จุดเข้าของ Vercel</td></tr>
-            <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จองคิว) · <code>admin.py</code> (หลังบ้าน)</td></tr>
+            <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จองคิว) · <code>admin.py</code> (หลังบ้าน) · <code>line_webhook.py</code> (LINE OA)</td></tr>
             <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
             <tr><td><code>rag/</code></td><td><code>chunker.py</code>, <code>embedder.py</code>, <code>retriever.py</code>, <code>build_index.py</code>, <code>index.json</code></td></tr>
             <tr><td><code>guardrails/</code></td><td><code>input_rules.py</code> + <code>blocklist.txt</code>, <code>judge.py</code>, <code>output_guard.py</code>, <code>pipeline.py</code>, <code>categories.py</code></td></tr>
@@ -675,7 +682,7 @@
             <tr><td><code>GET /avatar</code></td><td>หน้าอวตารพนักงาน (คุยด้วยเสียง)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /health</code></td><td>เช็คว่าเซิร์ฟเวอร์รันอยู่</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>POST /api/v1/chat/stream</code></td><td>แชทแบบสตรีม (SSE) ใช้ทั้งหน้าแชทและหน้าอวตาร</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>POST /api/v1/chat</code></td><td>แชทแบบรอคำตอบเต็ม (ไม่สตรีม)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/chat</code></td><td>แชทแบบรอคำตอบเต็ม (สำหรับ LINE)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/history</code></td><td>ข้อความของบทสนทนาปัจจุบัน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET · POST /api/v1/conversations</code></td><td>รายการบทสนทนา / เริ่มแชทใหม่</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET · POST · DELETE /api/v1/attachments</code></td><td>ส่งรูปน้อง / สลิป / PDF (ได้คำตอบทันทีถ้าเป็นรูปสัตว์หรือสลิป)</td><td class="s-ok">ทำแล้ว</td></tr>
@@ -686,6 +693,7 @@
             <tr><td><code>GET /api/v1/booking/mine</code> · <code>…/{id}/image/{pet|slip}</code></td><td>ใบจองของฉัน / รูปบนใบจอง (เฉพาะเจ้าของการจอง)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /admin</code> · <code>POST /admin/login</code> · <code>POST /admin/logout</code></td><td>หลังบ้านเจ้าของร้าน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/admin/bookings</code> · <code>…/{id}</code> · <code>POST …/{id}/status</code></td><td>คิวตามช่วงวันที่ · ค้นเลขจอง · ยืนยัน/มาแล้ว/ยกเลิก</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /line/webhook</code></td><td>รับ event จาก LINE OA (ตรวจลายเซ็น)</td><td class="s-ok">ทำแล้ว</td></tr>
           </tbody>
         </table>
       </div>
@@ -702,6 +710,7 @@
             <tr><td>Gemini</td><td>Vision <code>gemini-flash-latest</code> (สำรอง lite) + embedding ของ RAG</td><td><code>VISION_*</code> (RAG ใช้ key เดียวกัน)</td></tr>
             <tr><td>Cartesia</td><td>เสียงโคลนของน้องหอม (ไม่ตั้ง = เสียงไทยของเบราว์เซอร์)</td><td><code>CARTESIA_API_KEY</code></td></tr>
             <tr><td>Redis / Vercel KV</td><td>เก็บประวัติข้าม instance บน serverless</td><td><code>KV_REST_API_URL</code>, <code>KV_REST_API_TOKEN</code></td></tr>
+            <tr><td>LINE Messaging API</td><td>LINE OA @103fgxwt (ตอบด้วย reply token ฟรี)</td><td><code>LINE_CHANNEL_SECRET</code>, <code>LINE_CHANNEL_ACCESS_TOKEN</code></td></tr>
           </tbody>
         </table>
       </div>
@@ -715,7 +724,7 @@
         <dt>ทำไมราคาต้องมาจากโค้ด ไม่ให้ LLM คิด</dt>
         <dd>LLM ถูกหลอกได้เสมอ (OWASP LLM01) กฎสำคัญจึงอยู่ในโค้ด ต่อให้หลอกบอทสำเร็จ บอทก็ไม่มีสิทธิ์สร้างราคาใหม่ — ด่าน 3 ตัดทิ้ง</dd>
         <dt>ทำไมมีแกนกลาง assistant.py</dt>
-        <dd>หน้าแชทและโหมดเสียงต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่ในช่องทางที่ลืมใส่กฎ</dd>
+        <dd>เว็บ เสียง และ LINE ต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่ในช่องทางที่ลืมใส่กฎ</dd>
         <dt>ทำไม RAG เขียนเอง ไม่ใช้ LightRAG</dt>
         <dd>คลังความรู้เล็ก (29 ชิ้น) และ Vercel serverless รัน Docker ไม่ได้ จึงสร้าง embedding ล่วงหน้าเป็นไฟล์แล้วค้นในหน่วยความจำ</dd>
         <dt>ทำไม hybrid (embedding + TF-IDF)</dt>
@@ -752,9 +761,10 @@
             <tr><td>UI ใหม่ + หน้าอวตาร + เสียง Cartesia</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>จองคิว: ป๊อปอัป + ตรวจสลิป + ใบจอง (PNG) + หน้าเช็คคิว</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>หลังบ้าน /admin รายสัปดาห์ / รายเดือน</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>บอกชื่อร้านกับอาจารย์ (ภายใน 3 ต.ค.)</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>บอกชื่อร้านกับอาจารย์ (ภายใน 3 ต.ค.)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>LINE OA webhook (แชท + รูป)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>ตารางทดสอบ 10 คำถาม + เวลาตอบ</td><td class="s-todo">ยังไม่ทำ</td></tr>
-            <tr><td>Merge เข้า main + deploy Vercel</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>Merge เข้า main + deploy Vercel</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>คลิปเดโม ≤ 3 นาที + รายงาน</td><td class="s-todo">ยังไม่ทำ</td></tr>
           </tbody>
         </table>

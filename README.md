@@ -16,6 +16,7 @@ config.py                      อ่านค่าตั้งค่าจา�
 channels/        ① ช่องทางเข้า (API layer)
   web_chat.py                  /api/v1/* ของหน้าเว็บ (สตรีม SSE, History, ไฟล์แนบ) → เรียก assistant
   tts.py                       /api/v1/tts/* — proxy เสียง Cartesia สำหรับโหมดเสียง
+  line_webhook.py              LINE OA @103fgxwt: แชท + รูปน้อง/สลิป (จอง/เช็คคิวส่งลิงก์เว็บ)
 chatbot/         ② แกนกลางที่ทุกช่องทางใช้ร่วมกัน
   assistant.py                 pipeline กลาง: guardrails → RAG → LLM → ตรวจขาออก → บันทึกประวัติ
   llm_client.py                คุยกับผู้ให้บริการ LLM (+ retry เมื่อโดน rate limit)
