@@ -45,6 +45,13 @@ def _person_matches(got: str, account: str) -> bool:
     return not shown or (len(a) > 1 and _norm(" ".join(a[1:])).startswith(shown))
 
 
+def payer_matches(payer: str | None, account_name: str) -> bool | None:
+    """ชื่อบัญชีรับเงินคืนเป็นคนเดียวกับผู้โอนมัดจำไหม · None = สลิปไม่มีชื่อผู้โอน (ร้านดูรูปสลิปเอง)"""
+    if not payer or not payer.strip():
+        return None
+    return _person_matches(payer, account_name)
+
+
 def receiver_matches(name: str | None) -> bool | None:
     """True = โอนเข้าบัญชีร้าน · False = โอนให้คนอื่นแน่ ๆ · None = ตรวจด้วยโค้ดไม่ได้ (ให้ร้านตรวจเอง)
 

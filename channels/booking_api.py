@@ -25,7 +25,7 @@ _attempts_ip = RateLimiter(limit=20)
 # หน้าเช็คคิวค้นด้วยเบอร์โทร — จำกัดถี่กันไล่เดาเบอร์คนอื่น
 _checks = RateLimiter(limit=10)
 _checks_ip = RateLimiter(limit=10)
-# ยกเลิกคิว — กันยิงเดาเลขจอง/สแปม
+# ยกเลิกคิว — ต่อ IP (ชั้นนอก) · ตัวนับผิดต่อเลขจองอยู่ใน Redis (booking/service.verify_owner)
 _cancels = RateLimiter(limit=10)
 _IMAGE_KINDS = {"pet"}  # สลิปให้ดูเฉพาะหลังบ้าน (channels/admin.py)
 
@@ -138,26 +138,46 @@ async def check_by_phone(body: CheckRequest, request: Request):
     return resp
 
 
-class CancelRequest(BaseModel):
+class VerifyRequest(BaseModel):
+    booking_id: str = ""
+    phone: str = ""
+    owner_name: str = ""
+
+
+class CancelRequest(VerifyRequest):
     method: str = ""
     bank: str | None = None
     account: str = ""
     account_name: str = ""
 
 
-@router.post("/{booking_id}/cancel")
-async def cancel_booking(booking_id: str, body: CancelRequest, request: Request):
-    """ปุ่ม "ยกเลิกคิว" ใต้ใบจองในแชท — ยกเลิกได้เฉพาะคิวของ session ตัวเอง + ช่องทางรับเงินคืน"""
-    session_id, _ = _resolve_session(request)
-    if not _cancels.allow(session_id) or not _cancels.allow(_client_ip(request)):
+@router.post("/cancel/verify")
+async def cancel_verify(body: VerifyRequest, request: Request):
+    """ยกเลิกคิว ขั้น 1: ยืนยันตัวตน (เลขจอง + เบอร์ + ชื่อเจ้าของ) → ข้อมูลคิว + ยอดที่จะได้คืน"""
+    if not _cancels.allow(_client_ip(request)):
         return _error(429, "ส่งคำขอถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
     try:
-        b = await service.cancel_by_customer(booking_id, session_id, body.model_dump())
+        b = await service.verify_owner(body.booking_id, body.phone, body.owner_name)
     except BookingError as exc:
         return _error(exc.status, exc.message, exc.field)
     except StoreError as exc:
         return _error(503, str(exc))
-    return {"ok": True, "booking": service.public_view(b), "refund_amount": b["refund"]["amount"]}
+    return {"booking": service.verify_view(b)}
+
+
+@router.post("/cancel")
+async def cancel_booking(body: CancelRequest, request: Request):
+    """ยกเลิกคิว ขั้น 2: ยืนยันตัวตนซ้ำ + ช่องทางรับเงินคืน → ยกเลิก (ไม่ผูกกับประวัติแชท ใช้เครื่องไหนก็ได้)"""
+    if not _cancels.allow(_client_ip(request)):
+        return _error(429, "ส่งคำขอถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
+    refund = body.model_dump(include={"method", "bank", "account", "account_name"})
+    try:
+        b = await service.cancel_by_owner(body.booking_id, body.phone, body.owner_name, refund)
+    except BookingError as exc:
+        return _error(exc.status, exc.message, exc.field)
+    except StoreError as exc:
+        return _error(503, str(exc))
+    return {"ok": True, "booking": service.verify_view(b), "refund_amount": b["refund"]["amount"]}
 
 
 @router.get("/cancel-options")

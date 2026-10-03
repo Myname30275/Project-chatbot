@@ -12,6 +12,7 @@ key ใน Redis (ดู docs/booking-plan.md §5)
   slotcount:<slot>             ตัวนับคิวในช่องเวลา (INCR แบบ atomic กันจองซ้อน)
   slipref:<reference>          id ของการจองที่ใช้สลิปใบนี้ (SET NX กันใช้สลิปซ้ำ)
   cancel:<id>                  ธงว่ายกเลิกแล้ว (SET NX กันกดยกเลิกซ้ำแล้วคืนช่องเวลา 2 ครั้ง)
+  cancelfail:<id>              ครั้งที่ยืนยันตัวตนตอนยกเลิกผิด (หมดอายุ 24 ชม.) — ครบเพดาน = ล็อก
   seq:<YYYYMMDD>               ตัวนับเลขจองรายวัน
 """
 
@@ -28,6 +29,7 @@ logger = logging.getLogger(__name__)
 
 _TTL_BOOKING = 60 * 60 * 24 * 180   # เก็บการจอง 180 วัน
 _TTL_COUNTER = 60 * 60 * 24 * 30    # ตัวนับช่องเวลา/เลขจอง — จองล่วงหน้าได้ไม่เกิน 14 วัน 30 วันจึงพอ
+_TTL_FAILS = 60 * 60 * 24           # ล็อกการยกเลิกออนไลน์ 24 ชม. หลังยืนยันตัวตนผิดครบเพดาน
 _REDIS_TIMEOUT = 10.0
 
 
@@ -56,6 +58,13 @@ class BookingStore(ABC):
     @abstractmethod
     async def claim_cancel(self, booking_id: str) -> bool:
         """ปักธงยกเลิก — เคยยกเลิกไปแล้วคืน False (ลูกค้ากับร้านกดพร้อมกันก็คืนช่องเวลาแค่ครั้งเดียว)"""
+
+    @abstractmethod
+    async def add_cancel_fail(self, booking_id: str) -> int:
+        """นับยืนยันตัวตนผิด +1 คืนจำนวนครั้งล่าสุด"""
+
+    @abstractmethod
+    async def cancel_fails(self, booking_id: str) -> int: ...
 
     @abstractmethod
     async def next_seq(self, day: str) -> int: ...
@@ -91,6 +100,7 @@ class InMemoryBookingStore(BookingStore):
         self._counts: dict[str, int] = {}
         self._refs: dict[str, str] = {}
         self._cancelled: set[str] = set()
+        self._fails: dict[str, int] = {}
         self._seq: dict[str, int] = {}
         self._bookings: dict[str, dict] = {}
         self._by_time: dict[str, float] = {}
@@ -124,6 +134,13 @@ class InMemoryBookingStore(BookingStore):
             return False
         self._cancelled.add(booking_id)
         return True
+
+    async def add_cancel_fail(self, booking_id):
+        self._fails[booking_id] = self._fails.get(booking_id, 0) + 1
+        return self._fails[booking_id]
+
+    async def cancel_fails(self, booking_id):
+        return self._fails.get(booking_id, 0)
 
     async def next_seq(self, day):
         self._seq[day] = self._seq.get(day, 0) + 1
@@ -205,6 +222,15 @@ class RedisBookingStore(BookingStore):
 
     async def claim_cancel(self, booking_id):
         return await self._cmd("SET", f"cancel:{booking_id}", "1", "NX", "EX", _TTL_BOOKING) == "OK"
+
+    async def add_cancel_fail(self, booking_id):
+        n = int(await self._cmd("INCR", f"cancelfail:{booking_id}"))
+        if n == 1:
+            await self._cmd("EXPIRE", f"cancelfail:{booking_id}", _TTL_FAILS)
+        return n
+
+    async def cancel_fails(self, booking_id):
+        return int(await self._cmd("GET", f"cancelfail:{booking_id}") or 0)
 
     async def next_seq(self, day):
         n = int(await self._cmd("INCR", f"seq:{day}"))

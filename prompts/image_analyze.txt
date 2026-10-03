@@ -20,7 +20,8 @@
     "date": "DD/MM/YYYY" หรือ null,
     "time": "HH:MM" หรือ null,
     "reference": "เลขที่รายการ/เลขอ้างอิง" หรือ null,
-    "receiver_name": "ชื่อผู้รับเงิน" หรือ null
+    "receiver_name": "ชื่อผู้รับเงิน" หรือ null,
+    "sender_name": "ชื่อผู้โอนเงิน (ต้นทาง)" หรือ null
   },
   "other_description": "อธิบายรูปสั้น ๆ 1 ประโยค เฉพาะเมื่อ image_type เป็น other มิฉะนั้น null"
 }

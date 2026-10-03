@@ -1647,7 +1647,43 @@ svg {
   flex-wrap: wrap;
 }
 
-/* ---- ยกเลิกคิวในแชท ---- */
+/* ---- ยกเลิกคิว (ป๊อปอัป cancel.js + ใบจองที่ยกเลิกแล้ว) ---- */
+.cancel-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: var(--line);
+  border-radius: 16px;
+  font-size: 0.92rem;
+}
+.cancel-summary dt {
+  color: var(--ink-soft);
+}
+.cancel-summary dd {
+  margin: 0;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+#cancel-sheet .pay-box {
+  background: var(--brick-bg);
+}
+.cancel-done__text {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+.check__cancel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 0;
+  font-weight: 600;
+}
 .ticket--cancelled .ticket__hero,
 .ticket--cancelled .ticket__info {
   opacity: 0.45;

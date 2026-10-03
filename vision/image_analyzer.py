@@ -58,6 +58,7 @@ class Slip:
     time: str | None = None
     reference: str | None = None
     receiver_name: str | None = None
+    sender_name: str | None = None
 
 
 @dataclass
@@ -135,6 +136,7 @@ def parse(raw: str) -> ImageAnalysis | None:
         time=time if re.fullmatch(r"\d{1,2}:\d{2}", time) else None,
         reference=re.sub(r"[^\w\-]", "", str(s.get("reference") or ""))[:40] or None,
         receiver_name=_short(s.get("receiver_name"), 60) or None,
+        sender_name=_short(s.get("sender_name"), 60) or None,
     )
     return ImageAnalysis(
         image_type=_pick(data.get("image_type"), IMAGE_TYPES, "other"),

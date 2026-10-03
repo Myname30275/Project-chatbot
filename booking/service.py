@@ -99,7 +99,7 @@ async def check_slip(data: bytes, mime: str, fee: int = 0) -> dict:
         analysis = await image_analyzer.analyze(data, mime)
     except VisionError as exc:
         logger.warning("อ่านสลิปตอนจองไม่ได้ ให้ร้านตรวจเอง: %s", exc)
-        return {"auto_ok": False, "amount": None, "receiver_ok": None, "reference": None}
+        return {"auto_ok": False, "amount": None, "receiver_ok": None, "reference": None, "sender_name": None}
 
     if analysis.image_type != "slip":
         raise BookingError("รูปนี้ไม่ใช่สลิปโอนเงิน รบกวนแนบรูปสลิปมัดจำอีกครั้ง", field="slip")
@@ -120,6 +120,7 @@ async def check_slip(data: bytes, mime: str, fee: int = 0) -> dict:
         "amount": slip.amount,
         "receiver_ok": receiver,
         "reference": slip.reference or None,
+        "sender_name": slip.sender_name or None,
     }
 
 
@@ -249,16 +250,24 @@ async def get_owned(booking_id: str, session_id: str) -> dict | None:
 
 # ---------------- หลังบ้านเจ้าของร้าน ----------------
 
-# ---------------- ลูกค้ายกเลิกคิวเอง (ปุ่มใต้ใบจองในแชท) ----------------
+# ---------------- ลูกค้ายกเลิกคิวเอง (ฟังก์ชันยกเลิกคิวในแชท / หน้าเช็คคิว) ----------------
 #
-# ยกเลิกได้ถึง cancel_hours_before ชั่วโมงก่อนนัด → ร้านโอนคืนยอดที่ลูกค้าโอนมา (มัดจำ + ค่ารับส่ง)
-# เข้าพร้อมเพย์/บัญชีที่ลูกค้ากรอก · ช้ากว่านั้นยกเลิกผ่านแชทไม่ได้ ให้ติดต่อร้าน (นโยบายเก็บมัดจำ)
+# ไม่ผูกกับประวัติแชท — ยกเลิกจากเครื่องไหนก็ได้ แต่ต้องยืนยันตัวตนให้ตรงทั้ง 3 อย่าง:
+# เลขจอง + เบอร์โทร + ชื่อเจ้าของ (ชื่อเจ้าของไม่แสดงบนหน้าเช็คคิว จึงเดาจากเบอร์โทรอย่างเดียวไม่ได้)
+# กันสวมรอยเอาเงินคืน:
+#   1) ยืนยันผิดครบ MAX_VERIFY_FAILS ครั้ง → ล็อกการยกเลิกออนไลน์ของคิวนั้น 24 ชม. (นับใน Redis)
+#   2) ร้านโอนคืนเข้าบัญชีชื่อเดียวกับผู้โอนมัดจำเท่านั้น — ระบบเทียบชื่อจากสลิปให้ หลังบ้านเตือนถ้าไม่ตรง
+# ยกเลิกได้ถึง cancel_hours_before ชั่วโมงก่อนนัด → คืนยอดที่ลูกค้าโอนมา (มัดจำ + ค่ารับส่ง)
 
 BANKS = [
     "กสิกรไทย", "กรุงเทพ", "ไทยพาณิชย์", "กรุงไทย", "กรุงศรีอยุธยา", "ทหารไทยธนชาต (ttb)",
     "ออมสิน", "ธ.ก.ส.", "ยูโอบี", "ซีไอเอ็มบี ไทย", "เกียรตินาคินภัทร", "แลนด์ แอนด์ เฮ้าส์",
 ]
 ACTIVE = {"pending", "confirmed"}
+MAX_VERIFY_FAILS = 5
+_BOOKING_ID_RE = re.compile(r"^HH-\d{4}-\d{2,3}$")
+_NOT_MATCH = "ข้อมูลไม่ตรงกับการจอง ตรวจเลขจอง เบอร์โทร และชื่อเจ้าของให้ตรงกับใบจองนะคะ"
+_LOCKED = "ยืนยันตัวตนผิดหลายครั้ง ระบบล็อกการยกเลิกออนไลน์ของคิวนี้ไว้ 24 ชั่วโมง รบกวนติดต่อร้านทาง LINE หรือโทรค่ะ"
 
 
 def cancel_hours() -> int:
@@ -282,7 +291,7 @@ def cancel_view(b: dict, at=None) -> dict:
         "refund_amount": b.get("amount_due", deposit()) if ok else None,
         # ยังไม่ถึงเวลานัดแต่เลยกำหนดยกเลิกแล้ว → บอกเหตุผลแทนการซ่อนปุ่มเฉย ๆ
         "cancel_note": None if ok or not active else
-        f"เหลือไม่ถึง {cancel_hours()} ชั่วโมงก่อนนัด ยกเลิกผ่านแชทไม่ได้ ติดต่อร้านทาง LINE หรือโทรได้เลยค่ะ",
+        f"เหลือไม่ถึง {cancel_hours()} ชั่วโมงก่อนนัด ยกเลิกออนไลน์ไม่ได้ ติดต่อร้านทาง LINE หรือโทรได้เลยค่ะ",
     }
 
 
@@ -304,16 +313,55 @@ def clean_refund(method: str | None, bank: str | None, account: str | None, acco
     return {"method": method, "bank": bank, "account": digits, "account_name": name}
 
 
-async def cancel_by_customer(booking_id: str, session_id: str, refund: dict, at=None) -> dict:
-    """ลูกค้ายกเลิกคิวของตัวเอง (เฉพาะ session ที่จอง) → สถานะยกเลิก + คำขอคืนเงินให้ร้านโอน"""
-    b = await get_owned(booking_id, session_id)
-    if not b:
-        raise BookingError("ไม่พบการจองนี้", status=404)
+def _name_key(name: str | None) -> str:
+    """เทียบชื่อเจ้าของแบบไม่สนช่องว่าง/ตัวพิมพ์/คำว่า "คุณ" นำหน้า"""
+    text = re.sub(r"\s+", "", (name or "")).casefold()
+    return text[3:] if text.startswith("คุณ") else text
+
+
+async def verify_owner(booking_id: str | None, phone: str | None, owner_name: str | None) -> dict:
+    """ยืนยันว่าเป็นเจ้าของคิวจริง — ไม่บอกว่าช่องไหนผิด (กันไล่เดาทีละช่อง)"""
+    bid = (booking_id or "").strip().upper()
+    if not _BOOKING_ID_RE.match(bid):
+        raise BookingError("เลขจองดูได้บนใบจอง เช่น HH-1004-01", field="booking_id")
+    phone = clean_phone(phone)
+    if not (owner_name or "").strip():
+        raise BookingError("กรุณากรอกชื่อเจ้าของตามที่กรอกตอนจอง", field="owner_name")
+    store = get_store()
+    if await store.cancel_fails(bid) >= MAX_VERIFY_FAILS:
+        raise BookingError(_LOCKED, status=423)
+    b = await store.get(bid)
+    if not b or b.get("phone") != phone or _name_key(b.get("owner_name")) != _name_key(owner_name):
+        if b and await store.add_cancel_fail(bid) >= MAX_VERIFY_FAILS:
+            logger.warning("ล็อกการยกเลิกออนไลน์ %s (ยืนยันตัวตนผิดครบ %d ครั้ง)", bid, MAX_VERIFY_FAILS)
+            raise BookingError(_LOCKED, status=423)
+        raise BookingError(_NOT_MATCH, status=404)
+    return b
+
+
+def verify_view(b: dict) -> dict:
+    """สิ่งที่แสดงหลังยืนยันตัวตนผ่าน ให้ลูกค้าเช็คว่าเป็นคิวที่ตั้งใจจะยกเลิก"""
+    return {
+        "id": b["id"],
+        "pet_name": b["pet_name"],
+        "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
+        "status": b["status"],
+        "status_label": STATUS_LABEL.get(b["status"], b["status"]),
+        "pickup_time": (b.get("pickup") or {}).get("time"),
+        **cancel_view(b),
+    }
+
+
+async def cancel_by_owner(booking_id, phone, owner_name, refund: dict, at=None) -> dict:
+    """ยกเลิกคิวหลังยืนยันตัวตน → สถานะยกเลิก + คำขอคืนเงินให้ร้านโอน"""
+    b = await verify_owner(booking_id, phone, owner_name)
     if b["status"] == "cancelled":
         raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)
     if not can_cancel(b, at):
         raise BookingError(cancel_view(b, at)["cancel_note"] or "คิวนี้ยกเลิกไม่ได้แล้ว", status=409)
     info = clean_refund(**refund)
+    payer = (b.get("slip") or {}).get("sender_name")
+    info.update(payer_name=payer, payer_match=slip_check.payer_matches(payer, info["account_name"]))
     store = get_store()
     if not await store.claim_cancel(b["id"]):
         raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)

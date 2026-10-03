@@ -371,6 +371,94 @@
     </div>
 
     <script src="/static/js/chat.js?v={{ asset_v() }}"></script>
+    <!-- ================= ป๊อปอัปยกเลิกคิว (cancel.js) — ยืนยันตัวตน ไม่ผูกกับประวัติแชท ================= -->
+    <div id="cancel-sheet" class="sheet" hidden>
+      <div class="sheet__scrim" data-close-cancel></div>
+      <section class="sheet__panel" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+        <header class="sheet__head">
+          <h2 id="cancel-title">ยกเลิกคิว</h2>
+          <button class="icon-btn" type="button" data-close-cancel aria-label="ปิด">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+          </button>
+        </header>
+
+        <form id="cancel-verify" class="sheet__form" novalidate>
+          <div class="sheet__body">
+            <p class="sheet__muted">ยืนยันว่าเป็นเจ้าของคิว — กรอกให้ตรงกับใบจองทั้ง 3 ช่อง</p>
+            <label class="field">
+              <span>เลขจอง</span>
+              <input name="booking_id" maxlength="12" autocomplete="off" autocapitalize="characters" placeholder="HH-1004-01" required />
+            </label>
+            <p class="field__error" data-error-for="booking_id"></p>
+            <label class="field">
+              <span>เบอร์โทรที่ใช้จอง</span>
+              <input name="phone" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="08xxxxxxxx" required />
+            </label>
+            <p class="field__error" data-error-for="phone"></p>
+            <label class="field">
+              <span>ชื่อเจ้าของ (ตามที่กรอกตอนจอง)</span>
+              <input name="owner_name" maxlength="40" autocomplete="name" required />
+            </label>
+            <p class="field__error" data-error-for="owner_name"></p>
+            <p class="sheet__note">กรอกผิดเกิน 5 ครั้ง ระบบล็อกการยกเลิกออนไลน์ของคิวนั้น 24 ชั่วโมง</p>
+          </div>
+          <p class="sheet__status" data-status role="status" aria-live="polite"></p>
+          <footer class="sheet__foot">
+            <button type="button" class="btn btn--ghost btn--small" data-close-cancel>ปิด</button>
+            <button type="submit" class="btn btn--small">ถัดไป</button>
+          </footer>
+        </form>
+
+        <form id="cancel-refund" class="sheet__form" novalidate hidden>
+          <div class="sheet__body">
+            <dl id="cancel-summary" class="cancel-summary"></dl>
+            <p class="ticket__cancel-note" data-cancel-note hidden></p>
+            <div id="cancel-refund-fields">
+              <div class="pay-box">
+                <p>ร้านจะโอนคืน <b data-amount></b></p>
+                <p class="pay-box__small">โอนคืนเข้าบัญชี<b>ชื่อเดียวกับผู้โอนมัดจำ</b>เท่านั้น เพื่อกันคนอื่นสวมรอยรับเงินแทน</p>
+              </div>
+              <div class="cancel-box__methods" role="radiogroup" aria-label="ช่องทางรับเงินคืน">
+                <label><input type="radio" name="method" value="promptpay" checked /> พร้อมเพย์</label>
+                <label><input type="radio" name="method" value="bank" /> บัญชีธนาคาร</label>
+              </div>
+              <label class="field" data-bank hidden>
+                <span>ธนาคาร</span>
+                <select name="bank"><option value="">เลือกธนาคาร</option></select>
+              </label>
+              <p class="field__error" data-error-for="bank"></p>
+              <label class="field">
+                <span data-account-label>เบอร์พร้อมเพย์ หรือเลขบัตรประชาชน</span>
+                <input name="account" inputmode="numeric" maxlength="20" autocomplete="off" />
+              </label>
+              <p class="field__error" data-error-for="account"></p>
+              <label class="field">
+                <span>ชื่อบัญชี (ชื่อเดียวกับบัญชีที่โอนมัดจำ)</span>
+                <input name="account_name" maxlength="40" autocomplete="name" />
+              </label>
+              <p class="field__error" data-error-for="account_name"></p>
+            </div>
+          </div>
+          <p class="sheet__status" data-status role="status" aria-live="polite"></p>
+          <footer class="sheet__foot">
+            <button type="button" class="btn btn--ghost btn--small" data-back>ย้อนกลับ</button>
+            <button type="submit" class="btn btn--small btn--danger">ยืนยันยกเลิกคิว</button>
+          </footer>
+        </form>
+
+        <div id="cancel-done" class="sheet__form" hidden>
+          <div class="sheet__body">
+            <p class="cancel-done__text" data-done-text></p>
+          </div>
+          <footer class="sheet__foot">
+            <a class="btn btn--ghost btn--small" href="/check">เช็คคิว</a>
+            <button type="button" class="btn btn--small" data-close-cancel>ปิด</button>
+          </footer>
+        </div>
+      </section>
+    </div>
+
     <script src="/static/js/booking.js?v={{ asset_v() }}"></script>
+    <script src="/static/js/cancel.js?v={{ asset_v() }}"></script>
   </body>
 </html>

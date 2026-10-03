@@ -26,8 +26,10 @@ class AdminTests(unittest.TestCase):
         self.store = InMemoryBookingStore()
         refs = iter(f"REF{i:03d}" for i in range(1, 100))
 
+        self.payer = None  # ชื่อผู้โอนในสลิป (เทสเรื่องโอนคืนตั้งเอง)
+
         async def fake_analyze(data, mime):
-            return good_slip(reference=next(refs))
+            return good_slip(reference=next(refs), sender_name=self.payer)
 
         for target, attr, value in [
             (settings, "ADMIN_PASSWORD", PASSWORD),
@@ -178,13 +180,18 @@ class AdminTests(unittest.TestCase):
         slots_seen = [b["slot"][11:] for b in self.week().json()["bookings"]]
         self.assertEqual(slots_seen, ["09:00", "14:00"])
 
-    # ---------- ลูกค้ายกเลิกคิวเอง + ร้านโอนคืน ----------
+    # ---------- ลูกค้ายกเลิกคิวเอง (ยืนยันตัวตน ไม่ผูกกับแชท) + ร้านโอนคืน ----------
 
-    PROMPTPAY = {"method": "promptpay", "account": "081-234-5678", "account_name": "สมใจ ใจดี"}
+    OWNER = {"phone": "081-234-5678", "owner_name": "สมใจ"}
+    PROMPTPAY = {"method": "promptpay", "account": "0812345678", "account_name": "สมใจ ใจดี"}
+
+    def verify(self, booking_id, client=None, **who):
+        body = {"booking_id": booking_id, **self.OWNER, **who}
+        return (client or self.customer).post("/api/v1/booking/cancel/verify", json=body)
 
     def cancel(self, booking_id, client=None, **body):
-        payload = {**self.PROMPTPAY, **body}
-        return (client or self.customer).post(f"/api/v1/booking/{booking_id}/cancel", json=payload)
+        payload = {"booking_id": booking_id, **self.OWNER, **self.PROMPTPAY, **body}
+        return (client or self.customer).post("/api/v1/booking/cancel", json=payload)
 
     def left(self, hour=10):
         days = self.customer.get("/api/v1/booking/slots").json()["days"]
@@ -194,20 +201,18 @@ class AdminTests(unittest.TestCase):
         r = self.customer.post("/api/v1/booking/check", json={"phone": "0812345678"})
         return r.json()["bookings"][0]["status_hint"]
 
-    def test_customer_cancels_and_owner_marks_refunded(self):
+    def test_cancel_from_another_device_after_verifying_owner(self):
         b = self.book()
-        self.assertTrue(b["can_cancel"])
-        self.assertEqual(b["refund_amount"], 50)
-        self.assertEqual(self.left(), 1)
+        other_device = TestClient(self.app)  # ไม่มีประวัติแชทของคนจอง — ยืนยันตัวตนแทน
+        v = self.verify(b["id"].lower(), client=other_device, owner_name=" คุณ สมใจ ")
+        self.assertEqual(v.status_code, 200, v.text)
+        self.assertEqual((v.json()["booking"]["pet_name"], v.json()["booking"]["refund_amount"]), ("ถั่วแดง", 50))
+        self.assertNotIn("phone", v.json()["booking"])
 
-        stranger = TestClient(self.app)  # ไม่ใช่ session ที่จอง → เหมือนไม่มีคิวนี้
-        self.assertEqual(self.cancel(b["id"], client=stranger).status_code, 404)
-
-        r = self.cancel(b["id"])
+        r = self.cancel(b["id"], client=other_device)
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual((r.json()["booking"]["status"], r.json()["refund_amount"]), ("cancelled", 50))
-        self.assertFalse(r.json()["booking"]["can_cancel"])
-        self.assertNotIn("account", r.text)  # เลขบัญชีไม่ย้อนกลับไปหน้าลูกค้า
+        self.assertNotIn("0812345678", r.text)  # เลขบัญชี/เบอร์ไม่ย้อนกลับไปหน้าลูกค้า
         self.assertEqual(self.left(), 2)  # ช่องเวลาว่างให้คนอื่นจองทันที
         self.assertIn("จะโอนคืน 50 บาท", self.check_hint())
         self.assertEqual(self.cancel(b["id"]).status_code, 409)  # กดซ้ำไม่คืนช่องซ้ำ
@@ -221,6 +226,29 @@ class AdminTests(unittest.TestCase):
         self.assertIn("โอนคืน 50 บาท แล้ว", self.check_hint())
         self.assertEqual(self.customer.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 401)
 
+    def test_wrong_identity_is_rejected_without_saying_which_field(self):
+        b = self.book()
+        for who in [{"phone": "0899999999"}, {"owner_name": "สมชาย"}]:
+            with self.subTest(who=who):
+                r = self.verify(b["id"], **who)
+                self.assertEqual(r.status_code, 404)
+                self.assertIn("ไม่ตรงกับการจอง", r.json()["message"])
+                self.assertEqual(self.cancel(b["id"], **who).status_code, 404)
+        self.assertEqual(self.verify("HH-9999-01").status_code, 404)  # เลขจองที่ไม่มีจริง
+        self.assertEqual(self.verify("abc").json()["field"], "booking_id")
+        self.assertEqual(self.left(), 1)  # ยังไม่ถูกยกเลิก
+
+    def test_five_wrong_tries_lock_online_cancel(self):
+        b = self.book()
+        codes = [self.verify(b["id"], owner_name=f"คนอื่น{i}").status_code for i in range(5)]
+        self.assertEqual(codes, [404, 404, 404, 404, 423])
+        # ล็อกแล้ว ต่อให้กรอกถูกก็ยกเลิกออนไลน์ไม่ได้ (นับใน store ไม่ใช่ต่อเครื่อง)
+        right = self.verify(b["id"], client=TestClient(self.app))
+        self.assertEqual(right.status_code, 423)
+        self.assertIn("24 ชั่วโมง", right.json()["message"])
+        self.assertEqual(self.cancel(b["id"]).status_code, 423)
+        self.assertEqual(self.left(), 1)
+
     def test_refund_details_are_validated(self):
         b = self.book()
         for body, field in [
@@ -233,9 +261,21 @@ class AdminTests(unittest.TestCase):
             with self.subTest(field=field, body=body):
                 r = self.cancel(b["id"], **body)
                 self.assertEqual((r.status_code, r.json()["field"]), (422, field))
-        self.assertEqual(self.left(), 1)  # ยังไม่ถูกยกเลิก
+        self.assertEqual(self.left(), 1)
         ok = self.cancel(b["id"], method="bank", bank="กสิกรไทย", account="123-4-56789-0")
         self.assertEqual(ok.status_code, 200, ok.text)
+
+    def test_refund_name_is_checked_against_deposit_payer(self):
+        self.payer = "นาย สมใจ ใ***"
+        b1 = self.book(hour=10)
+        b2 = self.book(hour=11)
+        self.assertEqual(self.cancel(b1["id"]).status_code, 200)  # ชื่อบัญชี "สมใจ ใจดี" ตรงกับผู้โอน
+        self.assertEqual(self.cancel(b2["id"], account_name="มิจฉา ชีพ").status_code, 200)
+        self.login()
+        r1 = self.owner.get(f"/api/v1/admin/bookings/{b1['id']}").json()["booking"]["refund"]
+        r2 = self.owner.get(f"/api/v1/admin/bookings/{b2['id']}").json()["booking"]["refund"]
+        self.assertEqual((r1["payer_name"], r1["payer_match"]), ("นาย สมใจ ใ***", True))
+        self.assertFalse(r2["payer_match"])  # หลังบ้านเตือน: อย่าเพิ่งโอนคืน
 
     def test_cannot_cancel_within_3_hours(self):
         b = self.book()
@@ -244,6 +284,8 @@ class AdminTests(unittest.TestCase):
             mine = self.customer.get("/api/v1/booking/mine").json()["bookings"][0]
             self.assertFalse(mine["can_cancel"])
             self.assertIn("3 ชั่วโมง", mine["cancel_note"])
+            v = self.verify(b["id"]).json()["booking"]
+            self.assertFalse(v["can_cancel"])
             r = self.cancel(b["id"])
         self.assertEqual(r.status_code, 409)
         self.assertEqual(self.left(), 1)
@@ -255,7 +297,6 @@ class AdminTests(unittest.TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(self.cancel(b["id"]).status_code, 409)
         self.assertEqual(self.left(), 2)
-
 
 if __name__ == "__main__":
     unittest.main()
