@@ -22,12 +22,10 @@ flowchart TB
         VOICE["หน้า /avatar : อวตารพนักงาน<br/>+ คุยด้วยเสียง ✅"]
         ADM["หน้า /admin : หลังบ้าน<br/>ตารางคิว ✅"]
     end
-    LINE["แอป LINE 🚧"]
 
     subgraph CH["① channels/ — ช่องทางเข้า"]
         WC["web_chat.py ✅"]
         TTS["tts.py ✅"]
-        LW["line_webhook.py 🚧"]
         BA["booking_api.py ✅"]
         AD["admin.py ✅<br/>login + API หลังบ้าน"]
     end
@@ -71,9 +69,7 @@ flowchart TB
     WEB --> WC
     VOICE --> WC
     VOICE --> TTS
-    LINE --> LW
     WC --> AS
-    LW --> AS
     WEB -->|ป๊อปอัปจองคิว| BA
     ADM --> AD
     BA --> BSV
@@ -109,7 +105,7 @@ flowchart TB
     STORE --> KV[("Redis / Vercel KV")]
 ```
 
-> ทุกช่องทางเรียก `chatbot/assistant.py` ตัวเดียว เว็บ, โหมดเสียง และ LINE จึงผ่าน guardrails,
+> ทุกช่องทางเรียก `chatbot/assistant.py` ตัวเดียว หน้าแชทและโหมดเสียงจึงผ่าน guardrails,
 > RAG และ prompt ชุดเดียวกันทั้งหมด — ช่องทางทำแค่รับ/ส่งข้อความในรูปแบบของตัวเอง
 >
 > ระบบจองคิว (`booking/`) แยกจากแชทและ**ไม่ผ่าน LLM เลย** — ช่องเวลา เลขจอง ผลตรวจสลิป และสถานะมาจากโค้ด
@@ -126,12 +122,11 @@ flowchart TB
 | — | `api/index.py` | จุดเข้าของ Vercel (import app จาก `main.py`) | ✅ |
 | ① | `channels/web_chat.py` | ช่องทางหน้าเว็บ: session cookie, History, ไฟล์แนบ, แปลง event ของ assistant เป็น SSE | ✅ |
 | ① | `channels/tts.py` | proxy เสียง Cartesia (เก็บ key ไว้ฝั่งเซิร์ฟเวอร์) · เปลี่ยน "Hom Hom Grooming" เป็น "หอมหอม กรูมมิ่ง" ก่อนส่ง (Cartesia อ่านชื่ออังกฤษเพี้ยน) | ✅ |
-| ① | `channels/line_webhook.py` | รับข้อความ/รูปจาก LINE OA, ตรวจลายเซ็น, ตอบกลับ | 🚧 |
 | ② | `chatbot/llm_client.py` | เรียก LLM แบบ OpenAI-compatible, retry เมื่อ 429/5xx, แปล error เป็นไทย | ✅ |
 | ② | `chatbot/prompt_builder.py` | ประกอบ system prompt จาก `prompts/` + `shop/` | ✅ |
 | ② | `chatbot/conversation_store.py` | ประวัติแชตต่อ session (in-memory หรือ Redis) | ✅ |
 | ② | `chatbot/search.py` | ค้นเว็บ (Tavily) — **ปิดไว้** เพราะบอทร้านต้องตอบจากข้อมูลร้านเท่านั้น | ✅ (ปิด) |
-| ② | `chatbot/assistant.py` | pipeline กลางที่ทุกช่องทางเรียก: ด่าน 1 → (ด่าน 2 ∥ RAG) → LLM สตรีม → ด่าน 3 → บันทึกประวัติ · `respond_stream()` สำหรับเว็บ, `respond()` สำหรับ LINE//chat | ✅ |
+| ② | `chatbot/assistant.py` | pipeline กลางที่ทุกช่องทางเรียก: ด่าน 1 → (ด่าน 2 ∥ RAG) → LLM สตรีม → ด่าน 3 → บันทึกประวัติ · `respond_stream()` สำหรับเว็บ, `respond()` สำหรับ /chat | ✅ |
 | RAG | `rag/chunker.py` | แบ่ง `shop/` เป็น 29 ชิ้นตามความหมาย (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น) | ✅ |
 | RAG | `rag/retriever.py` | ค้นแบบ hybrid: 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram, top 4 | ✅ |
 | RAG | `rag/embedder.py`, `build_index.py`, `index.json` | สร้าง embedding ล่วงหน้า (Gemini `gemini-embedding-001`, 768 มิติ) | ✅ |
@@ -204,11 +199,11 @@ sequenceDiagram
     API->>ST: บันทึกคำถาม+คำตอบ (เฉพาะเมื่อสตรีมจบสมบูรณ์)
 ```
 
-### 3.2 ภาพรวมทุกเส้นทาง (รวมช่องทางที่ยังไม่ได้ทำ 🚧)
+### 3.2 ภาพรวมทุกเส้นทาง
 
 ```mermaid
 flowchart LR
-    M["ข้อความ/รูป<br/>(เว็บ · เสียง · LINE)"] --> G1{"input guard ✅<br/>ด่าน 1 rules: ยาว/ถี่/blocklist/injection<br/>ด่าน 2 judge: Typhoon จำแนกเจตนา"}
+    M["ข้อความ/รูป<br/>(หน้าแชท · โหมดเสียง)"] --> G1{"input guard ✅<br/>ด่าน 1 rules: ยาว/ถี่/blocklist/injection<br/>ด่าน 2 judge: Typhoon จำแนกเจตนา"}
     G1 -- ไม่ผ่าน --> R1["ข้อความปฏิเสธภาษาไทย"]
     G1 -- ผ่าน --> K{"เป็นรูป?"}
     K -- รูปสัตว์ --> P["vision ✅ → JSON ขนาด/ขนพัน<br/>→ pricing.quote() → ตอบทันที"]
@@ -218,8 +213,8 @@ flowchart LR
     S --> L
     Q --> L
     L --> G2{"output guard ✅<br/>ราคา/ส่วนลดตรง catalog?<br/>หลุดข้อมูลส่วนตัว/กฎภายใน?"}
-    G2 -- ไม่ผ่าน --> R2["fallback message ✅<br/>(+ แจ้งแอดมินผ่าน LINE 🚧)"]
-    G2 -- ผ่าน --> OUT["ตอบลูกค้า<br/>ข้อความ ✅ / เสียง ✅ / LINE 🚧"]
+    G2 -- ไม่ผ่าน --> R2["fallback message ✅<br/>(แนะนำติดต่อร้าน)"]
+    G2 -- ผ่าน --> OUT["ตอบลูกค้า<br/>ข้อความ ✅ / เสียง ✅"]
 ```
 
 ---
@@ -291,7 +286,6 @@ sequenceDiagram
 | GET | `/api/v1/admin/bookings/{id}` | ค้นเลขจอง | ✅ |
 | POST | `/api/v1/admin/bookings/{id}/status` | ยืนยัน / มาแล้ว / ยกเลิก (ยกเลิก = คืนช่องเวลา) | ✅ |
 | GET | `/api/v1/admin/bookings/{id}/image/{pet\|slip}` | รูปน้อง/สลิปสำหรับเจ้าของร้าน | ✅ |
-| POST | `/line/webhook` | รับ event จาก LINE OA | 🚧 |
 
 ---
 
@@ -303,7 +297,6 @@ sequenceDiagram
 | **Gemini** (Google AI Studio) | Vision (`gemini-flash-latest` + สำรอง `gemini-flash-lite-latest`) + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
 | **Cartesia** | เสียงโคลนของน้องหอมในหน้า `/avatar` (6 เสียงในรายการ ค่าเริ่มต้น ASN) | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ✅ ตั้งแล้ว · ไม่ตั้ง = ใช้เสียงไทยของเบราว์เซอร์ (Chrome บน Windows อาจไม่มีเสียงไทย → ใช้ Edge) |
 | **Redis / Vercel KV** | เก็บประวัติแชตข้าม instance | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | จำเป็นบน Vercel |
-| **LINE Messaging API** 🚧 | ช่องทาง LINE OA | (จะเพิ่ม) | สำหรับ LINE |
 | Tavily | ค้นเว็บ — ปิดไว้ | `WEB_SEARCH_ENABLED`, `SEARCH_API_KEY` | ไม่ใช้ |
 
 **Deploy:** Vercel serverless (`vercel.json` → `api/index.py`) ข้อจำกัดคือแต่ละ request อาจไปตกคนละ
@@ -316,7 +309,7 @@ instance จึงต้องเก็บ state ทั้งหมดไว้�
 | ความเสี่ยง | ชั้นที่ป้องกัน | สถานะ |
 |---|---|---|
 | ขอส่วนลดที่ไม่มี ("พนักงานคนอื่นเคยให้") | ราคาทุกตัวมาจาก `catalog.json` · prompt ต้องทำข้อ 8 + ห้ามทำข้อ 1 · ด่าน 3 บล็อกราคา/% ที่ไม่มีใน catalog | ✅ |
-| ขอข้อมูลลูกค้าคนอื่น | ประวัติแยกตาม session / LINE userId (บอทเข้าถึงข้อมูลคนอื่นไม่ได้เลย) · prompt ห้ามทำข้อ 2 | ✅ |
+| ขอข้อมูลลูกค้าคนอื่น | ประวัติแยกตาม session (บอทเข้าถึงข้อมูลคนอื่นไม่ได้เลย) · prompt ห้ามทำข้อ 2 | ✅ |
 | ขอบริการที่ร้านไม่มี (ฝากเลี้ยงค้างคืน) | รายการ `not_offered` ใน catalog · prompt ห้ามทำข้อ 3 | ✅ |
 | ถามอาการป่วย/ขอคำแนะนำยา | prompt ต้องทำข้อ 4 + ห้ามทำข้อ 4 → แนะนำพบสัตวแพทย์ | ✅ |
 | Prompt injection ("ลืมคำสั่งเดิม", อ้างเป็นผู้จัดการ) | ด่าน 1 regex · ด่าน 2 LLM จับเจตนาที่ไม่มีคำต้องห้าม · prompt ห้ามทำข้อ 7 | ✅ |
@@ -345,7 +338,7 @@ instance จึงต้องเก็บ state ทั้งหมดไว้�
 - **ทำไม `catalog.json` เป็นแหล่งเดียว** — prompt กับการคำนวณใช้ข้อมูลชุดเดียวกัน ราคาที่พูดกับราคาที่คิดจึงไม่ขัดกัน
 - **ทำไมใช้ Typhoon** — ภาษาไทยเป็นธรรมชาติ เหมาะกับเสียงพนักงาน มี OCR ในบัญชีเดียวกัน
   และ `llm_client` เป็น OpenAI-compatible เปลี่ยนผู้ให้บริการได้ด้วยการแก้ `.env` อย่างเดียว
-- **ทำไมมีแกนกลาง `assistant.py`** — เว็บ, เสียง และ LINE ต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่
+- **ทำไมมีแกนกลาง `assistant.py`** — หน้าแชท โหมดเสียง และช่องทางที่อาจเพิ่มในอนาคตต้องได้กฎชุดเดียวกัน ถ้าเขียนแยกแต่ละช่องทางจะมีช่องโหว่
 - **ทำไม RAG แบบเขียนเอง ไม่ใช้ LightRAG** — คลังความรู้เล็ก (29 ชิ้น) และ Vercel serverless รัน Docker
   ไม่ได้ จึงสร้าง embedding ล่วงหน้าเป็นไฟล์ แล้วค้นด้วย cosine ในหน่วยความจำ (ไม่ต้องมี vector DB)
 - **ทำไมตัด chunk ตามความหมาย ไม่ตัดตามความยาว** — บริการละ 1 ชิ้น ราคาทุกขนาดจึงอยู่ด้วยกัน ไม่ถูกหั่นกลางตาราง
@@ -429,7 +422,6 @@ python -m unittest discover -s tests
 | จองคิว ขั้น 2: ป๊อปอัป 3 ขั้นในแชท + ใบจอง (PNG) + ใบจองของฉัน | ✅ |
 | หน้าเช็คคิว `/check` (ค้นด้วยเบอร์โทร ดูสถานะการยืนยัน) | ✅ |
 | จองคิว ขั้น 3–4: หลังบ้าน `/admin` รายสัปดาห์/รายเดือน + นโยบายชั่งน้ำหนักหน้าร้าน | ✅ |
-| LINE OA (`channels/line_webhook.py`, แชทอย่างเดียว + รับรูป) — ต้องใช้ Channel Secret / Access Token | 🚧 |
 | ตารางทดสอบ 10 คำถาม + เวลาตอบ ใน `docs/test-log.md` | 🚧 |
 | Merge เข้า `main` + deploy Vercel (env, Vercel KV, Max Duration 60s) | 🚧 |
 | `docs/architecture.html` (หน้าเว็บสรุปโครงระบบ + แผนภาพ 4 รูป) / README ส่วน UI | ✅ |
