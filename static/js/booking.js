@@ -416,7 +416,7 @@
     card.className = "ticket";
     card.innerHTML = `
       <header class="ticket__head">
-        <img src="/static/img/logo.svg" alt="" width="36" height="36" />
+        <img src="/static/img/logo-badge.png" alt="" width="44" height="44" />
         <span class="ticket__shop">Hom Hom Grooming</span>
         <span class="ticket__kind">ใบจองคิว</span>
       </header>
