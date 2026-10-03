@@ -527,7 +527,6 @@
     const picker = e.target.closest("[data-pick]");
     if (picker && sheet.contains(picker)) pick[picker.dataset.pick].input.click();
     if (e.target.closest("[data-my-bookings]")) showMyBookings();
-    if (e.target.closest("[data-cancel-booking]")) window.hhCancel?.open();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !sheet.hidden) close();

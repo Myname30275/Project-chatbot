@@ -2,7 +2,8 @@
  *
  * ไม่ผูกกับประวัติแชท (ยกเลิกจากเครื่องไหนก็ได้) แต่ต้องกรอกเลขจอง + เบอร์โทร + ชื่อเจ้าของให้ตรงกับใบจอง
  * กันสวมรอยเอาเงินคืน: ผิดครบ 5 ครั้งล็อก 24 ชม. และร้านโอนคืนเข้าบัญชีชื่อเดียวกับผู้โอนมัดจำเท่านั้น
- * เปิดได้จาก: ปุ่มลัด/ปุ่มใต้คำตอบในแชท (data-cancel-booking), ปุ่มใต้ใบจอง, หน้าเช็คคิว (/?cancel=1)
+ * เปิดได้จาก: ปุ่มที่มี data-cancel-booking (ส่วน "ก่อนพาน้องมาร้าน", ปุ่มลัด/ปุ่มใต้คำตอบในแชท),
+ * ปุ่มใต้ใบจองในแชท, และการ์ดคิวในหน้าเช็คคิว (เติมเลขจอง + เบอร์ให้ เหลือกรอกชื่อเจ้าของ)
  */
 (function () {
   "use strict";
@@ -215,7 +216,7 @@
 
   /* ---------------- เปิด / ปิด ---------------- */
 
-  function open({ bookingId } = {}) {
+  function open({ bookingId, phone } = {}) {
     lastTrigger = document.activeElement;
     who = null;
     verifyForm.reset();
@@ -225,6 +226,7 @@
     clearErrors(verifyForm);
     clearErrors(refundForm);
     if (bookingId) verifyForm.elements.booking_id.value = bookingId;
+    if (phone) verifyForm.elements.phone.value = phone;
     show("verify");
     sheet.hidden = false;
     document.body.classList.add("sheet-open");
@@ -241,6 +243,9 @@
 
   sheet.addEventListener("click", (e) => {
     if (e.target.closest("[data-close-cancel]")) close();
+  });
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-cancel-booking]")) open();
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !sheet.hidden) close();

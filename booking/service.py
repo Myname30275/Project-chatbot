@@ -514,6 +514,7 @@ def check_view(b: dict) -> dict:
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "status_hint": _hint(b),
         "pickup_time": (b.get("pickup") or {}).get("time"),
+        "can_cancel": can_cancel(b),
         **refund_view(b),
     }
 

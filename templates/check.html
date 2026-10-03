@@ -43,9 +43,12 @@
 
       <section id="check-results" class="check__results" aria-live="polite"></section>
 
-      <p class="check__cancel">ต้องการยกเลิกคิว? <a class="btn btn--ghost btn--small" href="/?cancel=1">ยกเลิกคิว</a></p>
+      <p class="check__cancel">ไม่มีเบอร์ที่ใช้จอง หรือจะยกเลิกด้วยเลขจอง <button type="button" class="btn btn--ghost btn--small" data-cancel-booking>ยกเลิกคิว</button></p>
     </main>
 
+    {% include "_cancel_sheet.html" %}
+
     <script src="/static/js/check.js?v={{ asset_v() }}"></script>
+    <script src="/static/js/cancel.js?v={{ asset_v() }}"></script>
   </body>
 </html>

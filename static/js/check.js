@@ -129,6 +129,15 @@
     el.querySelector(".check-item__badge").textContent = b.status_label;
     el.querySelector(".check-item__hint").textContent = b.status_hint;
     if (b.refund_status) el.appendChild(refundBlock(b));
+    if (b.can_cancel) {
+      // ยกเลิกตรงที่เห็นคิว — เติมเลขจอง + เบอร์ที่เพิ่งค้นให้ ลูกค้ากรอกแค่ชื่อเจ้าของ
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn btn--ghost btn--small check-item__cancel";
+      cancelBtn.textContent = "ยกเลิกคิวนี้";
+      cancelBtn.addEventListener("click", () => window.hhCancel?.open({ bookingId: b.id, phone: lastPhone }));
+      el.appendChild(cancelBtn);
+    }
     return el;
   }
 
@@ -152,6 +161,11 @@
   }
 
   input.addEventListener("input", () => setError(""));
+
+  // ยกเลิกสำเร็จ (cancel.js) → ค้นใหม่ให้สถานะ/การคืนเงินบนการ์ดเป็นปัจจุบัน
+  document.addEventListener("hh:cancelled", () => {
+    if (lastPhone) form.requestSubmit();
+  });
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
