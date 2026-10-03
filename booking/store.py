@@ -11,6 +11,7 @@ key ใน Redis (ดู docs/booking-plan.md §5)
   bookings:phone:<phone>       list ของ id ตามเบอร์โทร (หน้าเช็คคิว /check)
   slotcount:<slot>             ตัวนับคิวในช่องเวลา (INCR แบบ atomic กันจองซ้อน)
   slipref:<reference>          id ของการจองที่ใช้สลิปใบนี้ (SET NX กันใช้สลิปซ้ำ)
+  cancel:<id>                  ธงว่ายกเลิกแล้ว (SET NX กันกดยกเลิกซ้ำแล้วคืนช่องเวลา 2 ครั้ง)
   seq:<YYYYMMDD>               ตัวนับเลขจองรายวัน
 """
 
@@ -53,6 +54,10 @@ class BookingStore(ABC):
     async def release_slip_ref(self, reference: str) -> None: ...
 
     @abstractmethod
+    async def claim_cancel(self, booking_id: str) -> bool:
+        """ปักธงยกเลิก — เคยยกเลิกไปแล้วคืน False (ลูกค้ากับร้านกดพร้อมกันก็คืนช่องเวลาแค่ครั้งเดียว)"""
+
+    @abstractmethod
     async def next_seq(self, day: str) -> int: ...
 
     @abstractmethod
@@ -85,6 +90,7 @@ class InMemoryBookingStore(BookingStore):
     def __init__(self) -> None:
         self._counts: dict[str, int] = {}
         self._refs: dict[str, str] = {}
+        self._cancelled: set[str] = set()
         self._seq: dict[str, int] = {}
         self._bookings: dict[str, dict] = {}
         self._by_time: dict[str, float] = {}
@@ -112,6 +118,12 @@ class InMemoryBookingStore(BookingStore):
 
     async def release_slip_ref(self, reference):
         self._refs.pop(reference, None)
+
+    async def claim_cancel(self, booking_id):
+        if booking_id in self._cancelled:
+            return False
+        self._cancelled.add(booking_id)
+        return True
 
     async def next_seq(self, day):
         self._seq[day] = self._seq.get(day, 0) + 1
@@ -190,6 +202,9 @@ class RedisBookingStore(BookingStore):
 
     async def release_slip_ref(self, reference):
         await self._cmd("DEL", f"slipref:{reference}")
+
+    async def claim_cancel(self, booking_id):
+        return await self._cmd("SET", f"cancel:{booking_id}", "1", "NX", "EX", _TTL_BOOKING) == "OK"
 
     async def next_seq(self, day):
         n = int(await self._cmd("INCR", f"seq:{day}"))

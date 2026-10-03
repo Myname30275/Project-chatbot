@@ -25,6 +25,8 @@ _attempts_ip = RateLimiter(limit=20)
 # หน้าเช็คคิวค้นด้วยเบอร์โทร — จำกัดถี่กันไล่เดาเบอร์คนอื่น
 _checks = RateLimiter(limit=10)
 _checks_ip = RateLimiter(limit=10)
+# ยกเลิกคิว — กันยิงเดาเลขจอง/สแปม
+_cancels = RateLimiter(limit=10)
 _IMAGE_KINDS = {"pet"}  # สลิปให้ดูเฉพาะหลังบ้าน (channels/admin.py)
 
 
@@ -134,6 +136,33 @@ async def check_by_phone(body: CheckRequest, request: Request):
     if is_new:
         _set_session_cookie(resp, session_id)
     return resp
+
+
+class CancelRequest(BaseModel):
+    method: str = ""
+    bank: str | None = None
+    account: str = ""
+    account_name: str = ""
+
+
+@router.post("/{booking_id}/cancel")
+async def cancel_booking(booking_id: str, body: CancelRequest, request: Request):
+    """ปุ่ม "ยกเลิกคิว" ใต้ใบจองในแชท — ยกเลิกได้เฉพาะคิวของ session ตัวเอง + ช่องทางรับเงินคืน"""
+    session_id, _ = _resolve_session(request)
+    if not _cancels.allow(session_id) or not _cancels.allow(_client_ip(request)):
+        return _error(429, "ส่งคำขอถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
+    try:
+        b = await service.cancel_by_customer(booking_id, session_id, body.model_dump())
+    except BookingError as exc:
+        return _error(exc.status, exc.message, exc.field)
+    except StoreError as exc:
+        return _error(503, str(exc))
+    return {"ok": True, "booking": service.public_view(b), "refund_amount": b["refund"]["amount"]}
+
+
+@router.get("/cancel-options")
+async def cancel_options():
+    return {"banks": service.BANKS, "hours": service.cancel_hours()}
 
 
 @router.get("/mine")

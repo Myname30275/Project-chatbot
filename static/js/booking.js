@@ -1,6 +1,7 @@
 /* จองคิวในแชท: ป๊อปอัป 3 ขั้น → POST /api/v1/booking → การ์ดใบจองในแชท
  *
  * ข้อตกลงของร้าน (docs/booking-plan.md): ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + เลือกช่องเวลา + สลิป
+ * ใบจองในแชทมีปุ่ม "ยกเลิกคิว" (ก่อนนัด 3 ชม.) → กรอกพร้อมเพย์/บัญชี → ร้านโอนคืนยอดที่โอนมา
  * ติ๊ก "รับ-ส่งน้อง" ได้ (ขั้น 2): ปักหมุดบนแผนที่ → ค่ารับส่งตามระยะ → ยอดโอน = มัดจำ + ค่ารับส่ง
  * ใบจองไม่มีราคา (ร้านชั่งน้ำหนักจริงหน้าร้าน) และสถานะเริ่มที่ "รอร้านยืนยัน" เสมอ
  * รูปถูกย่อในเบราว์เซอร์ก่อนส่ง (เซิร์ฟเวอร์ไม่ต้องมี Pillow และเก็บใน Redis ได้พอดี)
@@ -26,6 +27,7 @@
   const DRAFT_KEY = "hh.bookingDraft";
   const PHONE_RE = /^0\d{9}$/;
   const BOOK_WORDS = /จอง|นัด|คิว/;
+  const CANCEL_WORDS = /ยกเลิก|cancel/i;
 
   let step = 1;
   let days = [];
@@ -525,6 +527,7 @@
     const picker = e.target.closest("[data-pick]");
     if (picker && sheet.contains(picker)) pick[picker.dataset.pick].input.click();
     if (e.target.closest("[data-my-bookings]")) showMyBookings();
+    if (e.target.closest("[data-cancel-booking]")) showMyBookings({ forCancel: true });
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !sheet.hidden) close();
@@ -629,9 +632,142 @@
       card.querySelector('[data-f="id"]').previousElementSibling.before(dt, dd);
     }
     card.querySelector(".ticket__pet").src = b.pet_image;
-    const btn = card.querySelector(".ticket__actions button");
+    const actions = card.querySelector(".ticket__actions");
+    const btn = actions.querySelector("button");
     btn.addEventListener("click", () => saveAsImage(card, b.id, btn));
+    if (b.status === "cancelled") {
+      markCancelled(card, "คิวนี้ถูกยกเลิกแล้ว");
+    } else if (b.can_cancel) {
+      const cancelBtn = document.createElement("button");
+      cancelBtn.type = "button";
+      cancelBtn.className = "btn btn--ghost btn--small";
+      cancelBtn.textContent = "ยกเลิกคิว";
+      cancelBtn.addEventListener("click", () => openCancel(card, b, cancelBtn));
+      actions.prepend(cancelBtn);
+    } else if (b.cancel_note) {
+      const note = document.createElement("p");
+      note.className = "ticket__cancel-note";
+      note.textContent = b.cancel_note;
+      card.appendChild(note);
+    }
     return card;
+  }
+
+  /* ---------------- ยกเลิกคิว (เฉพาะคิวที่จองจากแชทนี้) ---------------- */
+
+  let bankList = null;
+
+  async function loadBanks() {
+    if (!bankList) {
+      const r = await fetch("/api/v1/booking/cancel-options", { cache: "no-store" });
+      bankList = (await r.json()).banks || [];
+    }
+    return bankList;
+  }
+
+  function markCancelled(card, text) {
+    card.classList.add("ticket--cancelled");
+    card.querySelector(".ticket__actions").remove();
+    const box = card.querySelector(".cancel-box");
+    if (box) box.remove();
+    const note = document.createElement("p");
+    note.className = "ticket__cancel-note";
+    note.textContent = text;
+    card.appendChild(note);
+  }
+
+  function openCancel(card, b, cancelBtn) {
+    if (card.querySelector(".cancel-box")) return;
+    cancelBtn.hidden = true;
+    const box = document.createElement("form");
+    box.className = "cancel-box";
+    box.noValidate = true;
+    box.innerHTML = `
+      <p class="cancel-box__title">ยกเลิกคิวนี้?</p>
+      <p class="cancel-box__lead">ช่องเวลาจะว่างให้คนอื่นจองทันที ร้านจะโอนคืน <b></b> เข้าบัญชีที่กรอกด้านล่าง</p>
+      <div class="cancel-box__methods" role="radiogroup" aria-label="ช่องทางรับเงินคืน">
+        <label><input type="radio" name="method" value="promptpay" checked /> พร้อมเพย์</label>
+        <label><input type="radio" name="method" value="bank" /> บัญชีธนาคาร</label>
+      </div>
+      <label class="field" data-bank hidden>
+        <span>ธนาคาร</span>
+        <select name="bank"><option value="">เลือกธนาคาร</option></select>
+      </label>
+      <label class="field">
+        <span data-account-label>เบอร์พร้อมเพย์ หรือเลขบัตรประชาชน</span>
+        <input name="account" inputmode="numeric" maxlength="20" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>ชื่อบัญชี</span>
+        <input name="account_name" maxlength="40" autocomplete="name" />
+      </label>
+      <p class="field__error" role="alert"></p>
+      <div class="cancel-box__actions">
+        <button type="button" class="btn btn--ghost btn--small" data-keep>ไม่ยกเลิก</button>
+        <button type="submit" class="btn btn--small btn--danger">ยืนยันยกเลิกคิว</button>
+      </div>`;
+    box.querySelector(".cancel-box__lead b").textContent = `${Number(b.refund_amount).toLocaleString("th-TH")} บาท`;
+    box.elements.account_name.value = b.owner_name || "";
+    const errEl = box.querySelector(".field__error");
+    const bankField = box.querySelector("[data-bank]");
+    const select = box.elements.bank;
+    loadBanks().then((list) => list.forEach((name) => select.add(new Option(name, name)))).catch(() => {});
+
+    box.addEventListener("change", (e) => {
+      if (e.target.name !== "method") return;
+      const isBank = e.target.value === "bank";
+      bankField.hidden = !isBank;
+      box.querySelector("[data-account-label]").textContent = isBank ? "เลขบัญชี" : "เบอร์พร้อมเพย์ หรือเลขบัตรประชาชน";
+      errEl.textContent = "";
+    });
+    box.querySelector("[data-keep]").addEventListener("click", () => {
+      box.remove();
+      cancelBtn.hidden = false;
+      cancelBtn.focus();
+    });
+    box.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const method = box.elements.method.value;
+      const payload = {
+        method,
+        bank: method === "bank" ? select.value : null,
+        account: box.elements.account.value.replace(/\D/g, ""),
+        account_name: box.elements.account_name.value.trim(),
+      };
+      if (method === "bank" && !payload.bank) { errEl.textContent = "กรุณาเลือกธนาคาร"; return; }
+      if (!payload.account) { errEl.textContent = "กรุณากรอกเลขบัญชีหรือพร้อมเพย์"; return; }
+      if (!payload.account_name) { errEl.textContent = "กรุณากรอกชื่อบัญชี"; return; }
+      const submit = box.querySelector("[type=submit]");
+      submit.disabled = true;
+      errEl.textContent = "";
+      try {
+        const r = await fetch(`/api/v1/booking/${encodeURIComponent(b.id)}/cancel`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const body = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          errEl.textContent = body.message || "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้งนะคะ";
+          submit.disabled = false;
+          return;
+        }
+        const amount = `${Number(body.refund_amount).toLocaleString("th-TH")} บาท`;
+        markCancelled(card, `ยกเลิกแล้ว · ร้านจะโอนคืน ${amount}`);
+        const chat = window.hhChat;
+        if (chat) {
+          chat.createAiBubble().textContent =
+            `ยกเลิกคิวของน้อง${b.pet_name}เรียบร้อยค่ะ ร้านจะโอนคืน ${amount} เข้าบัญชีที่แจ้งไว้ ` +
+            "ดูสถานะการโอนคืนได้ที่หน้าเช็คคิวนะคะ";
+        }
+      } catch (err) {
+        console.error("[booking] cancel:", err);
+        errEl.textContent = "ติดต่อร้านไม่ได้ เช็กอินเทอร์เน็ตแล้วลองอีกครั้งนะคะ";
+        submit.disabled = false;
+      }
+    });
+    card.appendChild(box);
+    box.elements.account.focus({ preventScroll: true });
   }
 
   function showTicketInChat(b, intro) {
@@ -642,13 +778,27 @@
     chat.appendAiNode(ticketCard(b));
   }
 
-  async function showMyBookings() {
+  async function showMyBookings({ forCancel = false } = {}) {
     const chat = window.hhChat;
     if (!chat) return;
+    chat.ensureOpen();
     try {
       const r = await fetch("/api/v1/booking/mine", { cache: "no-store" });
       const body = await r.json();
-      const list = body.bookings || [];
+      // ใบที่ยกเลิกแล้วไม่ต้องโชว์ซ้ำ · โหมดยกเลิกโชว์เฉพาะคิวที่ยังไม่ถึงวันนัด
+      const list = (body.bookings || []).filter((b) =>
+        forCancel ? b.can_cancel || b.cancel_note : b.status !== "cancelled");
+      if (forCancel) {
+        if (!list.length) {
+          chat.createAiBubble().textContent =
+            "ไม่พบคิวที่ยกเลิกได้ในแชทนี้ค่ะ ถ้าจองจากเครื่องอื่นหรือเหลือไม่ถึง 3 ชั่วโมงก่อนนัด " +
+            "รบกวนติดต่อร้านทาง LINE หรือโทรได้เลยนะคะ";
+          return;
+        }
+        chat.createAiBubble().textContent = "เลือกคิวที่ต้องการยกเลิก แล้วกดปุ่ม “ยกเลิกคิว” ใต้ใบจองได้เลยค่ะ";
+        list.slice(0, 5).forEach((b) => chat.appendAiNode(ticketCard(b)));
+        return;
+      }
       if (!list.length) {
         const bubble = chat.createAiBubble();
         bubble.textContent = "ยังไม่มีใบจองค่ะ กดปุ่มด้านล่างเพื่อจองคิวได้เลย";
@@ -676,12 +826,25 @@
     wrap.appendChild(btn);
   }
 
+  // ลูกค้าพิมพ์ "ยกเลิก…" → ปุ่มเปิดใบจองที่ยกเลิกได้ใต้คำตอบของบอท
+  function addCancelCta(bubble) {
+    const wrap = bubble && bubble.parentElement;
+    if (!wrap || wrap.querySelector(".book-cta")) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn--small btn--ghost book-cta";
+    btn.dataset.cancelBooking = "";
+    btn.textContent = "ยกเลิกคิว";
+    wrap.appendChild(btn);
+  }
+
   window.hhBooking = {
     open,
     addCta,
     // เรียกจาก chat.js หลังบอทตอบ — ลูกค้าพูดถึงการจอง/นัด/คิว ก็ต่อปุ่มจองให้เลย (ไม่ใช้ LLM ตัดสิน)
     maybeAddCta(userText, bubble) {
-      if (BOOK_WORDS.test(userText || "")) addCta(bubble);
+      if (CANCEL_WORDS.test(userText || "")) addCancelCta(bubble);
+      else if (BOOK_WORDS.test(userText || "")) addCta(bubble);
     },
   };
 

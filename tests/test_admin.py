@@ -37,6 +37,7 @@ class AdminTests(unittest.TestCase):
             (slots, "now", lambda: NOW),
             (booking_api, "_attempts", RateLimiter(limit=50)),
             (booking_api, "_attempts_ip", RateLimiter(limit=50)),
+            (booking_api, "_cancels", RateLimiter(limit=50)),
             (admin, "_login_attempts", RateLimiter(limit=5)),
         ]:
             p = patch.object(target, attr, value)
@@ -176,6 +177,84 @@ class AdminTests(unittest.TestCase):
         self.login()
         slots_seen = [b["slot"][11:] for b in self.week().json()["bookings"]]
         self.assertEqual(slots_seen, ["09:00", "14:00"])
+
+    # ---------- ลูกค้ายกเลิกคิวเอง + ร้านโอนคืน ----------
+
+    PROMPTPAY = {"method": "promptpay", "account": "081-234-5678", "account_name": "สมใจ ใจดี"}
+
+    def cancel(self, booking_id, client=None, **body):
+        payload = {**self.PROMPTPAY, **body}
+        return (client or self.customer).post(f"/api/v1/booking/{booking_id}/cancel", json=payload)
+
+    def left(self, hour=10):
+        days = self.customer.get("/api/v1/booking/slots").json()["days"]
+        return next(s["left"] for d in days for s in d["slots"] if s["key"] == slot_at(hour))
+
+    def check_hint(self):
+        r = self.customer.post("/api/v1/booking/check", json={"phone": "0812345678"})
+        return r.json()["bookings"][0]["status_hint"]
+
+    def test_customer_cancels_and_owner_marks_refunded(self):
+        b = self.book()
+        self.assertTrue(b["can_cancel"])
+        self.assertEqual(b["refund_amount"], 50)
+        self.assertEqual(self.left(), 1)
+
+        stranger = TestClient(self.app)  # ไม่ใช่ session ที่จอง → เหมือนไม่มีคิวนี้
+        self.assertEqual(self.cancel(b["id"], client=stranger).status_code, 404)
+
+        r = self.cancel(b["id"])
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual((r.json()["booking"]["status"], r.json()["refund_amount"]), ("cancelled", 50))
+        self.assertFalse(r.json()["booking"]["can_cancel"])
+        self.assertNotIn("account", r.text)  # เลขบัญชีไม่ย้อนกลับไปหน้าลูกค้า
+        self.assertEqual(self.left(), 2)  # ช่องเวลาว่างให้คนอื่นจองทันที
+        self.assertIn("จะโอนคืน 50 บาท", self.check_hint())
+        self.assertEqual(self.cancel(b["id"]).status_code, 409)  # กดซ้ำไม่คืนช่องซ้ำ
+        self.assertEqual(self.left(), 2)
+
+        self.login()
+        refund = self.owner.get(f"/api/v1/admin/bookings/{b['id']}").json()["booking"]["refund"]
+        self.assertEqual((refund["status"], refund["account"], refund["amount"]), ("pending", "0812345678", 50))
+        self.assertEqual(self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 200)
+        self.assertEqual(self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 409)
+        self.assertIn("โอนคืน 50 บาท แล้ว", self.check_hint())
+        self.assertEqual(self.customer.post(f"/api/v1/admin/bookings/{b['id']}/refunded").status_code, 401)
+
+    def test_refund_details_are_validated(self):
+        b = self.book()
+        for body, field in [
+            ({"account": "12345"}, "account"),
+            ({"method": "bank", "bank": None, "account": "1234567890"}, "bank"),
+            ({"method": "bank", "bank": "กสิกรไทย", "account": "123"}, "account"),
+            ({"method": "cash"}, "method"),
+            ({"account_name": "  "}, "account_name"),
+        ]:
+            with self.subTest(field=field, body=body):
+                r = self.cancel(b["id"], **body)
+                self.assertEqual((r.status_code, r.json()["field"]), (422, field))
+        self.assertEqual(self.left(), 1)  # ยังไม่ถูกยกเลิก
+        ok = self.cancel(b["id"], method="bank", bank="กสิกรไทย", account="123-4-56789-0")
+        self.assertEqual(ok.status_code, 200, ok.text)
+
+    def test_cannot_cancel_within_3_hours(self):
+        b = self.book()
+        late = slots.parse_key(slot_at()) - service.timedelta(hours=2)
+        with patch.object(slots, "now", lambda: late):
+            mine = self.customer.get("/api/v1/booking/mine").json()["bookings"][0]
+            self.assertFalse(mine["can_cancel"])
+            self.assertIn("3 ชั่วโมง", mine["cancel_note"])
+            r = self.cancel(b["id"])
+        self.assertEqual(r.status_code, 409)
+        self.assertEqual(self.left(), 1)
+
+    def test_shop_cancel_then_customer_cancel_releases_slot_once(self):
+        b = self.book()
+        self.login()
+        r = self.owner.post(f"/api/v1/admin/bookings/{b['id']}/status", json={"status": "cancelled"})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(self.cancel(b["id"]).status_code, 409)
+        self.assertEqual(self.left(), 2)
 
 
 if __name__ == "__main__":

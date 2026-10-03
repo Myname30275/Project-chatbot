@@ -24,6 +24,7 @@
     done: { label: "มาใช้บริการแล้ว", cls: "btn--ghost" },
     cancelled: { label: "ยกเลิกคิว", cls: "btn--danger", ask: "ยกเลิกคิวนี้? ช่องเวลาจะว่างให้ลูกค้าคนอื่นจองได้ทันที" },
   };
+  const refundPending = (b) => !!(b.refund && b.refund.status === "pending");
 
   let view = "week";
   let anchor = null; // YYYY-MM-DD วันที่อ้างอิงของหน้าที่แสดง
@@ -119,6 +120,7 @@
       ["ยืนยันแล้ว", n("confirmed"), "confirmed"],
       ["มาแล้ว", n("done"), "done"],
       ["ยกเลิก", n("cancelled"), "cancelled"],
+      ["รอโอนคืน", inView.filter(refundPending).length, "refund"],
     ];
     summaryEl.innerHTML = "";
     for (const [label, count, status] of items) {
@@ -137,7 +139,8 @@
     btn.className = "bk-chip";
     btn.dataset.status = b.status;
     btn.dataset.id = b.id;
-    const flag = (b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "") + (b.pickup ? " 🚗" : "");
+    const flag = (b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "") +
+      (b.pickup ? " 🚗" : "") + (refundPending(b) ? " 💸" : "");
     btn.innerHTML = '<span class="bk-chip__name"></span><span class="bk-chip__meta"></span>';
     btn.querySelector(".bk-chip__name").textContent = b.pet_name + flag;
     btn.querySelector(".bk-chip__meta").textContent = b.status_label;
@@ -265,6 +268,22 @@
     return [row("รับ-ส่ง", `รับที่บ้าน ${p.time} น. · ไป-กลับ`), row("ที่อยู่รับ", addr), row("หมุด", nav)];
   }
 
+  // ลูกค้ายกเลิกเองในแชท → ช่องทางที่ให้ร้านโอนคืน
+  function refundRows(b) {
+    const r = b.refund;
+    if (!r) return b.status === "cancelled" ? [row("ยกเลิกโดย", "ร้าน")] : [];
+    const where = r.method === "bank" ? `บัญชี${r.bank} ${r.account}` : `พร้อมเพย์ ${r.account}`;
+    const state = r.status === "done"
+      ? `✓ โอนคืนแล้ว ${baht(r.amount)} (${(r.refunded_at || "").replace("T", " ").slice(0, 16)})`
+      : `💸 รอโอนคืน ${baht(r.amount)}`;
+    return [
+      row("ยกเลิกโดย", `ลูกค้า (${(r.requested_at || "").replace("T", " ").slice(0, 16)})`),
+      row("คืนเงิน", state),
+      row("โอนคืนเข้า", where, "mono"),
+      row("ชื่อบัญชี", r.account_name),
+    ];
+  }
+
   function openDrawer(b, trigger) {
     openId = b.id;
     lastTrigger = trigger || document.activeElement;
@@ -308,6 +327,7 @@
       row("สลิป", slipText(b.slip, b.amount_due)),
       row("เลขอ้างอิงสลิป", (b.slip && b.slip.reference) || "—", "mono"),
       row("จองเมื่อ", (b.created_at || "").replace("T", " ").slice(0, 16)),
+      ...refundRows(b),
     ].forEach(([dt, dd]) => dl.append(dt, dd));
 
     const actions = document.createElement("div");
@@ -322,6 +342,15 @@
       btn.addEventListener("click", () => changeStatus(b, s, btn));
       actions.appendChild(btn);
     });
+    if (refundPending(b)) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn--small";
+      btn.textContent = "โอนคืนแล้ว";
+      btn.addEventListener("click", () =>
+        save(b, "refunded", null, `ยืนยันว่าโอนคืน ${baht(b.refund.amount)} ให้ลูกค้าแล้ว?`, "บันทึกแล้ว: โอนคืนแล้ว"));
+      actions.appendChild(btn);
+    }
     if (!actions.children.length) {
       const p = document.createElement("p");
       p.className = "drawer__done";
@@ -345,17 +374,21 @@
     if (lastTrigger && lastTrigger.focus) lastTrigger.focus();
   }
 
-  async function changeStatus(b, status, btn) {
+  function changeStatus(b, status) {
     const conf = ACTION[status];
-    if (conf.ask && !window.confirm(conf.ask)) return;
+    return save(b, "status", { status }, conf.ask, null);
+  }
+
+  async function save(b, action, payload, ask, doneText) {
+    if (ask && !window.confirm(ask)) return;
     const note = drawerBody.querySelector(".drawer__msg");
     drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = true));
     note.textContent = "กำลังบันทึก…";
     try {
-      const r = await fetch(`/api/v1/admin/bookings/${encodeURIComponent(b.id)}/status`, {
+      const r = await fetch(`/api/v1/admin/bookings/${encodeURIComponent(b.id)}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(payload || {}),
       });
       if (r.status === 401) { location.reload(); return; }
       const body = await r.json();
@@ -364,7 +397,7 @@
       if (i >= 0) data.bookings[i] = body.booking;
       render();
       openDrawer(body.booking, lastTrigger);
-      drawerBody.querySelector(".drawer__msg").textContent = `บันทึกแล้ว: ${body.booking.status_label}`;
+      drawerBody.querySelector(".drawer__msg").textContent = doneText || `บันทึกแล้ว: ${body.booking.status_label}`;
     } catch (err) {
       note.textContent = err.message || "บันทึกไม่สำเร็จ ลองอีกครั้ง";
       drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = false));

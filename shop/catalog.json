@@ -149,6 +149,7 @@
     "closed_weekdays": [0],
     "min_days_ahead": 1,
     "max_days_ahead": 14,
+    "cancel_hours_before": 3,
     "pickup": {
       "shop_lat": 13.7230,
       "shop_lng": 100.7280,

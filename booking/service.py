@@ -226,6 +226,7 @@ def public_view(b: dict) -> dict:
         "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
         # ใบจองบอกแค่ว่ามีรับ-ส่งกี่โมง — ที่อยู่/พิกัดอยู่เฉพาะหลังบ้าน
         "pickup_time": (b.get("pickup") or {}).get("time"),
+        **cancel_view(b),
         # สลิปไม่อยู่บนใบจองของลูกค้า — ร้านดูได้ในหลังบ้าน (/api/v1/admin/bookings/{id}/image/slip)
     }
 
@@ -248,6 +249,104 @@ async def get_owned(booking_id: str, session_id: str) -> dict | None:
 
 # ---------------- หลังบ้านเจ้าของร้าน ----------------
 
+# ---------------- ลูกค้ายกเลิกคิวเอง (ปุ่มใต้ใบจองในแชท) ----------------
+#
+# ยกเลิกได้ถึง cancel_hours_before ชั่วโมงก่อนนัด → ร้านโอนคืนยอดที่ลูกค้าโอนมา (มัดจำ + ค่ารับส่ง)
+# เข้าพร้อมเพย์/บัญชีที่ลูกค้ากรอก · ช้ากว่านั้นยกเลิกผ่านแชทไม่ได้ ให้ติดต่อร้าน (นโยบายเก็บมัดจำ)
+
+BANKS = [
+    "กสิกรไทย", "กรุงเทพ", "ไทยพาณิชย์", "กรุงไทย", "กรุงศรีอยุธยา", "ทหารไทยธนชาต (ttb)",
+    "ออมสิน", "ธ.ก.ส.", "ยูโอบี", "ซีไอเอ็มบี ไทย", "เกียรตินาคินภัทร", "แลนด์ แอนด์ เฮ้าส์",
+]
+ACTIVE = {"pending", "confirmed"}
+
+
+def cancel_hours() -> int:
+    return slots.config()["cancel_hours_before"]
+
+
+def cancel_deadline(b: dict):
+    return slots.parse_key(b["slot"]) - timedelta(hours=cancel_hours())
+
+
+def can_cancel(b: dict, at=None) -> bool:
+    return b["status"] in ACTIVE and (at or slots.now()) <= cancel_deadline(b)
+
+
+def cancel_view(b: dict, at=None) -> dict:
+    """ส่วนของใบจองที่ปุ่มยกเลิกใช้ — ยอดคืน = ยอดที่ลูกค้าโอนมา (ไม่ใช่ราคาบริการ)"""
+    active = b["status"] in ACTIVE and (at or slots.now()) < slots.parse_key(b["slot"])
+    ok = can_cancel(b, at)
+    return {
+        "can_cancel": ok,
+        "refund_amount": b.get("amount_due", deposit()) if ok else None,
+        # ยังไม่ถึงเวลานัดแต่เลยกำหนดยกเลิกแล้ว → บอกเหตุผลแทนการซ่อนปุ่มเฉย ๆ
+        "cancel_note": None if ok or not active else
+        f"เหลือไม่ถึง {cancel_hours()} ชั่วโมงก่อนนัด ยกเลิกผ่านแชทไม่ได้ ติดต่อร้านทาง LINE หรือโทรได้เลยค่ะ",
+    }
+
+
+def clean_refund(method: str | None, bank: str | None, account: str | None, account_name: str | None) -> dict:
+    """ช่องทางรับเงินคืน — พร้อมเพย์ (เบอร์ 10 หลัก / เลขบัตร 13 หลัก) หรือบัญชีธนาคาร (10–15 หลัก)"""
+    digits = re.sub(r"\D", "", account or "")
+    if method == "promptpay":
+        if not (_PHONE_RE.match(digits) or len(digits) == 13):
+            raise BookingError("พร้อมเพย์ต้องเป็นเบอร์โทร 10 หลัก หรือเลขบัตรประชาชน 13 หลัก", field="account")
+        bank = None
+    elif method == "bank":
+        if bank not in BANKS:
+            raise BookingError("กรุณาเลือกธนาคาร", field="bank")
+        if not 10 <= len(digits) <= 15:
+            raise BookingError("เลขบัญชีต้องเป็นตัวเลข 10–15 หลัก", field="account")
+    else:
+        raise BookingError("กรุณาเลือกช่องทางรับเงินคืน", field="method")
+    name = clean_name(account_name, "ชื่อบัญชี", "account_name")
+    return {"method": method, "bank": bank, "account": digits, "account_name": name}
+
+
+async def cancel_by_customer(booking_id: str, session_id: str, refund: dict, at=None) -> dict:
+    """ลูกค้ายกเลิกคิวของตัวเอง (เฉพาะ session ที่จอง) → สถานะยกเลิก + คำขอคืนเงินให้ร้านโอน"""
+    b = await get_owned(booking_id, session_id)
+    if not b:
+        raise BookingError("ไม่พบการจองนี้", status=404)
+    if b["status"] == "cancelled":
+        raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)
+    if not can_cancel(b, at):
+        raise BookingError(cancel_view(b, at)["cancel_note"] or "คิวนี้ยกเลิกไม่ได้แล้ว", status=409)
+    info = clean_refund(**refund)
+    store = get_store()
+    if not await store.claim_cancel(b["id"]):
+        raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)
+    stamp = (at or slots.now()).isoformat(timespec="seconds")
+    b.update(
+        status="cancelled",
+        cancelled_by="customer",
+        updated_at=stamp,
+        refund={**info, "amount": b.get("amount_due", deposit()), "status": "pending", "requested_at": stamp},
+    )
+    await store.save(b)
+    await store.release_slot(b["slot"])
+    logger.info("ลูกค้ายกเลิก %s ขอคืน %s บาท", b["id"], b["refund"]["amount"])
+    return b
+
+
+async def mark_refunded(booking_id: str) -> dict:
+    """หลังบ้าน: ร้านโอนคืนให้ลูกค้าแล้ว"""
+    store = get_store()
+    b = await store.get(booking_id)
+    if not b:
+        raise BookingError("ไม่พบการจองนี้", status=404)
+    refund = b.get("refund")
+    if not refund or refund.get("status") != "pending":
+        raise BookingError("คิวนี้ไม่มีรายการรอโอนคืน", status=409)
+    stamp = slots.now().isoformat(timespec="seconds")
+    refund.update(status="done", refunded_at=stamp)
+    b["updated_at"] = stamp
+    await store.save(b)
+    logger.info("โอนคืนแล้ว %s", booking_id)
+    return admin_view(b)
+
+
 # เปลี่ยนสถานะได้เฉพาะทางเดินนี้ — กันกดพลาดย้อนสถานะ (เช่น ยกเลิกแล้วกลับมายืนยัน)
 TRANSITIONS = {
     "pending": {"confirmed", "cancelled"},
@@ -265,6 +364,8 @@ def admin_view(b: dict) -> dict:
         slip=b.get("slip", {}),
         pickup=b.get("pickup"),
         amount_due=b.get("amount_due", deposit()),
+        refund=b.get("refund"),
+        cancelled_by=b.get("cancelled_by"),
         created_at=b.get("created_at"),
         updated_at=b.get("updated_at"),
         next_status=sorted(TRANSITIONS.get(b["status"], set())),
@@ -293,8 +394,12 @@ async def set_status(booking_id: str, status: str) -> dict:
             f"เปลี่ยนจาก “{STATUS_LABEL.get(b['status'], b['status'])}” เป็น “{STATUS_LABEL.get(status, status)}” ไม่ได้",
             status=409,
         )
+    if status == "cancelled" and not await store.claim_cancel(booking_id):
+        raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)
     b["status"] = status
     b["updated_at"] = slots.now().isoformat(timespec="seconds")
+    if status == "cancelled":
+        b["cancelled_by"] = "shop"
     await store.save(b)
     if status == "cancelled":
         # คืนช่องเวลาให้ลูกค้าคนอื่นจองได้ทันที (เลขสลิปยังถือว่าใช้แล้ว — มัดจำตามนโยบายร้าน)
@@ -313,6 +418,15 @@ STATUS_HINT = {
 }
 
 
+def _hint(b: dict) -> str:
+    refund = b.get("refund")
+    if refund:
+        amount = f"{refund['amount']:,} บาท"
+        return (f"ยกเลิกแล้ว ร้านโอนคืน {amount} แล้ว" if refund["status"] == "done"
+                else f"ยกเลิกแล้ว ร้านจะโอนคืน {amount} เข้าบัญชีที่แจ้งไว้")
+    return STATUS_HINT.get(b["status"], "")
+
+
 def check_view(b: dict) -> dict:
     """ข้อมูลที่หน้าเช็คคิวแสดงได้ — ค้นด้วยเบอร์โทรอย่างเดียว จึงไม่แสดงชื่อเจ้าของ/รูป/สลิป"""
     return {
@@ -322,7 +436,7 @@ def check_view(b: dict) -> dict:
         "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
-        "status_hint": STATUS_HINT.get(b["status"], ""),
+        "status_hint": _hint(b),
         "pickup_time": (b.get("pickup") or {}).get("time"),
     }
 

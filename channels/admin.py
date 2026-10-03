@@ -172,6 +172,18 @@ async def change_status(booking_id: str, body: StatusRequest, request: Request):
         return _error(503, str(exc))
 
 
+@router.post("/api/v1/admin/bookings/{booking_id}/refunded")
+async def mark_refunded(booking_id: str, request: Request):
+    if not is_admin(request):
+        return _denied()
+    try:
+        return {"booking": await service.mark_refunded(booking_id)}
+    except BookingError as exc:
+        return _error(exc.status, exc.message)
+    except StoreError as exc:
+        return _error(503, str(exc))
+
+
 @router.get("/api/v1/admin/bookings/{booking_id}/image/{kind}")
 async def admin_image(booking_id: str, kind: str, request: Request):
     if not is_admin(request):

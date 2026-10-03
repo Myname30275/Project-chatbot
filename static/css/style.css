@@ -1637,8 +1637,77 @@ svg {
   display: flex;
   justify-content: flex-end;
 }
-.ticket.is-capturing .ticket__actions {
+.ticket.is-capturing .ticket__actions,
+.ticket.is-capturing .cancel-box,
+.ticket.is-capturing .ticket__cancel-note {
   display: none;
+}
+.ticket__actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---- ยกเลิกคิวในแชท ---- */
+.ticket--cancelled .ticket__hero,
+.ticket--cancelled .ticket__info {
+  opacity: 0.45;
+}
+.ticket__cancel-note {
+  margin: 0;
+  padding: 8px 12px;
+  background: var(--brick-bg);
+  border-radius: 12px;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #8a2f1f;
+}
+.cancel-box {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  background: var(--brick-bg);
+  border: 2px solid var(--brick);
+  border-radius: 16px;
+}
+.cancel-box p {
+  margin: 0;
+}
+.cancel-box__title {
+  font-weight: 800;
+}
+.cancel-box__lead {
+  font-size: 0.88rem;
+}
+.cancel-box__methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-top: 8px;
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+.cancel-box__methods input {
+  accent-color: var(--ink);
+}
+.cancel-box .field {
+  margin-top: 8px;
+}
+.field select {
+  height: 44px;
+  padding: 0 10px;
+  background: #fff;
+  color: var(--ink);
+  border: var(--line);
+  border-radius: 14px;
+  font: inherit;
+  font-weight: 400;
+}
+.cancel-box__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* ============================================================================
