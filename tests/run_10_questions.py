@@ -42,7 +42,19 @@ QUESTIONS = [
 ]
 
 
-def ask(client: httpx.Client, question: str) -> dict:
+def ask(client: httpx.Client, question: str, retries: int = 2) -> dict:
+    """ถาม 1 คำถาม — การเชื่อมต่อหลุดกลางทาง (เครือข่าย/serverless ตัดสตรีม) ลองใหม่ได้ retries ครั้ง"""
+    for attempt in range(retries + 1):
+        try:
+            return _ask_once(client, question)
+        except httpx.TransportError as exc:
+            if attempt == retries:
+                raise
+            print(f"  (การเชื่อมต่อหลุด ลองใหม่: {type(exc).__name__})", flush=True)
+            time.sleep(3)
+
+
+def _ask_once(client: httpx.Client, question: str) -> dict:
     start = time.perf_counter()
     first = None
     text, blocked, actions, sources = "", None, [], []

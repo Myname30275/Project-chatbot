@@ -111,6 +111,15 @@ def check_sentence(
     return None
 
 
+# ประโยคที่ไม่อันตรายแต่ร้านไม่ให้พูด: ส่งลูกค้าไปร้านอื่น / แต่งเหตุผลทางการแพทย์เอง
+# prompt สั่งห้ามแล้วแต่ Typhoon ยังหลุดเป็นบางรอบ (ทดสอบ 4 ต.ค. 2569) → ตัดเฉพาะประโยคนั้นทิ้ง ไม่บล็อกทั้งคำตอบ
+_DROP_RE = re.compile(r"ร้านอื่น|ร้านที่มีบริการ|ที่อื่นที่มีบริการ|ติดเชื้อ|แพร่เชื้อ|แพร่กระจาย|การแพร่")
+
+
+def droppable(sentence: str) -> bool:
+    return bool(_DROP_RE.search(sentence))
+
+
 def pii_from_user(texts: list[str]) -> set[str]:
     """ข้อมูลติดต่อที่ลูกค้าคนนี้พิมพ์มาเอง — บอททวนกลับให้เจ้าของได้ (เช่น ยืนยันเบอร์ตอนจองคิว)"""
     out: set[str] = set()
@@ -153,6 +162,8 @@ class OutputGuard:
             if reason:
                 self.blocked_reason = reason
                 return out
+            if droppable(sentence):
+                continue
             out.append(sentence)
         return out
 

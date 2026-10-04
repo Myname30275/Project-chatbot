@@ -154,6 +154,19 @@ class OutputGuardTests(unittest.TestCase):
         self.assertEqual("".join(out), "อาบน้ำ 250 บาทค่ะ")
         self.assertEqual(g.blocked_reason, "DISCOUNT")
 
+    def test_unwanted_sentences_are_dropped_without_blocking_the_answer(self):
+        text = ("ขออภัยค่ะ ร้านไม่มีบริการฝากเลี้ยงค้างคืนค่ะ\n"
+                "หากต้องการฝากเลี้ยง รบกวนติดต่อร้านอื่นที่มีบริการนี้นะคะ\n"
+                "เนื่องจากอาจมีความเสี่ยงต่อการแพร่เชื้อต่อสัตว์อื่น\n"
+                "ร้านให้บริการอาบน้ำ-ตัดขนแบบรับกลับภายในวันค่ะ")
+        g = OutputGuard()
+        out = "".join([s for ch in text for s in g.feed(ch)] + g.flush())
+        self.assertFalse(g.blocked)
+        self.assertIn("ไม่มีบริการฝากเลี้ยงค้างคืน", out)
+        self.assertIn("รับกลับภายในวัน", out)
+        self.assertNotIn("ร้านอื่น", out)
+        self.assertNotIn("แพร่เชื้อ", out)
+
     def test_stream_of_safe_text_is_released_completely(self):
         text = "อาบน้ำสุนัขเล็ก 250 บาทค่ะ\nเป็นราคาประเมินเบื้องต้นค่ะ"
         g = OutputGuard()
