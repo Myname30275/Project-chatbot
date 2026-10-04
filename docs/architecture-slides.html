@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hom Hom Grooming — แผนภาพสถาปัตยกรรม (ฉบับนำเสนอ)</title>
+<style>
+@import url("https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&display=swap");
+* { box-sizing: border-box; }
+body { margin: 0; padding: 24px 16px 64px; background: #efe6d6; color: #5c3d2e;
+  font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; }
+.intro { max-width: 1100px; margin: 0 auto 20px; font-size: .95rem; }
+.intro h1 { font-family: "Mali", sans-serif; font-size: 1.5rem; margin: 0 0 4px; }
+.intro a { color: #b86e1b; }
+.slide { max-width: 1600px; margin: 0 auto 28px; border: 2px solid #5c3d2e; border-radius: 18px; overflow: hidden; background: #fffbf3; }
+.slide svg { display: block; width: 100%; height: auto; }
+svg text { font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; fill: #5c3d2e; }
+.bg { fill: #fffbf3; }
+.h1 { font-family: "Mali", "Nunito", sans-serif; font-size: 36px; font-weight: 700; }
+.h2 { font-size: 17px; fill: #7a5f50; }
+.t { font-size: 16px; font-weight: 800; }
+.tsb { font-size: 14px; font-weight: 800; }
+.ts { font-size: 13px; fill: #6b5142; }
+.tn { font-size: 13.5px; fill: #b0503a; font-weight: 600; }
+.tn2 { font-size: 15px; }
+.th { font-size: 16px; font-weight: 800; fill: #b86e1b; }
+.th2 { font-family: "Mali", "Nunito", sans-serif; font-size: 21px; font-weight: 700; fill: #b86e1b; }
+.gl { font-size: 14.5px; font-weight: 800; fill: #7a5f50; }
+.gs { font-size: 13px; font-style: italic; fill: #7a5f50; }
+.big { font-family: "Mali", "Nunito", sans-serif; font-size: 22px; font-weight: 700; fill: #4f6e37; }
+.bx { fill: #ffffff; stroke: #5c3d2e; stroke-width: 2; }
+.bx-ch { fill: #ffffff; stroke: #5c3d2e; stroke-width: 2; }
+.bx-user { fill: #fff5e1; stroke: #5c3d2e; stroke-width: 2; }
+.bx-core { fill: #f8dda8; stroke: #5c3d2e; stroke-width: 2.6; }
+.bx-hl { fill: #f8dda8; stroke: #b86e1b; stroke-width: 2.6; }
+.bx-ext { fill: #e9f0f7; stroke: #456a8c; stroke-width: 2; }
+.bx-data { fill: #eef4e6; stroke: #4f6e37; stroke-width: 2; }
+.bx-note { fill: #fff5e1; stroke: #5c3d2e; stroke-width: 1.5; stroke-dasharray: 6 5; }
+.bx-ok { fill: #eef4e6; stroke: #4f6e37; stroke-width: 2; }
+.grp { fill: none; stroke: #7a5f50; stroke-width: 1.6; stroke-dasharray: 7 6; }
+.grp-main { fill: #fffdf8; stroke: #5c3d2e; stroke-width: 2.4; }
+.grp-ext { fill: #f6f9fc; stroke: #456a8c; stroke-width: 1.8; stroke-dasharray: 7 6; }
+.ln { stroke: #5c3d2e; stroke-width: 2; fill: none; }
+.ln-dash { stroke: #456a8c; stroke-width: 1.8; fill: none; stroke-dasharray: 6 5; }
+.ln-no { stroke: #b0503a; stroke-width: 1.8; fill: none; stroke-dasharray: 5 5; }
+.num { fill: #5c3d2e; }
+.numt { fill: #fffbf3; font-size: 14px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div class="intro">
+  <h1>แผนภาพสถาปัตยกรรม — ฉบับนำเสนอ (16:9)</h1>
+  <p>3 แผ่น: ภาพรวมระบบ · เส้นทางของ 1 ข้อความ · ระบบจองและยกเลิกคิว — ไฟล์ PNG 1920×1080 อยู่ใน <code>docs/img/arch-*.png</code>
+  · รายละเอียดฉบับเต็ม: <a href="architecture.html">architecture.html</a> · สร้างด้วย <code>python docs/build_slides.py --png</code></p>
+</div>
+<section class="slide" id="system">
+<svg viewBox="0 0 1600 900" role="img" aria-label="ภาพรวมสถาปัตยกรรม: ลูกค้าและเจ้าของร้านใช้หน้าเว็บหรือ LINE เข้าสู่ FastAPI บน Vercel ซึ่งมีแกนกลางแชท ระบบจอง และตัวอ่านรูป ต่อกับ Typhoon Gemini Cartesia LINE และ Redis">
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#5c3d2e" /></marker>
+  <marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b0503a" /></marker>
+</defs>
+<rect class="bg" x="0" y="0" width="1600" height="900" />
+<text class="h1" x="48" y="62" text-anchor="start">สถาปัตยกรรมระบบแชทบอท “น้องหอม”</text><text class="h2" x="48" y="94" text-anchor="start">Hom Hom Grooming · ร้านอาบน้ำ-ตัดขนสุนัขและแมว · https://hom-hom-grooming.vercel.app</text><image href="../static/img/logo-badge.png" x="1486" y="24" width="72" height="72" />
+<rect class="bx-user" x="40" y="150" width="150" height="334" rx="14" />
+<text class="t" x="115.0" y="290.5" text-anchor="middle">ลูกค้า</text>
+<text class="ts" x="115.0" y="311.5" text-anchor="middle">ถามราคา</text>
+<text class="ts" x="115.0" y="332.5" text-anchor="middle">ส่งรูปน้อง / สลิป</text>
+<text class="ts" x="115.0" y="353.5" text-anchor="middle">จอง · เช็ค · ยกเลิกคิว</text>
+<rect class="bx-user" x="40" y="530" width="150" height="64" rx="14" />
+<text class="t" x="115.0" y="556.5" text-anchor="middle">เจ้าของร้าน</text>
+<text class="ts" x="115.0" y="577.5" text-anchor="middle">ดูแลคิว</text>
+<rect class="grp" x="215" y="110" width="250" height="500" rx="20" />
+<text class="gl" x="233" y="136" text-anchor="start">หน้าจอที่ผู้ใช้เห็น</text>
+<rect class="bx" x="230" y="150" width="220" height="64" rx="14" />
+<text class="t" x="340.0" y="176.5" text-anchor="middle">หน้าแรก + แชท  /</text>
+<text class="ts" x="340.0" y="197.5" text-anchor="middle">แชท · ฟอร์มจอง · ยกเลิกคิว</text>
+<path class="ln" d="M190 182 H226" marker-end="url(#a)" />
+<path class="ln" d="M450 182 H526" marker-end="url(#a)" />
+<rect class="bx" x="230" y="230" width="220" height="64" rx="14" />
+<text class="t" x="340.0" y="256.5" text-anchor="middle">แอป LINE</text>
+<text class="ts" x="340.0" y="277.5" text-anchor="middle">LINE OA @103fgxwt</text>
+<path class="ln" d="M190 262 H226" marker-end="url(#a)" />
+<path class="ln" d="M450 262 H526" marker-end="url(#a)" />
+<rect class="bx" x="230" y="310" width="220" height="64" rx="14" />
+<text class="t" x="340.0" y="336.5" text-anchor="middle">โหมดเสียง  /avatar</text>
+<text class="ts" x="340.0" y="357.5" text-anchor="middle">พูดคุยกับอวตารพนักงาน</text>
+<path class="ln" d="M190 342 H226" marker-end="url(#a)" />
+<path class="ln" d="M450 342 H526" marker-end="url(#a)" />
+<rect class="bx" x="230" y="420" width="220" height="64" rx="14" />
+<text class="t" x="340.0" y="446.5" text-anchor="middle">เช็คคิว  /check</text>
+<text class="ts" x="340.0" y="467.5" text-anchor="middle">สถานะ · คืนเงิน · ยกเลิก</text>
+<path class="ln" d="M190 452 H226" marker-end="url(#a)" />
+<path class="ln" d="M450 452 H526" marker-end="url(#a)" />
+<rect class="bx" x="230" y="530" width="220" height="64" rx="14" />
+<text class="t" x="340.0" y="556.5" text-anchor="middle">หลังบ้าน  /admin</text>
+<text class="ts" x="340.0" y="577.5" text-anchor="middle">ตารางคิว · ยืนยัน · โอนคืน</text>
+<path class="ln" d="M190 562 H226" marker-end="url(#a)" />
+<path class="ln" d="M450 562 H526" marker-end="url(#a)" />
+<rect class="grp-main" x="500" y="110" width="700" height="730" rx="20" />
+<text class="gl" x="518" y="136" text-anchor="start">Vercel Serverless · FastAPI (Python)</text>
+<text class="gl" x="615" y="135" text-anchor="middle"></text>
+<rect class="bx-ch" x="530" y="150" width="160" height="64" rx="14" />
+<text class="t" x="610.0" y="176.5" text-anchor="middle">web_chat.py</text>
+<text class="ts" x="610.0" y="197.5" text-anchor="middle">แชทแบบสตรีม (SSE)</text>
+<rect class="bx-ch" x="530" y="230" width="160" height="64" rx="14" />
+<text class="t" x="610.0" y="256.5" text-anchor="middle">line_webhook.py</text>
+<text class="ts" x="610.0" y="277.5" text-anchor="middle">ตรวจลายเซ็น LINE</text>
+<rect class="bx-ch" x="530" y="310" width="160" height="64" rx="14" />
+<text class="t" x="610.0" y="336.5" text-anchor="middle">tts.py</text>
+<text class="ts" x="610.0" y="357.5" text-anchor="middle">ข้อความ → เสียง</text>
+<rect class="bx-ch" x="530" y="420" width="160" height="64" rx="14" />
+<text class="t" x="610.0" y="446.5" text-anchor="middle">booking_api.py</text>
+<text class="ts" x="610.0" y="467.5" text-anchor="middle">จอง · เช็ค · ยกเลิก</text>
+<rect class="bx-ch" x="530" y="530" width="160" height="64" rx="14" />
+<text class="t" x="610.0" y="556.5" text-anchor="middle">admin.py</text>
+<text class="ts" x="610.0" y="577.5" text-anchor="middle">login + จัดการคิว</text>
+<text class="gs" x="610" y="618" text-anchor="middle">ช่องทางเข้า  channels/</text>
+<rect class="bx-core" x="720" y="150" width="460" height="244" rx="16" />
+<text class="t" x="950" y="178" text-anchor="middle">แกนกลางแชท  chatbot/assistant.py</text>
+<text class="ts" x="950" y="198" text-anchor="middle">ทุกช่องทางผ่าน pipeline เดียวกัน</text>
+<rect class="bx" x="735" y="212" width="205" height="52" rx="10" />
+<text class="tsb" x="837.5" y="232.5" text-anchor="middle">① กฎในโค้ด</text>
+<text class="ts" x="837.5" y="253.5" text-anchor="middle">ยาว · ถี่ · คำต้องห้าม · injection</text>
+<rect class="bx" x="960" y="212" width="205" height="52" rx="10" />
+<text class="tsb" x="1062.5" y="232.5" text-anchor="middle">ดักเบอร์โทร / เลขจอง</text>
+<text class="ts" x="1062.5" y="253.5" text-anchor="middle">→ ปุ่มเช็คคิว (ไม่เรียก LLM)</text>
+<rect class="bx" x="735" y="272" width="205" height="52" rx="10" />
+<text class="tsb" x="837.5" y="292.5" text-anchor="middle">② ตรวจเจตนา (LLM)</text>
+<text class="ts" x="837.5" y="313.5" text-anchor="middle">นอกเรื่อง · ข้อมูลคนอื่น · อันตราย</text>
+<rect class="bx" x="960" y="272" width="205" height="52" rx="10" />
+<text class="tsb" x="1062.5" y="292.5" text-anchor="middle">RAG ค้นข้อมูลร้าน</text>
+<text class="ts" x="1062.5" y="313.5" text-anchor="middle">4 ชิ้นจาก 48 ชิ้น · ทำพร้อม ②</text>
+<rect class="bx" x="735" y="332" width="205" height="52" rx="10" />
+<text class="tsb" x="837.5" y="352.5" text-anchor="middle">LLM ตอบ (สตรีม)</text>
+<text class="ts" x="837.5" y="373.5" text-anchor="middle">ข้อมูลร้าน + ประวัติ 12 ข้อความ</text>
+<rect class="bx" x="960" y="332" width="205" height="52" rx="10" />
+<text class="tsb" x="1062.5" y="352.5" text-anchor="middle">③ ตรวจคำตอบทีละประโยค</text>
+<text class="ts" x="1062.5" y="373.5" text-anchor="middle">ราคา · ข้อมูลส่วนตัว · เดาคิวว่าง</text>
+<rect class="bx-hl" x="720" y="414" width="220" height="116" rx="14" />
+<text class="t" x="830.0" y="445.5" text-anchor="middle">ระบบจอง  booking/</text>
+<text class="ts" x="830.0" y="466.5" text-anchor="middle">โค้ดล้วน ไม่ผ่าน LLM</text>
+<text class="ts" x="830.0" y="487.5" text-anchor="middle">ช่องเวลา · หลายตัว · รับ-ส่ง</text>
+<text class="ts" x="830.0" y="508.5" text-anchor="middle">ยืนยันตัวตน · ยกเลิก · คืนเงิน</text>
+<rect class="bx" x="960" y="414" width="220" height="116" rx="14" />
+<text class="t" x="1070.0" y="445.5" text-anchor="middle">อ่านรูป  vision/</text>
+<text class="ts" x="1070.0" y="466.5" text-anchor="middle">Gemini → JSON ที่ตรวจแล้ว</text>
+<text class="ts" x="1070.0" y="487.5" text-anchor="middle">รูปน้อง → ราคาจากโค้ด</text>
+<text class="ts" x="1070.0" y="508.5" text-anchor="middle">สลิป → ตรวจยอด/ผู้รับ/ผู้โอน</text>
+<rect class="bx-data" x="720" y="550" width="460" height="96" rx="14" />
+<text class="t" x="950.0" y="582.0" text-anchor="middle">ข้อมูลร้าน (แหล่งเดียวของทุกคำตอบ)</text>
+<text class="ts" x="950.0" y="603.0" text-anchor="middle">shop/catalog.json 18 รายการ · faq.md 29 ข้อ · policies.md → RAG 48 ชิ้น</text>
+<text class="ts" x="950.0" y="624.0" text-anchor="middle">prompts/  ต้องทำ 13 ข้อ · ห้ามทำ 8 ข้อ</text>
+<path class="ln" d="M690 182 H716" marker-end="url(#a)" />
+<path class="ln" d="M690 262 H716" marker-end="url(#a)" />
+<path class="ln" d="M690 452 H716" marker-end="url(#a)" />
+<path class="ln" d="M690 562 H704 V500 H716" marker-end="url(#a)" />
+<path class="ln" d="M940 472 H956" marker-end="url(#a)" />
+<path class="ln" d="M1070 394 V410" marker-end="url(#a)" />
+<path class="ln" d="M950 550 V398" marker-end="url(#a)" />
+<rect class="bx-note" x="530" y="666" width="650" height="156" rx="14" />
+<text class="th" x="548" y="692" text-anchor="start">หลักการออกแบบ</text>
+<text class="tn2" x="548" y="718" text-anchor="start">• ราคา · ยอดมัดจำ · ช่องเวลา · ผลตรวจสลิป มาจากโค้ด — LLM แต่งเองไม่ได้ (ด่าน ③ ตรวจซ้ำ)</text>
+<text class="tn2" x="548" y="744" text-anchor="start">• แชทบอทอ่านข้อมูลการจองไม่ได้ — เช็ค/ยกเลิก/คืนเงิน ต้องยืนยันตัวตนในระบบจอง</text>
+<text class="tn2" x="548" y="770" text-anchor="start">• ทุกช่องทาง (เว็บ · เสียง · LINE) ใช้กฎชุดเดียวกันผ่านแกนกลางตัวเดียว</text>
+<text class="tn2" x="548" y="796" text-anchor="start">• API key อยู่ฝั่งเซิร์ฟเวอร์ · ข้อมูลทั้งหมดอยู่ใน Redis (serverless ไม่จำสถานะ)</text>
+<rect class="grp-ext" x="1225" y="110" width="340" height="730" rx="20" />
+<text class="gl" x="1243" y="136" text-anchor="start">บริการภายนอก (API)</text>
+<rect class="bx-ext" x="1245" y="150" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="180.0" text-anchor="middle">Typhoon</text>
+<text class="ts" x="1395.0" y="201.0" text-anchor="middle">LLM ภาษาไทย</text>
+<text class="ts" x="1395.0" y="222.0" text-anchor="middle">ตอบแชท · ตรวจเจตนา ②</text>
+<rect class="bx-ext" x="1245" y="258" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="288.0" text-anchor="middle">Gemini</text>
+<text class="ts" x="1395.0" y="309.0" text-anchor="middle">Vision + Embedding</text>
+<text class="ts" x="1395.0" y="330.0" text-anchor="middle">อ่านรูปน้อง/สลิป · เวกเตอร์ RAG</text>
+<rect class="bx-ext" x="1245" y="366" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="396.0" text-anchor="middle">Cartesia</text>
+<text class="ts" x="1395.0" y="417.0" text-anchor="middle">Text-to-Speech</text>
+<text class="ts" x="1395.0" y="438.0" text-anchor="middle">เสียงของน้องหอม</text>
+<rect class="bx-ext" x="1245" y="474" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="504.0" text-anchor="middle">LINE Messaging API</text>
+<text class="ts" x="1395.0" y="525.0" text-anchor="middle">Webhook + Reply</text>
+<text class="ts" x="1395.0" y="546.0" text-anchor="middle">รับ-ตอบข้อความใน LINE</text>
+<rect class="bx-ext" x="1245" y="582" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="612.0" text-anchor="middle">Upstash Redis</text>
+<text class="ts" x="1395.0" y="633.0" text-anchor="middle">ที่เก็บข้อมูล</text>
+<text class="ts" x="1395.0" y="654.0" text-anchor="middle">ประวัติแชท · การจอง · ตัวนับคิว · รูป</text>
+<rect class="bx-ext" x="1245" y="690" width="300" height="92" rx="14" />
+<text class="t" x="1395.0" y="720.0" text-anchor="middle">OpenStreetMap</text>
+<text class="ts" x="1395.0" y="741.0" text-anchor="middle">แผนที่ปักหมุดรับ-ส่ง</text>
+<text class="ts" x="1395.0" y="762.0" text-anchor="middle">โหลดจากเบราว์เซอร์โดยตรง</text>
+<path class="ln" d="M1200 196 H1241" marker-end="url(#a)" />
+<path class="ln" d="M1200 304 H1241" marker-end="url(#a)" />
+<path class="ln" d="M1200 412 H1241" marker-end="url(#a)" />
+<path class="ln" d="M1200 520 H1241" marker-end="url(#a)" />
+<path class="ln" d="M1200 628 H1241" marker-end="url(#a)" />
+<rect class="bx-ok" x="40" y="640" width="425" height="200" rx="16" />
+<text class="th" x="60" y="670" text-anchor="start">ทดสอบกับระบบจริง</text>
+<text class="tn2" x="60" y="704" text-anchor="start">ชุดคำถาม 10 ข้อ</text>
+<text class="big" x="445" y="704" text-anchor="end">10/10</text>
+<text class="tn2" x="60" y="738" text-anchor="start">กฎต้องทำ/ห้ามทำ + ความปลอดภัย</text>
+<text class="big" x="445" y="738" text-anchor="end">35/35</text>
+<text class="tn2" x="60" y="772" text-anchor="start">ทุก API endpoint</text>
+<text class="big" x="445" y="772" text-anchor="end">40/40</text>
+<text class="tn2" x="60" y="806" text-anchor="start">เวลาตอบเฉลี่ย</text>
+<text class="big" x="445" y="806" text-anchor="end">3.4 วิ</text>
+</svg>
+</section>
+<section class="slide" id="message">
+<svg viewBox="0 0 1600 900" role="img" aria-label="ข้อความผ่านด่าน 1 การดักเบอร์โทร ด่าน 2 พร้อมการค้น RAG แล้ว Typhoon ตอบแบบสตรีมผ่านด่าน 3 ก่อนถึงลูกค้า">
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#5c3d2e" /></marker>
+  <marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b0503a" /></marker>
+</defs>
+<rect class="bg" x="0" y="0" width="1600" height="900" />
+<text class="h1" x="48" y="62" text-anchor="start">เส้นทางของ 1 ข้อความ (Data flow)</text><text class="h2" x="48" y="94" text-anchor="start">ลูกค้าพิมพ์ “อาบน้ำหมาพันธุ์ปอมเท่าไหร่คะ” ในหน้าต่างแชท → POST /api/v1/chat/stream</text><image href="../static/img/logo-badge.png" x="1486" y="24" width="72" height="72" />
+<rect class="bx-user" x="40" y="300" width="186" height="130" rx="14" />
+<text class="t" x="133.0" y="349.0" text-anchor="middle">ลูกค้า</text>
+<text class="ts" x="133.0" y="370.0" text-anchor="middle">พิมพ์ข้อความ</text>
+<text class="ts" x="133.0" y="391.0" text-anchor="middle">ในหน้าต่างแชท</text>
+<rect class="bx" x="258" y="300" width="186" height="130" rx="14" />
+<text class="t" x="351.0" y="338.5" text-anchor="middle">ด่าน ① กฎในโค้ด</text>
+<text class="ts" x="351.0" y="359.5" text-anchor="middle">≤ 1000 ตัวอักษร</text>
+<text class="ts" x="351.0" y="380.5" text-anchor="middle">≤ 15 ข้อความ/นาที</text>
+<text class="ts" x="351.0" y="401.5" text-anchor="middle">คำต้องห้าม · injection</text>
+<rect class="bx" x="476" y="300" width="186" height="130" rx="14" />
+<text class="t" x="569.0" y="349.0" text-anchor="middle">ดักเบอร์ / เลขจอง</text>
+<text class="ts" x="569.0" y="370.0" text-anchor="middle">แชทดูคิวไม่ได้</text>
+<text class="ts" x="569.0" y="391.0" text-anchor="middle">→ ตอบพาไปปุ่มเช็คคิว</text>
+<rect class="bx" x="694" y="205" width="186" height="110" rx="14" />
+<text class="t" x="787.0" y="244.0" text-anchor="middle">ด่าน ② ตรวจเจตนา</text>
+<text class="ts" x="787.0" y="265.0" text-anchor="middle">Typhoon จำแนก</text>
+<text class="ts" x="787.0" y="286.0" text-anchor="middle">5 หมวด</text>
+<rect class="bx" x="694" y="415" width="186" height="110" rx="14" />
+<text class="t" x="787.0" y="454.0" text-anchor="middle">RAG</text>
+<text class="ts" x="787.0" y="475.0" text-anchor="middle">ค้น 48 ชิ้น → 4 ชิ้น</text>
+<text class="ts" x="787.0" y="496.0" text-anchor="middle">embedding + TF-IDF</text>
+<text class="th" x="787.0" y="370" text-anchor="middle">ทำพร้อมกัน</text>
+<rect class="bx-core" x="912" y="300" width="186" height="130" rx="14" />
+<text class="t" x="1005.0" y="338.5" text-anchor="middle">Typhoon ตอบ</text>
+<text class="ts" x="1005.0" y="359.5" text-anchor="middle">กฎ + ข้อมูลร้าน 4 ชิ้น</text>
+<text class="ts" x="1005.0" y="380.5" text-anchor="middle">+ ประวัติ 12 ข้อความ</text>
+<text class="ts" x="1005.0" y="401.5" text-anchor="middle">สตรีมทีละคำ</text>
+<rect class="bx" x="1130" y="300" width="186" height="130" rx="14" />
+<text class="t" x="1223.0" y="338.5" text-anchor="middle">ด่าน ③ ตรวจคำตอบ</text>
+<text class="ts" x="1223.0" y="359.5" text-anchor="middle">ทีละประโยคก่อนส่ง</text>
+<text class="ts" x="1223.0" y="380.5" text-anchor="middle">ราคาต้องมีใน catalog</text>
+<text class="ts" x="1223.0" y="401.5" text-anchor="middle">ไม่มีข้อมูลส่วนตัว</text>
+<rect class="bx-hl" x="1348" y="300" width="212" height="130" rx="14" />
+<text class="t" x="1454.0" y="338.5" text-anchor="middle">หน้าจอลูกค้า</text>
+<text class="ts" x="1454.0" y="359.5" text-anchor="middle">คำตอบ + แหล่งข้อมูล</text>
+<text class="ts" x="1454.0" y="380.5" text-anchor="middle">ปุ่ม เช็คคิว / ยกเลิก</text>
+<text class="ts" x="1454.0" y="401.5" text-anchor="middle">จองคิว / โทรหาร้าน</text>
+<path class="ln" d="M226 365.0 H254" marker-end="url(#a)" />
+<path class="ln" d="M444 365.0 H472" marker-end="url(#a)" />
+<path class="ln" d="M662 365.0 H678 V260 H690" marker-end="url(#a)" />
+<path class="ln" d="M678 365.0 V470 H690" marker-end="url(#a)" />
+<path class="ln" d="M880 260 H896 V365.0 H908" marker-end="url(#a)" />
+<path class="ln" d="M880 470 H896 V365.0" />
+<path class="ln" d="M1098 365.0 H1126" marker-end="url(#a)" />
+<path class="ln" d="M1316 365.0 H1344" marker-end="url(#a)" />
+<path class="ln-no" d="M351.0 430 V534" marker-end="url(#an)" />
+<text class="tn" x="351.0" y="560" text-anchor="middle">ไม่ผ่าน → ปฏิเสธทันที</text>
+<text class="tn" x="351.0" y="582" text-anchor="middle">ไม่เรียก LLM ไม่บันทึกประวัติ</text>
+<path class="ln-no" d="M569.0 430 V614" marker-end="url(#an)" />
+<text class="tn" x="569.0" y="640" text-anchor="middle">เป็นเบอร์/เลขจอง → ตอบสำเร็จรูป</text>
+<text class="tn" x="569.0" y="662" text-anchor="middle">ไม่เรียก LLM ไม่เก็บเบอร์</text>
+<path class="ln-no" d="M1223.0 430 V534" marker-end="url(#an)" />
+<text class="tn" x="1223.0" y="560" text-anchor="middle">ราคา/ส่วนลดที่ไม่มีจริง → แทนทั้งคำตอบ</text>
+<text class="tn" x="1223.0" y="582" text-anchor="middle">เดาคิวว่าง · แนะนำร้านอื่น → ตัดประโยค</text>
+<path class="ln-no" d="M787.0 205 V160" marker-end="url(#an)" />
+<text class="tn" x="787.0" y="150" text-anchor="middle">นอกเรื่อง / ขอข้อมูลคนอื่น / อันตราย → ปฏิเสธ ไม่เรียก LLM ตอบ</text>
+<rect class="bx-note" x="40" y="700" width="1020" height="150" rx="14" />
+<text class="th" x="60" y="730" text-anchor="start">ลำดับข้อความที่ส่งให้ Typhoon</text>
+<text class="tn2" x="60" y="760" text-anchor="start">1. system: บทบาท + ต้องทำ 13 ข้อ + ห้ามทำ 8 ข้อ + ข้อมูลหลักร้าน (ชื่อ เวลา ติดต่อ บริการที่ไม่มี)</text>
+<text class="tn2" x="60" y="788" text-anchor="start">2. system: “ข้อมูลร้านที่ค้นได้” — ผลวิเคราะห์รูป (ถ้ามี) + 4 ชิ้นจาก RAG</text>
+<text class="tn2" x="60" y="816" text-anchor="start">3. ประวัติของ session นี้ 12 ข้อความล่าสุด   4. ข้อความใหม่ของลูกค้า</text>
+<rect class="bx-ok" x="1090" y="700" width="470" height="150" rx="14" />
+<text class="th" x="1110" y="730" text-anchor="start">วัดจากระบบจริง (10 คำถาม)</text>
+<text class="tn2" x="1110" y="766" text-anchor="start">เห็นคำแรก (เฉลี่ย)</text>
+<text class="big" x="1540" y="766" text-anchor="end">2.4 วิ</text>
+<text class="tn2" x="1110" y="798" text-anchor="start">ตอบจบ (เฉลี่ย)</text>
+<text class="big" x="1540" y="798" text-anchor="end">3.4 วิ</text>
+<text class="tn2" x="1110" y="830" text-anchor="start">ถูกดักที่ด่านขาเข้า</text>
+<text class="big" x="1540" y="830" text-anchor="end">0.5–1.8 วิ</text>
+</svg>
+</section>
+<section class="slide" id="booking">
+<svg viewBox="0 0 1600 900" role="img" aria-label="การจองผ่านการตรวจฟอร์ม กันช่องเวลา อ่านและตรวจสลิป กันสลิปซ้ำ แล้วออกใบจอง ส่วนการยกเลิกต้องยืนยันตัวตนก่อนคืนช่องเวลาและสร้างคำขอคืนเงินให้เจ้าของร้านโอนคืนพร้อมสลิป">
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#5c3d2e" /></marker>
+  <marker id="an" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#b0503a" /></marker>
+</defs>
+<rect class="bg" x="0" y="0" width="1600" height="900" />
+<text class="h1" x="48" y="62" text-anchor="start">ระบบจองคิวและยกเลิกคิว</text><text class="h2" x="48" y="94" text-anchor="start">โค้ดล้วน ไม่ผ่าน LLM — แชทบอททำได้แค่พาลูกค้ามาที่ปุ่ม จึงหลอกบอทให้จอง/ยกเลิก/คืนเงินแทนคนอื่นไม่ได้</text><image href="../static/img/logo-badge.png" x="1486" y="24" width="72" height="72" />
+<text class="th2" x="40" y="158" text-anchor="start">จองคิว  ·  POST /api/v1/booking</text>
+<rect class="bx-user" x="40" y="180" width="190" height="120" rx="14" />
+<text class="t" x="135.0" y="213.5" text-anchor="middle">ฟอร์ม 3 ขั้น</text>
+<text class="ts" x="135.0" y="234.5" text-anchor="middle">ชื่อน้อง เจ้าของ เบอร์</text>
+<text class="ts" x="135.0" y="255.5" text-anchor="middle">จำนวนน้อง 1–4 ตัว</text>
+<text class="ts" x="135.0" y="276.5" text-anchor="middle">เลือกเวลา · รับ-ส่ง</text>
+<rect class="bx" x="260" y="180" width="190" height="120" rx="14" />
+<text class="t" x="355.0" y="213.5" text-anchor="middle">ตรวจฟอร์ม</text>
+<text class="ts" x="355.0" y="234.5" text-anchor="middle">ชื่อ · เบอร์ 10 หลัก</text>
+<text class="ts" x="355.0" y="255.5" text-anchor="middle">ช่องเวลาเปิดจริง</text>
+<text class="ts" x="355.0" y="276.5" text-anchor="middle">ไฟล์เป็นรูปจริง</text>
+<path class="ln" d="M230 240 H256" marker-end="url(#a)" />
+<rect class="bx" x="480" y="180" width="190" height="120" rx="14" />
+<text class="t" x="575.0" y="213.5" text-anchor="middle">กันช่องเวลา</text>
+<text class="ts" x="575.0" y="234.5" text-anchor="middle">ช่าง 2 คน/ชั่วโมง</text>
+<text class="ts" x="575.0" y="255.5" text-anchor="middle">2 ตัว = เต็มชั่วโมง</text>
+<text class="ts" x="575.0" y="276.5" text-anchor="middle">3–4 ตัว = +ชั่วโมงถัดไป</text>
+<path class="ln" d="M450 240 H476" marker-end="url(#a)" />
+<rect class="bx-ext" x="700" y="180" width="190" height="120" rx="14" />
+<text class="t" x="795.0" y="213.5" text-anchor="middle">Gemini อ่านสลิป</text>
+<text class="ts" x="795.0" y="234.5" text-anchor="middle">ยอด · ผู้รับ · ผู้โอน</text>
+<text class="ts" x="795.0" y="255.5" text-anchor="middle">เลขอ้างอิง</text>
+<text class="ts" x="795.0" y="276.5" text-anchor="middle">→ JSON</text>
+<path class="ln" d="M670 240 H696" marker-end="url(#a)" />
+<rect class="bx" x="920" y="180" width="190" height="120" rx="14" />
+<text class="t" x="1015.0" y="213.5" text-anchor="middle">โค้ดตรวจสลิป</text>
+<text class="ts" x="1015.0" y="234.5" text-anchor="middle">ยอด = 50 × จำนวนตัว</text>
+<text class="ts" x="1015.0" y="255.5" text-anchor="middle">+ ค่ารับส่งตามระยะ</text>
+<text class="ts" x="1015.0" y="276.5" text-anchor="middle">ผู้รับ = บัญชีร้าน</text>
+<path class="ln" d="M890 240 H916" marker-end="url(#a)" />
+<rect class="bx" x="1140" y="180" width="190" height="120" rx="14" />
+<text class="t" x="1235.0" y="224.0" text-anchor="middle">กันสลิปซ้ำ</text>
+<text class="ts" x="1235.0" y="245.0" text-anchor="middle">เลขอ้างอิงใช้ได้</text>
+<text class="ts" x="1235.0" y="266.0" text-anchor="middle">ครั้งเดียว (SET NX)</text>
+<path class="ln" d="M1110 240 H1136" marker-end="url(#a)" />
+<rect class="bx-hl" x="1360" y="180" width="190" height="120" rx="14" />
+<text class="t" x="1455.0" y="213.5" text-anchor="middle">ใบจอง</text>
+<text class="ts" x="1455.0" y="234.5" text-anchor="middle">สถานะ “รอร้านยืนยัน”</text>
+<text class="ts" x="1455.0" y="255.5" text-anchor="middle">ไม่มีราคาบนใบจอง</text>
+<text class="ts" x="1455.0" y="276.5" text-anchor="middle">เจ้าของร้านกดยืนยัน</text>
+<path class="ln" d="M1330 240 H1356" marker-end="url(#a)" />
+<path class="ln-no" d="M355.0 300 V332" marker-end="url(#an)" />
+<text class="tn" x="355.0" y="354" text-anchor="middle">422 บอกช่องที่ผิด</text>
+<path class="ln-no" d="M575.0 300 V332" marker-end="url(#an)" />
+<text class="tn" x="575.0" y="354" text-anchor="middle">409 คิวไม่พอ</text>
+<path class="ln-no" d="M1015.0 300 V332" marker-end="url(#an)" />
+<text class="tn" x="1015.0" y="354" text-anchor="middle">ยอด/บัญชีผิด</text>
+<text class="tn" x="1015.0" y="375" text-anchor="middle">→ คืนช่องเวลา</text>
+<path class="ln-no" d="M1235.0 300 V332" marker-end="url(#an)" />
+<text class="tn" x="1235.0" y="354" text-anchor="middle">เคยใช้แล้ว</text>
+<text class="tn" x="1235.0" y="375" text-anchor="middle">→ คืนช่องเวลา</text>
+<text class="th2" x="40" y="538" text-anchor="start">ยกเลิกคิว + คืนเงิน  ·  POST /api/v1/booking/cancel</text>
+<rect class="bx-user" x="40" y="560" width="190" height="120" rx="14" />
+<text class="t" x="135.0" y="593.5" text-anchor="middle">ป๊อปอัปยกเลิก</text>
+<text class="ts" x="135.0" y="614.5" text-anchor="middle">จากแชท · หน้าแรก</text>
+<text class="ts" x="135.0" y="635.5" text-anchor="middle">หรือหน้าเช็คคิว</text>
+<text class="ts" x="135.0" y="656.5" text-anchor="middle">(เครื่องไหนก็ได้)</text>
+<rect class="bx" x="260" y="560" width="190" height="120" rx="14" />
+<text class="t" x="355.0" y="593.5" text-anchor="middle">ยืนยันตัวตน</text>
+<text class="ts" x="355.0" y="614.5" text-anchor="middle">เลขจอง + เบอร์โทร</text>
+<text class="ts" x="355.0" y="635.5" text-anchor="middle">+ ชื่อเจ้าของ</text>
+<text class="ts" x="355.0" y="656.5" text-anchor="middle">ตรงครบทั้ง 3 อย่าง</text>
+<path class="ln" d="M230 620 H256" marker-end="url(#a)" />
+<rect class="bx" x="480" y="560" width="190" height="120" rx="14" />
+<text class="t" x="575.0" y="604.0" text-anchor="middle">ตรวจเวลา</text>
+<text class="ts" x="575.0" y="625.0" text-anchor="middle">ก่อนนัด ≥ 3 ชั่วโมง</text>
+<text class="ts" x="575.0" y="646.0" text-anchor="middle">สถานะยังไม่ยกเลิก</text>
+<path class="ln" d="M450 620 H476" marker-end="url(#a)" />
+<rect class="bx" x="700" y="560" width="190" height="120" rx="14" />
+<text class="t" x="795.0" y="604.0" text-anchor="middle">ยกเลิก + คืนช่อง</text>
+<text class="ts" x="795.0" y="625.0" text-anchor="middle">กันกดซ้ำ (SET NX)</text>
+<text class="ts" x="795.0" y="646.0" text-anchor="middle">คืนทุกชั่วโมงที่กันไว้</text>
+<path class="ln" d="M670 620 H696" marker-end="url(#a)" />
+<rect class="bx" x="920" y="560" width="190" height="120" rx="14" />
+<text class="t" x="1015.0" y="593.5" text-anchor="middle">คำขอคืนเงิน</text>
+<text class="ts" x="1015.0" y="614.5" text-anchor="middle">ยอดที่ลูกค้าโอนมา</text>
+<text class="ts" x="1015.0" y="635.5" text-anchor="middle">เทียบชื่อบัญชีกับ</text>
+<text class="ts" x="1015.0" y="656.5" text-anchor="middle">ชื่อผู้โอนในสลิป</text>
+<path class="ln" d="M890 620 H916" marker-end="url(#a)" />
+<rect class="bx-core" x="1140" y="560" width="190" height="120" rx="14" />
+<text class="t" x="1235.0" y="604.0" text-anchor="middle">เจ้าของร้านโอนคืน</text>
+<text class="ts" x="1235.0" y="625.0" text-anchor="middle">ต้องแนบสลิปโอนคืน</text>
+<text class="ts" x="1235.0" y="646.0" text-anchor="middle">ก่อนกดยืนยัน</text>
+<path class="ln" d="M1110 620 H1136" marker-end="url(#a)" />
+<rect class="bx-hl" x="1360" y="560" width="190" height="120" rx="14" />
+<text class="t" x="1455.0" y="593.5" text-anchor="middle">ลูกค้าเห็นผล</text>
+<text class="ts" x="1455.0" y="614.5" text-anchor="middle">หน้าเช็คคิว: โอนคืนแล้ว</text>
+<text class="ts" x="1455.0" y="635.5" text-anchor="middle">ดูสลิปได้หลังยืนยัน</text>
+<text class="ts" x="1455.0" y="656.5" text-anchor="middle">ชื่อเจ้าของ</text>
+<path class="ln" d="M1330 620 H1356" marker-end="url(#a)" />
+<path class="ln-no" d="M355.0 680 V712" marker-end="url(#an)" />
+<text class="tn" x="355.0" y="734" text-anchor="middle">ไม่ตรง → 404 ไม่บอกช่องที่ผิด</text>
+<text class="tn" x="355.0" y="755" text-anchor="middle">ผิด 5 ครั้ง → ล็อก 24 ชม.</text>
+<path class="ln-no" d="M575.0 680 V712" marker-end="url(#an)" />
+<text class="tn" x="575.0" y="734" text-anchor="middle">409 เลยกำหนด</text>
+<path class="ln-no" d="M1235.0 680 V712" marker-end="url(#an)" />
+<text class="tn" x="1235.0" y="734" text-anchor="middle">ไม่แนบสลิป → 422</text>
+<rect class="bx-note" x="40" y="800" width="1520" height="62" rx="14" />
+<text class="tn2" x="60" y="838" text-anchor="start">กันสวมรอยรับมัดจำ 3 ชั้น:  ① ต้องรู้เลขจอง + เบอร์ + ชื่อเจ้าของ (ชื่อไม่แสดงบนหน้าเช็คคิว)   ② ผิด 5 ครั้งล็อก 24 ชม. (นับใน Redis)   ③ โอนคืนเฉพาะบัญชีชื่อเดียวกับผู้โอนมัดจำ</text>
+</svg>
+</section>
+</body>
+</html>
