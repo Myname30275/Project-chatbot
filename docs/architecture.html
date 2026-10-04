@@ -190,14 +190,16 @@
       <h1>โครงระบบแชทบอท “น้องหอม”</h1>
       <p class="lede">
         ผู้ช่วยตอบลูกค้าของร้านอาบน้ำ-ตัดขนหมาแมว ตอบราคาจากข้อมูลร้านจริงด้วย RAG ภาษาไทย
-        ประเมินราคาจากรูปน้อง จองคิวพร้อมตรวจสลิปมัดจำ ออกใบจองให้ลูกค้า มีหลังบ้านให้เจ้าของร้านยืนยันคิว
+        ประเมินราคาจากรูปน้อง จองคิวพร้อมตรวจสลิปมัดจำ (เลือกให้ร้านไปรับ-ส่งน้องได้) ออกใบจองให้ลูกค้า
+        ยกเลิกคิวและรับเงินคืนได้เองหลังยืนยันตัวตน มีหลังบ้านให้เจ้าของร้านยืนยันคิวและโอนคืน
         และคุยด้วยเสียงผ่านอวตารพนักงาน
       </p>
       <ul class="meta">
-        <li>สถานะ ณ 1 ต.ค. 2569</li>
-        <li>branch <code>refactor/folder-structure</code></li>
+        <li>สถานะ ณ 4 ต.ค. 2569</li>
+        <li>branch <code>main</code> · hom-hom-grooming.vercel.app</li>
         <li>FastAPI บน Vercel</li>
-        <li>เทส 97 ตัวผ่าน</li>
+        <li>เทส 139 ตัวผ่าน</li>
+        <li>ทดสอบกับระบบจริง: 10 คำถาม 10/10 · กฎและความปลอดภัย 26/26 · endpoint 40/40</li>
       </ul>
     </header>
 
@@ -220,7 +222,7 @@
         จึงผ่าน guardrails, RAG และ prompt ชุดเดียวกันทั้งหมด แต่ละกล่องในรูปคือโฟลเดอร์หรือไฟล์จริงในโค้ด
       </p>
       <figure>
-        <svg viewBox="0 0 900 540" role="img" aria-label="ช่องทางทั้งสามเรียก assistant.py ตัวเดียว ซึ่งใช้ vision, rag, guardrails และ llm_client โดยต่อกับ Gemini, Typhoon, Cartesia และ Redis">
+        <svg viewBox="0 0 900 650" role="img" aria-label="ช่องทางทั้งสามเรียก assistant.py ตัวเดียว ซึ่งใช้ vision, rag, guardrails และ llm_client โดยต่อกับ Gemini, Typhoon, Cartesia และ Redis ส่วนระบบจองคิวแยกออกมา ไม่ผ่าน LLM และเก็บข้อมูลใน Redis ตัวเดียวกัน">
           <defs>
             <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
               <path d="M0 0 10 5 0 10Z" fill="currentColor" />
@@ -258,7 +260,7 @@
           <!-- แถว 3: แกนกลาง -->
           <rect class="bx-core" x="40" y="214" width="440" height="56" rx="14" />
           <text class="t" x="260" y="238" text-anchor="middle">chatbot/assistant.py</text>
-          <text class="ts" x="260" y="257" text-anchor="middle">pipeline กลางของทุกช่องทาง</text>
+          <text class="ts" x="260" y="257" text-anchor="middle">pipeline กลางของทุกช่องทาง + actions.py (ปุ่มทางลัด)</text>
           <rect class="bx" x="520" y="214" width="140" height="56" rx="12" />
           <text class="t" x="590" y="238" text-anchor="middle">conversation</text>
           <text class="t" x="590" y="256" text-anchor="middle">_store</text>
@@ -321,6 +323,26 @@
           <line class="ln" x1="660" y1="140" x2="716" y2="140" marker-end="url(#a1)" />
           <line class="ln" x1="660" y1="242" x2="716" y2="242" marker-end="url(#a1)" />
           <line class="ln" x1="660" y1="356" x2="716" y2="356" marker-end="url(#a1)" />
+
+          <!-- แถว 6: ระบบจองคิว (ไม่ผ่าน LLM) -->
+          <text class="th" x="780" y="556" text-anchor="end">ระบบจองคิว — โค้ดล้วน ไม่ผ่าน LLM</text>
+          <rect class="bx" x="40" y="566" width="190" height="60" rx="12" />
+          <text class="t" x="135" y="591" text-anchor="middle">ป๊อปอัปจอง / ยกเลิก</text>
+          <text class="ts" x="135" y="610" text-anchor="middle">หน้า /check · หน้า /admin</text>
+          <rect class="bx" x="255" y="566" width="190" height="60" rx="12" />
+          <text class="t" x="350" y="591" text-anchor="middle">booking_api.py</text>
+          <text class="ts" x="350" y="610" text-anchor="middle">admin.py (login HMAC)</text>
+          <rect class="bx-core" x="470" y="566" width="190" height="60" rx="12" />
+          <text class="t" x="565" y="591" text-anchor="middle">booking/</text>
+          <text class="ts" x="565" y="610" text-anchor="middle">slots · pickup · service · store</text>
+          <line class="ln" x1="230" y1="596" x2="251" y2="596" marker-end="url(#a1)" />
+          <line class="ln" x1="445" y1="596" x2="466" y2="596" marker-end="url(#a1)" />
+          <path class="ln" d="M660 596 H800 V270" marker-end="url(#a1)" />
+          <text class="tl" x="808" y="440">การจอง</text>
+          <text class="tl" x="808" y="456">ตัวนับช่อง</text>
+          <text class="tl" x="808" y="472">รูป/สลิป</text>
+          <path class="ln" d="M500 566 V540 H22 V356 H36" marker-end="url(#a1)" />
+          <text class="tl" x="48" y="534">ตรวจสลิป (ยอด · ผู้รับ · ผู้โอน)</text>
         </svg>
         <ul class="legend">
           <li><i class="l-core"></i>แกนกลาง</li>
@@ -330,7 +352,8 @@
         <figcaption>
           ช่องทางทำแค่รับ-ส่งข้อความในรูปแบบของตัวเอง ส่วนกฎทั้งหมดอยู่ใต้ <code>assistant.py</code>
           — LINE OA จึงได้ guardrails, RAG และ Vision ชุดเดียวกับหน้าเว็บโดยไม่ต้องเขียนกฎซ้ำ ·
-          ระบบจองคิว (<code>booking/</code>) แยกออกไปและไม่ผ่าน LLM ดูหัวข้อ 08
+          ระบบจองคิว (<code>booking/</code>) แยกจากแชทและไม่ผ่าน LLM: แชทบอทอ่านข้อมูลการจองไม่ได้
+          จึงชี้ลูกค้าไปที่ปุ่ม เช็คคิว / ยกเลิกคิว / จองคิว แทน (รายละเอียดหัวข้อ 08)
         </figcaption>
       </figure>
     </section>
@@ -357,6 +380,7 @@
           <rect class="bx" x="148" y="124" width="120" height="52" rx="12" />
           <text class="t" x="208" y="146" text-anchor="middle">ด่าน 1 กฎ</text>
           <text class="ts" x="208" y="164" text-anchor="middle">ยาว · ถี่ · injection</text>
+          <text class="tl" x="208" y="112" text-anchor="middle">เบอร์/เลขจอง → ปุ่มเช็คคิว</text>
 
           <rect class="bx" x="304" y="54" width="156" height="52" rx="12" />
           <text class="t" x="382" y="76" text-anchor="middle">ด่าน 2 judge</text>
@@ -397,7 +421,10 @@
         <figcaption>
           ด่าน 2 กับ RAG ยิงพร้อมกัน (<code>asyncio.gather</code>) จึงไม่เพิ่มเวลารอ ·
           ด่าน 3 ปล่อยเฉพาะประโยคที่ตรวจแล้วออกไปทาง SSE ถ้าเจอราคาหรือส่วนลดที่ไม่มีใน catalog จะส่ง
-          <code>{"replace": fallback}</code> แทนทั้งคำตอบ · ประวัติถูกบันทึกเฉพาะเมื่อสตรีมจบครบ
+          <code>{"replace": fallback}</code> แทนทั้งคำตอบ · ประวัติถูกบันทึกเฉพาะเมื่อสตรีมจบครบ ·
+          ถ้าลูกค้าพิมพ์เบอร์โทรหรือเลขจองมาให้เช็คคิว โค้ด (<code>chatbot/actions.py</code>) ตอบพาไปหน้าเช็คคิวทันที
+          ไม่เรียก LLM และไม่เก็บเบอร์ลงประวัติ · ท้ายสตรีมส่ง <code>{"actions": [...]}</code> ให้หน้าเว็บแสดงปุ่ม
+          เช็คคิว / ยกเลิกคิว / จองคิว ใต้คำตอบ
         </figcaption>
       </figure>
 
@@ -406,7 +433,7 @@
         <table>
           <thead><tr><th>ลำดับ</th><th>บทบาท</th><th>เนื้อหา</th></tr></thead>
           <tbody>
-            <tr><td>1</td><td>system</td><td><code>prompts/chat_system.txt</code>: บทบาท, แหล่งข้อมูล 3 แหล่ง, ต้องทำ 10 ข้อ, ห้ามทำ 8 ข้อ, ข้อมูลหลักร้าน</td></tr>
+            <tr><td>1</td><td>system</td><td><code>prompts/chat_system.txt</code>: บทบาท, แหล่งข้อมูล 3 แหล่ง, ต้องทำ 13 ข้อ, ห้ามทำ 8 ข้อ, คำถามนอกเรื่อง, ข้อมูลหลักร้าน</td></tr>
             <tr><td>2</td><td>system</td><td>“ข้อมูลร้านที่ค้นได้” — ผลวิเคราะห์รูป (ถ้ามี) + 4 ชิ้นจาก RAG</td></tr>
             <tr><td>3</td><td>system</td><td><code>voice_hint.txt</code> เฉพาะหน้าอวตาร (ตอบสั้น ตัวเลขเป็นคำอ่านง่าย)</td></tr>
             <tr><td>4</td><td>user / assistant</td><td>ประวัติของ session นี้</td></tr>
@@ -476,8 +503,8 @@
           <thead><tr><th>ด่าน</th><th>ตรวจอะไร</th><th>ถ้าไม่ผ่าน</th></tr></thead>
           <tbody>
             <tr><td>1 กฎ (<code>input_rules.py</code>)</td><td>≤ 1000 ตัวอักษร, ≤ 15 ข้อความ/นาที/session, <code>blocklist.txt</code> (แก้แล้วมีผลทันที), รูปแบบ prompt injection — ไม่เรียก API</td><td>ตอบปฏิเสธภาษาไทยตามหมวด ไม่บันทึกประวัติ</td></tr>
-            <tr><td>2 judge (<code>judge.py</code>)</td><td>Typhoon จำแนก SAFE / INJECTION / PRIVACY / HARMFUL ตาม <code>prompts/guard_judge.txt</code> — รันพร้อม RAG</td><td>ปฏิเสธโดยไม่เรียก LLM ตอบ · ตัวตรวจล่ม = ปล่อยผ่าน (ตั้ง <code>GUARD_JUDGE_FAIL_CLOSED=true</code> เพื่อปฏิเสธแทน)</td></tr>
-            <tr><td>3 ขาออก (<code>output_guard.py</code>)</td><td>ทีละประโยค: ยอดบาทต้องมีใน catalog (หรือผลรวม 1–3 รายการ, หรือหลังลด 10%), % ต้องมีจริง, ห้ามเบอร์/อีเมล/เลขบัตรที่ลูกค้าไม่ได้ให้เอง, ห้ามหลุดกฎภายใน</td><td>แทนคำตอบด้วย fallback ของร้าน</td></tr>
+            <tr><td>2 judge (<code>judge.py</code>)</td><td>Typhoon จำแนก SAFE / OFF_TOPIC / INJECTION / PRIVACY / HARMFUL ตาม <code>prompts/guard_judge.txt</code> — รันพร้อม RAG</td><td>ปฏิเสธโดยไม่เรียก LLM ตอบ · ตัวตรวจล่ม = ปล่อยผ่าน (ตั้ง <code>GUARD_JUDGE_FAIL_CLOSED=true</code> เพื่อปฏิเสธแทน)</td></tr>
+            <tr><td>3 ขาออก (<code>output_guard.py</code>)</td><td>ทีละประโยค: ยอดบาทต้องมีใน catalog (หรือผลรวม 1–3 รายการ, หรือหลังลด 10%), % ต้องมีจริง, ห้ามเบอร์/อีเมล/เลขบัตรที่ลูกค้าไม่ได้ให้เอง, ห้ามหลุดกฎภายใน · ประโยคที่ส่งลูกค้าไปร้านอื่นหรือแต่งเหตุผลทางการแพทย์</td><td>แทนคำตอบด้วย fallback ของร้าน · สองแบบหลังตัดทิ้งเฉพาะประโยคนั้น</td></tr>
           </tbody>
         </table>
       </div>
@@ -496,6 +523,11 @@
             <tr><td>จองชนกันในช่องเดียว</td><td>ตัวนับ <code>INCR</code> แบบ atomic เกิน 2 คิวได้ 409</td></tr>
             <tr><td>ดูใบจองของคนอื่น</td><td>ผูกกับ session คนอื่นได้ 404 · เบอร์บนใบจองปิดกลาง</td></tr>
             <tr><td>เดารหัสหลังบ้าน</td><td>5 ครั้ง/นาที/IP · cookie ลงลายเซ็น HMAC · SameSite=Strict</td></tr>
+            <tr><td>สวมรอยยกเลิกคิวเพื่อรับมัดจำแทนเจ้าของ</td><td>ยืนยันตัวตน 3 อย่าง (เลขจอง + เบอร์ + ชื่อเจ้าของ) · ผิด 5 ครั้งล็อก 24 ชม. (นับใน Redis) · โอนคืนเฉพาะบัญชีชื่อเดียวกับผู้โอนมัดจำ</td></tr>
+            <tr><td>หลอกแชทบอทให้เช็ค/ยกเลิกคิวของคนอื่น</td><td>แชทอ่านข้อมูลการจองไม่ได้เลย · พิมพ์เบอร์/เลขจองมา โค้ดตอบพาไปหน้าเช็คคิว</td></tr>
+            <tr><td>ดูสลิปโอนคืนของคนอื่น</td><td>ต้องยืนยันชื่อเจ้าของก่อน (รู้เบอร์อย่างเดียวเห็นแค่สถานะ)</td></tr>
+            <tr><td>แก้ค่ารับส่งจากหน้าเว็บให้ถูกลง</td><td>เซิร์ฟเวอร์คิดค่ารับส่งจากพิกัดเอง แล้วใช้ยอดนั้นตรวจสลิป</td></tr>
+            <tr><td>ถามนอกเรื่อง (เขียนโค้ด การบ้าน)</td><td>ด่าน 2 OFF_TOPIC → ข้อความคงที่ชวนกลับเรื่องร้าน</td></tr>
             <tr><td>ราคาหน้าร้านไม่ตรงกับที่แจ้ง</td><td>ใบจองไม่มีราคา · นโยบายชั่งน้ำหนักหน้าร้านอยู่ในคลังความรู้</td></tr>
           </tbody>
         </table>
@@ -518,16 +550,18 @@
     <section id="ui">
       <h2><span class="n">07</span>หน้าเว็บและอวตาร</h2>
       <div class="cards">
-        <div class="card"><h3>หน้า /</h3><p>หัวเรื่อง + ภาพหมา 3 ตัว, ปุ่ม “ส่งรูปน้องให้ประเมินราคา”, ป้ายราคาตามไซส์ (render จาก catalog.json), วิธีจอง 3 ขั้น, บริการที่ร้านไม่มี, ติดต่อร้าน</p></div>
-        <div class="card"><h3>หน้าต่างแชท</h3><p>ปุ่มลอยมุมขวาล่าง → แผงเลื่อนออกจากขวา (มือถือเต็มจอ) · ทักทาย + คำถามด่วน 5 ปุ่ม · ส่งรูปเห็นภาพย่อ · ชิป “ข้อมูลจากร้าน”</p></div>
-        <div class="card"><h3>ป๊อปอัปจองคิว + ใบจอง</h3><p>3 ขั้น: ชื่อน้อง/เจ้าของ/เบอร์ → เลือกช่องเวลาที่ว่าง → แนบสลิป · ได้ใบจองในแชท (ไม่มีราคา/สลิป/สถานะ) บันทึกเป็นรูปได้ · เช็คสถานะที่หน้า /check ด้วยเบอร์โทร</p></div>
-        <div class="card"><h3>หน้า /admin</h3><p>หลังบ้านเจ้าของร้าน: ตารางคิวรายสัปดาห์ ปฏิทินรายเดือน ค้นเลขจอง ดูรูปน้อง/สลิป กดยืนยัน มาแล้ว หรือยกเลิก</p></div>
+        <div class="card"><h3>หน้า /</h3><p>หัวเรื่อง + ภาพหมาแมว, ปุ่มหลัก “จองคิว” · ปุ่มรอง “ส่งรูปให้ประเมินราคาก่อน” · ลิงก์คุยด้วยเสียง, ป้ายราคาตามไซส์ (render จาก catalog.json), “ก่อนพาน้องมาร้าน” (นโยบาย 3 การ์ด + เช็คคิว/ยกเลิกคิว), บริการที่ร้านไม่มี, ติดต่อร้าน</p></div>
+        <div class="card"><h3>หน้าต่างแชท</h3><p>ปุ่มลอยมุมขวาล่าง → แผงเลื่อนออกจากขวา (มือถือเต็มจอ) · ทักทาย + ปุ่มคำถามด่วน · ส่งรูปเห็นภาพย่อ · ชิป “ข้อมูลจากร้าน” · ปุ่มทางลัดใต้คำตอบ (เช็คคิว / ยกเลิกคิว / จองคิว)</p></div>
+        <div class="card"><h3>ป๊อปอัปจองคิว + ใบจอง</h3><p>3 ขั้น: ชื่อน้อง/เจ้าของ/เบอร์ → เลือกช่องเวลาที่ว่าง (+ ติ๊กรับ-ส่งน้อง ปักหมุดบ้านบนแผนที่) → แนบสลิป (มัดจำ + ค่ารับส่ง) · ได้ใบจองในแชท (ไม่มีราคา/สลิป/สถานะ) บันทึกเป็นรูปได้</p></div>
+        <div class="card"><h3>หน้า /check + ป๊อปอัปยกเลิก</h3><p>กรอกเบอร์โทร → คิว สถานะ การคืนเงิน · ปุ่ม “ยกเลิกคิวนี้” → ยืนยันตัวตน → บัญชีรับเงินคืน · ดูสลิปโอนคืนหลังยืนยันชื่อเจ้าของ</p></div>
+        <div class="card"><h3>หน้า /admin</h3><p>หลังบ้านเจ้าของร้าน: ตารางคิวรายสัปดาห์ ปฏิทินรายเดือน ค้นเลขจอง ดูรูปน้อง/สลิป/จุดรับ-ส่ง กดยืนยัน มาแล้ว ยกเลิก · แนบสลิปก่อนยืนยันโอนคืน</p></div>
         <div class="card"><h3>หน้า /avatar</h3><p>พนักงาน VRM ยืนหลังเคาน์เตอร์ตั้งแต่เปิดหน้า · ท่า Idle · ปากขยับตามเสียงจริง · คำบรรยาย · เลือกเสียง Cartesia ได้ 6 เสียง</p></div>
       </div>
       <h3>สถานะที่ UI บอกลูกค้า</h3>
       <p>
         แชท: พร้อมตอบ · กำลังพิมพ์… (หัวน้องหอมเอียง) · กำลังดูรูปน้อง… (หัวผงก) · คำตอบถูกปฏิเสธ (บับเบิลเส้นประ) ·
         error พร้อมปุ่ม “ส่งอีกครั้ง” · ปุ่มหยุดระหว่างตอบ<br />
+        จอง/ยกเลิก: error ใต้ช่องที่ผิด · กำลังคำนวณระยะทาง… · กำลังตรวจสลิป… · ช่องเพิ่งเต็ม · ข้อมูลไม่ตรงกับการจอง · ล็อก 24 ชม.<br />
         อวตาร: กำลังโหลด · กำลังฟัง (ขอบเวทีฟ้า) · กำลังคิด · กำลังพูด · โหลดตัวละครไม่สำเร็จ · เบราว์เซอร์ไม่มีเสียงไทย
       </p>
 
@@ -567,7 +601,7 @@
 
     <!-- 08 -->
     <section id="booking">
-      <h2><span class="n">08</span>จองคิวและหลังบ้าน</h2>
+      <h2><span class="n">08</span>จองคิว ยกเลิกคิว และหลังบ้าน</h2>
       <p>
         จองผ่านป๊อปอัปในแชท ไม่ให้บอทเก็บข้อมูลจากบทสนทนา ทุกขั้นเป็นโค้ด (ไม่ผ่าน LLM) และถ้าขั้นไหนไม่ผ่าน
         ช่องเวลาที่กันไว้จะถูกคืนทันที ลูกค้าแก้แล้วส่งใหม่ได้โดยข้อมูลที่กรอกไม่หาย
@@ -634,8 +668,69 @@
         </svg>
         <figcaption>
           ลูกค้ากรอกแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร เลือกช่องที่ว่าง (ช่าง 2 คน/ช่อง, ช่องละ 1 ชม., 09:00–16:00, ปิดวันจันทร์,
-          ล่วงหน้า 1–14 วัน) และแนบสลิป · ใบจองแสดงในแชท บันทึกเป็นรูปได้ ·
+          ล่วงหน้า 1–14 วัน) และแนบสลิป · ถ้าติ๊ก “ให้ร้านไปรับ-ส่งน้อง” ลูกค้าปักหมุดบ้านบนแผนที่ ระบบคิดระยะ
+          (เส้นตรง × 1.3) → ค่ารับส่ง ≤ 5 กม. 150 / ≤ 10 กม. 250 บาท แล้วสลิปต้องเท่ามัดจำ + ค่ารับส่ง
+          (เซิร์ฟเวอร์คิดค่ารับส่งเองทุกครั้ง) · ใบจองแสดงในแชท บันทึกเป็นรูปได้ ·
           ยืนยันจากหลังบ้านแล้วลูกค้าเห็นสถานะใหม่ที่หน้าเช็คคิว <code>/check</code> (กรอกเบอร์ที่ใช้จอง)
+        </figcaption>
+      </figure>
+
+      <h3>ยกเลิกคิวและคืนเงิน</h3>
+      <p>
+        ยกเลิกได้จากเครื่องไหนก็ได้ ไม่ผูกกับประวัติแชท แต่ต้องยืนยันตัวตน เปิดได้จากปุ่มในแชท หน้าแรก หรือหน้าเช็คคิว
+      </p>
+      <figure>
+        <svg viewBox="0 0 900 300" role="img" aria-label="การยกเลิกคิวผ่านการยืนยันตัวตนสามอย่าง กันยกเลิกซ้ำ สร้างคำขอคืนเงินพร้อมเทียบชื่อผู้โอน แล้วเจ้าของร้านแนบสลิปโอนคืนให้ลูกค้าดู">
+          <defs>
+            <marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="currentColor" />
+            </marker>
+            <marker id="a6n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 10 5 0 10Z" fill="#c0503a" />
+            </marker>
+          </defs>
+          <rect class="bx" x="16" y="84" width="124" height="56" rx="12" />
+          <text class="t" x="78" y="107" text-anchor="middle">ป๊อปอัปยกเลิก</text>
+          <text class="ts" x="78" y="126" text-anchor="middle">แชท · หน้าแรก · /check</text>
+
+          <rect class="bx" x="166" y="84" width="150" height="56" rx="12" />
+          <text class="t" x="241" y="107" text-anchor="middle">ยืนยันตัวตน</text>
+          <text class="ts" x="241" y="126" text-anchor="middle">เลขจอง + เบอร์ + ชื่อ</text>
+
+          <rect class="bx" x="342" y="84" width="130" height="56" rx="12" />
+          <text class="t" x="407" y="107" text-anchor="middle">กันยกเลิกซ้ำ</text>
+          <text class="ts" x="407" y="126" text-anchor="middle">SET NX · คืนช่องเวลา</text>
+
+          <rect class="bx" x="498" y="84" width="150" height="56" rx="12" />
+          <text class="t" x="573" y="107" text-anchor="middle">คำขอคืนเงิน</text>
+          <text class="ts" x="573" y="126" text-anchor="middle">เทียบชื่อผู้โอนในสลิป</text>
+
+          <rect class="bx-core" x="674" y="84" width="210" height="56" rx="12" />
+          <text class="t" x="779" y="107" text-anchor="middle">เจ้าของร้าน /admin</text>
+          <text class="ts" x="779" y="126" text-anchor="middle">แนบสลิปโอนคืน → ยืนยัน</text>
+
+          <line class="ln" x1="140" y1="112" x2="162" y2="112" marker-end="url(#a6)" />
+          <line class="ln" x1="316" y1="112" x2="338" y2="112" marker-end="url(#a6)" />
+          <line class="ln" x1="472" y1="112" x2="494" y2="112" marker-end="url(#a6)" />
+          <line class="ln" x1="648" y1="112" x2="670" y2="112" marker-end="url(#a6)" />
+          <text class="th" x="241" y="66" text-anchor="middle">POST /booking/cancel/verify</text>
+          <text class="th" x="490" y="66" text-anchor="middle">POST /booking/cancel</text>
+          <text class="th" x="779" y="66" text-anchor="middle">POST …/admin/bookings/{id}/refunded</text>
+
+          <line class="ln-no" x1="241" y1="140" x2="241" y2="186" marker-end="url(#a6n)" />
+          <text class="tn" x="241" y="206" text-anchor="middle">ไม่ตรง → 404 ไม่บอกช่องที่ผิด</text>
+          <text class="tn" x="241" y="224" text-anchor="middle">ผิดครบ 5 ครั้ง → 423 ล็อก 24 ชม.</text>
+          <line class="ln-no" x1="407" y1="140" x2="407" y2="186" marker-end="url(#a6n)" />
+          <text class="tn" x="407" y="250" text-anchor="middle">ยกเลิกไปแล้ว / เหลือ &lt; 3 ชม. → 409</text>
+          <line class="ln-no" x1="779" y1="140" x2="779" y2="186" marker-end="url(#a6n)" />
+          <text class="tn" x="779" y="206" text-anchor="middle">ไม่แนบสลิป → 422</text>
+
+          <path class="ln" d="M884 112 H892 V274 H78 V144" marker-end="url(#a6)" />
+          <text class="tl" x="560" y="290" text-anchor="middle">ลูกค้าเห็น “โอนคืนแล้ว” ที่หน้าเช็คคิว → ดูสลิปโอนคืน (POST /booking/refund-proof ยืนยันชื่อเจ้าของ)</text>
+        </svg>
+        <figcaption>
+          ยอดคืน = ยอดที่ลูกค้าโอนมา (มัดจำ + ค่ารับส่ง) · หลังบ้านแสดงผลเทียบชื่อบัญชีรับเงินคืนกับชื่อผู้โอนมัดจำ
+          (✓ ตรง / ⚠ ไม่ตรง / ? อ่านจากสลิปไม่ได้) คนสวมรอยจึงเอาเงินเข้าบัญชีตัวเองไม่ได้แม้ผ่านการยืนยันตัวตน
         </figcaption>
       </figure>
 
@@ -644,7 +739,9 @@
         <li><strong>เข้าสู่ระบบ:</strong> รหัสจาก <code>ADMIN_PASSWORD</code> · cookie <code>หมดอายุ.HMAC</code> (ปลอมไม่ได้, SameSite=Strict, 12 ชม.) · ผิดเกิน 5 ครั้ง/นาที/IP ต้องรอ · ไม่ตั้งรหัส = ปิดหลังบ้าน</li>
         <li><strong>มุมมอง:</strong> ตารางรายสัปดาห์ (วัน × ช่องเวลา, สีตามสถานะ, ⚠ ต้องตรวจสลิปเอง) · ปฏิทินรายเดือน (จำนวนคิว + รอยืนยัน) · ค้นเลขจอง (ลูกค้ายื่นใบจองที่หน้าร้าน) · รีเฟรชเองทุก 60 วินาที</li>
         <li><strong>สถานะ:</strong> รอร้านยืนยัน → ยืนยันแล้ว → มาใช้บริการแล้ว · หรือ ยกเลิก (คืนช่องเวลาทันที) · เปลี่ยนผิดลำดับไม่ได้</li>
-        <li><strong>ที่เก็บ:</strong> Redis / Vercel KV ตัวเดียวกับประวัติแชท — ตัวนับช่อง <code>INCR</code>, เลขสลิป <code>SET NX</code>, ดัชนีเวลา sorted set · Redis ล่ม = ตอบ 503 ไม่ทำเหมือนจองสำเร็จ</li>
+        <li><strong>คืนเงิน:</strong> สรุป “รอโอนคืน” · แผงรายละเอียดแสดงบัญชีที่ต้องโอน + ผลเทียบชื่อผู้โอน · ปุ่ม “ยืนยันโอนคืนแล้ว” กดได้หลังแนบสลิปเท่านั้น (เซิร์ฟเวอร์บังคับด้วย)</li>
+        <li><strong>รับ-ส่งน้อง:</strong> คิวที่มีรับ-ส่งมีไอคอน · เห็นเวลาที่ต้องไปรับ ที่อยู่ ระยะทาง และลิงก์นำทางไปหมุดที่ลูกค้าปัก</li>
+        <li><strong>ที่เก็บ:</strong> Redis / Vercel KV ตัวเดียวกับประวัติแชท — ตัวนับช่อง <code>INCR</code>, เลขสลิปและธงยกเลิก <code>SET NX</code>, ตัวนับยืนยันตัวตนผิด (หมดอายุ 24 ชม.), ดัชนีเวลา sorted set · Redis ล่ม = ตอบ 503 ไม่ทำเหมือนจองสำเร็จ</li>
       </ul>
     </section>
 
@@ -655,17 +752,17 @@
         <table>
           <thead><tr><th>โฟลเดอร์</th><th>หน้าที่</th></tr></thead>
           <tbody>
-            <tr><td><code>main.py</code>, <code>config.py</code>, <code>api/index.py</code></td><td>สร้าง app, หน้า <code>/</code> + <code>/avatar</code>, ต่อท้าย css/js ด้วย <code>?v=</code> กัน cache เก่า · อ่าน <code>.env</code> · จุดเข้าของ Vercel</td></tr>
-            <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จองคิว) · <code>admin.py</code> (หลังบ้าน) · <code>line_webhook.py</code> (LINE OA)</td></tr>
-            <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
+            <tr><td><code>main.py</code>, <code>config.py</code>, <code>api/index.py</code></td><td>สร้าง app, หน้า <code>/</code> · <code>/check</code> · <code>/admin</code> · <code>/avatar</code>, ต่อท้าย css/js ด้วย <code>?v=</code> กัน cache เก่า · อ่าน <code>.env</code> · จุดเข้าของ Vercel</td></tr>
+            <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จอง · ค่ารับส่ง · เช็คคิว · ยกเลิก · สลิปโอนคืน) · <code>admin.py</code> (หลังบ้าน + ยืนยันโอนคืน) · <code>line_webhook.py</code> (LINE OA)</td></tr>
+            <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>actions.py</code> (ดักเบอร์/เลขจอง + เลือกปุ่มทางลัด) · <code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
             <tr><td><code>rag/</code></td><td><code>chunker.py</code>, <code>embedder.py</code>, <code>retriever.py</code>, <code>build_index.py</code>, <code>index.json</code></td></tr>
             <tr><td><code>guardrails/</code></td><td><code>input_rules.py</code> + <code>blocklist.txt</code>, <code>judge.py</code>, <code>output_guard.py</code>, <code>pipeline.py</code>, <code>categories.py</code></td></tr>
-            <tr><td><code>booking/</code></td><td><code>slots.py</code> (ช่องเวลาว่าง), <code>store.py</code> (in-memory / Redis), <code>service.py</code> (ขั้นตอนจอง + สถานะ) — ไม่ผ่าน LLM</td></tr>
+            <tr><td><code>booking/</code></td><td><code>slots.py</code> (ช่องเวลาว่าง), <code>pickup.py</code> (ระยะทาง → ค่ารับส่ง), <code>store.py</code> (in-memory / Redis), <code>service.py</code> (จอง · ยืนยันตัวตน · ยกเลิก · คืนเงิน · สถานะ) — ไม่ผ่าน LLM</td></tr>
             <tr><td><code>vision/</code></td><td><code>documents.py</code>, <code>image_analyzer.py</code>, <code>pet_estimate.py</code>, <code>slip_check.py</code></td></tr>
             <tr><td><code>shop/</code></td><td><code>catalog.json</code> (แหล่งข้อมูลเดียว), <code>policies.md</code>, <code>faq.md</code>, <code>pricing.py</code></td></tr>
-            <tr><td><code>prompts/</code></td><td><code>chat_system.txt</code>, <code>voice_hint.txt</code>, <code>guard_judge.txt</code>, <code>image_analyze.txt</code></td></tr>
-            <tr><td><code>templates/</code>, <code>static/</code></td><td><code>index.html</code>, <code>avatar.html</code>, <code>admin.html</code> · <code>chat.js</code>, <code>booking.js</code>, <code>admin.js</code>, <code>voice.js</code>, <code>voice-avatar.js</code> · <code>style.css</code> · <code>img/</code> (โลโก้, ภาพ hero, หน้าน้องหอม) · <code>avatar/</code> (VRM + Idle.fbx)</td></tr>
-            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 97 ตัว · <code>system-architecture.md</code>, <code>test-log.md</code>, หน้านี้</td></tr>
+            <tr><td><code>prompts/</code></td><td><code>chat_system.txt</code>, <code>voice_hint.txt</code>, <code>line_hint.txt</code>, <code>guard_judge.txt</code>, <code>image_analyze.txt</code></td></tr>
+            <tr><td><code>templates/</code>, <code>static/</code></td><td><code>index.html</code>, <code>check.html</code>, <code>_cancel_sheet.html</code>, <code>avatar.html</code>, <code>admin.html</code> · <code>chat.js</code>, <code>booking.js</code>, <code>cancel.js</code>, <code>check.js</code>, <code>admin.js</code>, <code>voice.js</code>, <code>voice-avatar.js</code> · <code>style.css</code> · <code>img/</code> (โลโก้, ภาพ hero, หน้าน้องหอม) · <code>avatar/</code> (VRM + Idle.fbx)</td></tr>
+            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 139 ตัว · สคริปต์ทดสอบกับระบบจริง <code>run_10_questions.py</code>, <code>run_prompt_safety.py</code>, <code>run_endpoint_check.py</code> · <code>system-architecture.md</code>, <code>test-log.md</code>, <code>booking-plan.md</code>, หน้านี้</td></tr>
           </tbody>
         </table>
       </div>
@@ -674,6 +771,11 @@
     <!-- 09 -->
     <section id="api">
       <h2><span class="n">10</span>API endpoints</h2>
+      <p>
+        ทุก endpoint ทดสอบกับระบบจริงแล้ว (4 ต.ค. 2569) ด้วย <code>tests/run_endpoint_check.py</code>:
+        เว็บจริงบน Vercel ผ่าน 40/40 (โหมดไม่สร้างการจอง — endpoint ที่แก้ข้อมูลตรวจว่าปฏิเสธถูกต้อง)
+        และเส้นทางเต็มบนเครื่อง 43/43 (จองจริงให้ Gemini อ่านสลิป → ร้านยืนยัน → ลูกค้ายกเลิก → ร้านแนบสลิปโอนคืน → ลูกค้าดูสลิป)
+      </p>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Method · Path</th><th>หน้าที่</th><th>สถานะ</th></tr></thead>
@@ -681,18 +783,25 @@
             <tr><td><code>GET /</code></td><td>Landing page + หน้าต่างแชท</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /avatar</code></td><td>หน้าอวตารพนักงาน (คุยด้วยเสียง)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /health</code></td><td>เช็คว่าเซิร์ฟเวอร์รันอยู่</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/config</code> · <code>GET /api/v1/models</code></td><td>ค่าตั้งต้นของหน้าแชท (ไม่มี API key) / รายชื่อโมเดล</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>POST /api/v1/chat/stream</code></td><td>แชทแบบสตรีม (SSE) ใช้ทั้งหน้าแชทและหน้าอวตาร</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>POST /api/v1/chat</code></td><td>แชทแบบรอคำตอบเต็ม (สำหรับ LINE)</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>GET /api/v1/history</code></td><td>ข้อความของบทสนทนาปัจจุบัน</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>GET · POST /api/v1/conversations</code></td><td>รายการบทสนทนา / เริ่มแชทใหม่</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/history</code> · <code>POST /api/v1/chat/reset</code></td><td>ข้อความของบทสนทนาปัจจุบัน / ล้างแชท</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET · POST /api/v1/conversations</code> · <code>POST …/{cid}/activate</code> · <code>DELETE …/{cid}</code></td><td>รายการบทสนทนา / เริ่มแชทใหม่ / สลับ / ลบ</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET · POST · DELETE /api/v1/attachments</code></td><td>ส่งรูปน้อง / สลิป / PDF (ได้คำตอบทันทีถ้าเป็นรูปสัตว์หรือสลิป)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/tts/config</code> · <code>POST /api/v1/tts/stream</code></td><td>ใช้ Cartesia ได้ไหม / ข้อความ → เสียง PCM 24 kHz</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/booking/slots</code></td><td>ช่องเวลาที่จองได้ 14 วัน + จำนวนที่ว่าง</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>POST /api/v1/booking</code></td><td>จองคิว (ชื่อน้อง ชื่อเจ้าของ เบอร์ ช่องเวลา รูปน้อง สลิป) → ใบจอง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/booking/pickup</code></td><td>ตำแหน่งร้าน + ตารางค่ารับส่ง · ใส่ <code>?lat=&amp;lng=</code> ได้ระยะทาง + ค่ารับส่งของหมุด</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/booking</code></td><td>จองคิว (ชื่อน้อง ชื่อเจ้าของ เบอร์ ช่องเวลา รูปน้อง สลิป + จุดรับถ้าติ๊กรับ-ส่ง) → ใบจอง</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /check</code> · <code>POST /api/v1/booking/check</code></td><td>เช็คคิวด้วยเบอร์โทร → ชื่อน้อง วันเวลา เลขจอง สถานะ (จำกัด 10 ครั้ง/นาที)</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>GET /api/v1/booking/mine</code> · <code>…/{id}/image/{pet|slip}</code></td><td>ใบจองของฉัน / รูปบนใบจอง (เฉพาะเจ้าของการจอง)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/booking/cancel/verify</code> · <code>POST /api/v1/booking/cancel</code></td><td>ยกเลิกคิว: ยืนยันตัวตน (เลขจอง + เบอร์ + ชื่อเจ้าของ) → บัญชีรับเงินคืน → ยกเลิก + คืนช่องเวลา</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/booking/cancel-options</code></td><td>รายชื่อธนาคาร + ชั่วโมงขั้นต่ำก่อนนัด</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/booking/refund-proof</code></td><td>สลิปที่ร้านโอนคืน (ต้องยืนยันตัวตน)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/booking/mine</code> · <code>…/{id}/image/pet</code></td><td>ใบจองของฉัน / รูปน้องบนใบจอง (เฉพาะ session ที่จอง)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /admin</code> · <code>POST /admin/login</code> · <code>POST /admin/logout</code></td><td>หลังบ้านเจ้าของร้าน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/admin/bookings</code> · <code>…/{id}</code> · <code>POST …/{id}/status</code></td><td>คิวตามช่วงวันที่ · ค้นเลขจอง · ยืนยัน/มาแล้ว/ยกเลิก</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/admin/bookings/{id}/refunded</code></td><td>ยืนยันโอนคืน (ต้องแนบสลิปโอนคืน)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>GET /api/v1/admin/bookings/{id}/image/{pet|slip|refund}</code></td><td>รูปน้อง / สลิปมัดจำ / สลิปโอนคืน สำหรับเจ้าของร้าน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>POST /line/webhook</code></td><td>รับ event จาก LINE OA (ตรวจลายเซ็น)</td><td class="s-ok">ทำแล้ว</td></tr>
           </tbody>
         </table>
@@ -735,6 +844,12 @@
         <dd>ใช้ key เดิม ไม่มีค่าใช้จ่ายเพิ่ม และเข้าใจภาษาไทยในบริบทร้าน (“หมาดุ กัดคน รับไหม” = SAFE)</dd>
         <dt>ทำไมจองด้วยฟอร์ม ไม่ให้บอทเก็บข้อมูลจากแชท</dt>
         <dd>LLM ดึงชื่อ/เบอร์/วันเวลาจากบทสนทนาพลาดได้และตรวจสอบยาก ฟอร์ม 3 ช่อง + ปุ่มเลือกช่องได้ข้อมูลแน่นอน และกันจองซ้อนได้จริง</dd>
+        <dt>ทำไมแชทบอทเช็คคิวหรือยกเลิกคิวให้ไม่ได้</dt>
+        <dd>ถ้าบอทอ่านข้อมูลการจองได้ การหลอกบอทจะกลายเป็นข้อมูลลูกค้ารั่ว จึงแยกเด็ดขาด: บอทชี้ไปที่ปุ่ม ส่วนระบบจองยืนยันตัวตนเองด้วยโค้ด</dd>
+        <dt>ทำไมยกเลิกด้วยการยืนยันตัวตน ไม่ผูกกับ session</dt>
+        <dd>ลูกค้าเปลี่ยนเครื่องหรือล้างแชทแล้วยังต้องยกเลิกได้ แต่เบอร์โทรอย่างเดียวคนอื่นรู้ได้ จึงเพิ่มเลขจอง + ชื่อเจ้าของ ล็อกเมื่อผิด 5 ครั้ง และโอนคืนเฉพาะบัญชีชื่อเดียวกับผู้โอนมัดจำ</dd>
+        <dt>ทำไมวัดระยะรับ-ส่งด้วยเส้นตรง × 1.3</dt>
+        <dd>ไม่ต้องใช้ API แผนที่ที่ต้องผูกบัตร และราคาเป็นช่วงกว้าง (5 / 10 กม.) ค่าประมาณจึงพอ</dd>
         <dt>ทำไมใบจองไม่มีราคา</dt>
         <dd>ราคาในแชทเป็นราคาประเมิน ร้านชั่งน้ำหนักจริงหน้าร้านเสมอ ถ้าใบจองมีราคาแล้วไม่ตรง (หรือ Vision เดาน้ำหนักผิด) จะเป็นข้อโต้แย้ง</dd>
         <dt>ทำไมทำใบจองเป็นรูปในเบราว์เซอร์</dt>
@@ -757,15 +872,21 @@
             <tr><td>RAG ภาษาไทย + คลังความรู้ ≥ 15 รายการ</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>Guardrails 3 ด่าน + ทดสอบ safety 5 กรณี</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>Vision + ทดสอบ 10 ภาพ</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>ปรับปรุง 3 จุด before/after</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ปรับปรุง before/after (ทำไว้ 9 จุด)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>UI ใหม่ + หน้าอวตาร + เสียง Cartesia</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>จองคิว: ป๊อปอัป + ตรวจสลิป + ใบจอง (PNG) + หน้าเช็คคิว</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>หลังบ้าน /admin รายสัปดาห์ / รายเดือน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>บอกชื่อร้านกับอาจารย์ (ภายใน 3 ต.ค.)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>LINE OA webhook (แชท + รูป)</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>ตารางทดสอบ 10 คำถาม + เวลาตอบ</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>รับ-ส่งน้อง: ปักหมุดแผนที่ → ค่ารับส่ง → สลิป = มัดจำ + ค่ารับส่ง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ยกเลิกคิวด้วยการยืนยันตัวตน + คืนเงิน + สลิปโอนคืน</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>แชทบอทชี้ไปปุ่ม เช็คคิว / ยกเลิกคิว / จองคิว</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ตารางทดสอบ 10 คำถาม + เวลาตอบ (10/10 เฉลี่ย 3.5 วิ)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>สุ่มทดสอบกฎต้องทำ/ห้ามทำ + ความปลอดภัยรอบ 2 (26/26)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ทดสอบทุก endpoint กับระบบจริง (40/40 · เส้นทางเต็ม 43/43)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>Merge เข้า main + deploy Vercel</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>คลิปเดโม ≤ 3 นาที + รายงาน</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>รายงานความคืบหน้า (10 ต.ค.) · รายงาน Google Doc + PDF · คลิปเดโม ≤ 3 นาที · สไลด์นำเสนอ (24 ต.ค.)</td><td class="s-todo">ยังไม่ทำ</td></tr>
+            <tr><td>ทดสอบกับของจริง: สลิปจากแอปธนาคาร, รูปแมว/ขนพัน, คุย LINE, ไมค์จริง</td><td class="s-todo">ยังไม่ทำ</td></tr>
           </tbody>
         </table>
       </div>
