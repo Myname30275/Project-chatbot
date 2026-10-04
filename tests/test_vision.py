@@ -74,10 +74,17 @@ class PetEstimateTests(unittest.TestCase):
         r = self.reply(dog("small"), Animal(species="cat", species_name="แมว"))
         self.assertIn("น้ำหนักจริง", r)
 
-    def test_matting_adds_dematting_range(self):
-        r = self.reply(dog("small", matting="severe"))
-        self.assertIn("400–550 บาท", r)   # อาบน้ำ 250 + 150..300
-        self.assertIn("ขนพัน", r)
+    def test_matted_coat_is_assessed_at_the_shop_not_priced_from_photo(self):
+        for level in ("mild", "severe"):
+            with self.subTest(level=level):
+                r = self.reply(dog("small", matting=level))
+                self.assertIn("250 บาท", r)                 # ราคาพื้นฐานตามขนาด
+                self.assertIn("ประเมินตอนน้องมาถึงร้าน", r)
+                for wrong in ("550", "150", "300"):          # ไม่บวก/ไม่บอกช่วงราคาขนพันเอง
+                    self.assertNotIn(wrong, r)
+        note = pet_estimate.estimate_text(ImageAnalysis("pet", [dog("small", matting="severe")]))
+        self.assertIn("ประเมินตอนน้องมาถึงร้าน", note)
+        self.assertNotIn("550", note)
 
     def test_other_species_wound_and_unknown_size_get_no_price(self):
         self.assertIn("ให้บริการจระเข้ไม่ได้", self.reply(Animal(species="other", species_name="จระเข้")))

@@ -12,6 +12,13 @@ _COAT_TH = {"short": "ขนสั้น", "medium": "ขนยาวปาน�
 _MATTING_TH = {"none": "ไม่พบขนพัน", "mild": "ขนพันบางจุด", "severe": "ขนพันมาก", "unknown": "มองไม่ชัดว่าขนพันไหม"}
 
 
+MATTED_NOTE = "ขนน้องดูพันกัน ค่ากำจัดขนพันร้านขอประเมินตอนน้องมาถึงร้านนะคะ (ราคาด้านบนยังไม่รวมส่วนนี้)"
+
+
+def _matted(a: Animal) -> bool:
+    return a.matting in ("mild", "severe")
+
+
 def _range(q: pricing.Quote) -> str:
     return f"{q.min:,} บาท" if q.min == q.max else f"{q.min:,}–{q.max:,} บาท"
 
@@ -33,16 +40,18 @@ def _describe_animal(i: int, a: Animal) -> list[str]:
     else:
         return [f"{head} — ประเมินขนาดจากรูปไม่ได้ ให้ถามน้ำหนักของน้องก่อนแจ้งราคา"]
 
-    addons = ("dematting",) if a.matting in ("mild", "severe") else ()
-    bath = pricing.quote("bath", size_key, addons)
-    groom = pricing.quote("full_groom", size_key, addons)
+    # ขนพัน: ร้านประเมินค่ากำจัดขนพันตอนน้องมาถึงร้านเท่านั้น (เจ้าของร้านกำหนด 4 ต.ค. 2569)
+    # รูปบอกความรุนแรงได้ไม่แน่นอน จึงแจ้งแค่ราคาพื้นฐานตามขนาด ไม่บวกช่วงราคาขนพันให้
+    bath = pricing.quote("bath", size_key)
+    groom = pricing.quote("full_groom", size_key)
     lines = [
         f"{head} — ขนาดที่ประเมินจากรูป: {size_text}, {_COAT_TH[a.coat_length]}, {_MATTING_TH[a.matting]}",
         f"  - อาบน้ำ + เป่าขน: {_range(bath)}",
         f"  - ตัดขนทั้งตัว (รวมอาบน้ำ): {_range(groom)}",
     ]
-    if addons:
-        lines.append("  (รวมค่ากำจัดขนพันแล้ว ราคาจริงประเมินหน้างานตามความรุนแรง)")
+    if _matted(a):
+        lines.append("  (ขนพัน: ราคานี้ยังไม่รวมค่ากำจัดขนพัน — ห้ามบอกตัวเลขค่าขนพันเอง "
+                     "ให้บอกลูกค้าว่าร้านขอประเมินตอนน้องมาถึงร้าน)")
     elif a.matting == "unknown":
         lines.append("  (ถ้าขนพันจะมีค่าเพิ่มตามรายการกำจัดขนพัน)")
     return lines
@@ -87,10 +96,9 @@ def _animal_reply(a: Animal) -> str:
     else:
         return f"ประเมินขนาดของ{name}จากรูปไม่ได้ค่ะ รบกวนแจ้งน้ำหนักของน้องด้วยนะคะ"
 
-    addons = ("dematting",) if a.matting in ("mild", "severe") else ()
-    bath = pricing.quote("bath", size_key, addons)
-    groom = pricing.quote("full_groom", size_key, addons)
-    breed = f" ({a.breed_guess})" if a.breed_guess else ""
+    bath = pricing.quote("bath", size_key)
+    groom = pricing.quote("full_groom", size_key)
+    breed =f" ({a.breed_guess})" if a.breed_guess else ""
     # แมวราคาเดียวทุกขนาด — ไม่ต้องบอก "ดูจากรูปเป็นแมว" ซ้ำกับชื่อชนิด
     head = (f"น้อง{name}{breed} ค่ะ ราคาแมวเท่ากันทุกขนาด" if a.species == "cat"
             else f"น้อง{name}{breed} ดูจากรูปเป็น{size_text}ค่ะ")
@@ -99,8 +107,8 @@ def _animal_reply(a: Animal) -> str:
         f"- อาบน้ำ + เป่าขน {_range(bath)}",
         f"- ตัดขนทั้งตัว (รวมอาบน้ำ) {_range(groom)}",
     ]
-    if addons:
-        lines.append("  (รวมค่ากำจัดขนพันแล้ว ประเมินหน้างานตามความรุนแรง)")
+    if _matted(a):
+        lines.append(MATTED_NOTE)
     return "\n".join(lines)
 
 
@@ -121,6 +129,7 @@ def customer_reply(analysis: ImageAnalysis) -> str:
         parts.append(
             "ราคานี้ประเมินจากรูปเบื้องต้นนะคะ "
             + ("รบกวนแจ้งน้ำหนักจริงของน้องเพื่อยืนยัน " if needs_weight else "")
-            + "ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมากค่ะ"
+            + ("ราคาจริงร้านแจ้งหลังดูน้องที่หน้าร้านค่ะ" if any(_matted(a) for a in animals)
+               else "ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมากค่ะ")
         )
     return "\n\n".join(parts)

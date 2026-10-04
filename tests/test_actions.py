@@ -47,6 +47,31 @@ class SuggestTests(unittest.TestCase):
         self.assertNotIn("0800600370", actions.lookup_reply("web"))
 
 
+class NoSizeInfoTests(unittest.TestCase):
+    def test_unknown_weight_or_no_photo_gets_price_list(self):
+        for message in ["ไม่มีภาพ และไม่รู้น้ำหนัก", "ไม่รู้ว่าน้องหนักเท่าไหร่", "น้ำหนักไม่แน่ใจค่ะ",
+                        "ยังไม่ได้ชั่งน้ำหนักเลย", "ไม่มีรูปค่ะ อยากรู้ราคา"]:
+            with self.subTest(message=message):
+                reply = assistant.no_size_info_reply([], message)
+                for price in ("250 บาท", "350 บาท", "500 บาท", "750 บาท"):  # ทั้งสองบริการ จาก catalog
+                    self.assertIn(price, reply)
+                self.assertIn("ชั่งน้ำหนักน้องให้ที่หน้าร้าน", reply)
+                for asking in ("กี่กิโล", "ส่งรูป"):  # ไม่ถามซ้ำ
+                    self.assertNotIn(asking, reply)
+
+    def test_price_list_follows_the_service_being_discussed(self):
+        history = [{"role": "user", "content": "ตัดขนน้องหมาราคาเท่าไหร่"}, {"role": "assistant", "content": "..."}]
+        reply = assistant.no_size_info_reply(history, "ไม่รู้น้ำหนักค่ะ")
+        self.assertIn("750 บาท", reply)      # ตัดขนสุนัขใหญ่
+        self.assertNotIn("250 บาท", reply)   # ไม่ปนราคาอาบน้ำ
+
+    def test_normal_messages_are_not_affected(self):
+        for message in ["น้องหนัก 8 กิโล", "ร้านเปิดกี่โมง", "ไม่รู้ว่าร้านอยู่ไหน", "อาบน้ำหมาเท่าไหร่",
+                        "ไม่มีรูป แต่น้องหนัก 5 กิโล อาบน้ำเท่าไหร่"]:
+            with self.subTest(message=message):
+                self.assertIsNone(assistant.no_size_info_reply([], message))
+
+
 class AssistantActionTests(unittest.TestCase):
     def setUp(self):
         self.reply = "กดปุ่ม \"เช็คคิว\" แล้วกรอกเบอร์โทรที่ใช้จองได้เลยค่ะ"
@@ -85,6 +110,14 @@ class AssistantActionTests(unittest.TestCase):
         self.assertIn({"actions": ["check"]}, events)
         self.assertEqual(self.llm_calls, 0)
         self.assertEqual(run(self.store.get_history("s")), [])  # ไม่เก็บเบอร์ลงประวัติแชท
+
+    def test_unknown_weight_answer_skips_llm_and_is_saved_to_history(self):
+        with patch.object(judge, "classify", lambda m: asyncio.sleep(0, judge.Verdict("SAFE"))):
+            events = self.events("ไม่มีภาพ และไม่รู้น้ำหนัก")
+        text = "".join(e.get("delta", "") for e in events)
+        self.assertIn("350 บาท", text)
+        self.assertEqual(self.llm_calls, 0)
+        self.assertEqual([m["role"] for m in run(self.store.get_history("s"))], ["user", "assistant"])
 
     def test_line_gets_link(self):
         reply = run(assistant.respond("s", "HH-1004-01", channel="line"))

@@ -137,6 +137,44 @@ def weight_check_note(message: str) -> str | None:
     return None
 
 
+_NO_SIZE_RE = re.compile(
+    r"(ไม่(รู้|ทราบ|แน่ใจ|เคยชั่ง|ได้ชั่ง)|ยังไม่(รู้|ทราบ|ได้ชั่ง)|จำ.{0,6}ไม่ได้).{0,12}(น้ำหนัก|หนัก|กี่กิโล|กี่โล|ไซส์|ขนาด)"
+    r"|(น้ำหนัก|หนักเท่าไหร่|กี่กิโล|กี่โล|ไซส์|ขนาด).{0,12}(ไม่รู้|ไม่ทราบ|ไม่แน่ใจ|จำไม่ได้)"
+    r"|ไม่มี(รูป|ภาพ)|ไม่ได้ถ่าย(รูป|ภาพ)|ส่ง(รูป|ภาพ)ไม่ได้|ไม่มีตาชั่ง|ไม่มีที่ชั่ง"
+)
+
+
+_SERVICE_WORDS = {"bath": ("อาบน้ำ", "อาบ"), "full_groom": ("ตัดขน", "ตัดแต่งขน", "ไถขน")}
+
+
+def no_size_info_reply(history: list[dict], message: str) -> str | None:
+    """ลูกค้าบอกว่าไม่รู้น้ำหนัก/ไม่มีรูป → ตอบรายการราคาตามช่วงน้ำหนักจาก catalog แล้วจบ (ไม่ถามซ้ำ)
+
+    สร้างคำตอบด้วยโค้ด ไม่ผ่าน LLM (เจ้าของร้านกำหนด 4 ต.ค. 2569: "ตอบว่ามีรายการราคาตามน้ำหนักก็พอ")
+    ทดสอบจริง: Typhoon วนถาม "น้องหนักกี่กิโลคะ หรือส่งรูปน้องมา" ทั้งที่ลูกค้าเพิ่งบอกว่าไม่มีทั้งสองอย่าง
+    และแนบคำสั่งห้ามไปใน prompt แล้วก็ยังขอรูปอยู่ 1 ใน 3 รอบ
+    แสดงเฉพาะบริการที่คุยกันอยู่ (ดูจากข้อความล่าสุดของลูกค้า) ไม่ชัด = แสดงทั้งอาบน้ำและตัดขน"""
+    text = message or ""
+    if not _NO_SIZE_RE.search(text) or _WEIGHT_RE.search(text):  # บอกน้ำหนักมาด้วย = ให้ LLM ตอบตามปกติ
+        return None
+    from shop import pricing  # import ตรงนี้กันวงจร import ตอนเริ่มระบบ
+
+    catalog = pricing.load_catalog()
+    sizes = catalog["sizes"]
+    recent = " ".join([m["content"] for m in history if m.get("role") == "user"][-3:] + [text])
+    wanted = [sid for sid, words in _SERVICE_WORDS.items() if any(w in recent for w in words)]
+    lines = ["ไม่เป็นไรค่ะ ราคาของร้านคิดตามน้ำหนักของน้องตามนี้นะคะ"]
+    for service in catalog["services"]:
+        if "prices" in service and (not wanted or service["id"] in wanted):
+            lines.append(f"\n{service['name']}")
+            lines += [f"- {sizes[k]}: {v:,} บาท" for k, v in service["prices"].items()]
+    lines.append(
+        "\nร้านชั่งน้ำหนักน้องให้ที่หน้าร้านและแจ้งราคาจริงก่อนเริ่มบริการค่ะ "
+        "(เป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมาก)"
+    )
+    return "\n".join(lines)
+
+
 async def respond_stream(
     session_id: str,
     message: str,
@@ -178,6 +216,19 @@ async def respond_stream(
         for event in _refusal(decision):
             yield event
         return
+
+    # ลูกค้าไม่รู้น้ำหนัก/ไม่มีรูป (และยังไม่เคยส่งรูปน้อง) → รายการราคาตามช่วงน้ำหนักจากโค้ด ไม่เรียก LLM
+    fixed = None if has_pet_photo else no_size_info_reply(history, message)
+    if fixed:
+        yield {"knowledge": []}
+        yield {"delta": fixed}
+        await store.set_history(
+            session_id,
+            history + [{"role": "user", "content": message}, {"role": "assistant", "content": fixed}],
+        )
+        yield {"done": True}
+        return
+
     yield {"knowledge": sources}
     if from_images:
         knowledge = from_images + ("\n\n" + knowledge if knowledge else "")
