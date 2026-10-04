@@ -61,6 +61,28 @@ def clean_phone(value: str | None) -> str:
     return digits
 
 
+def clean_pets(value) -> int:
+    """จำนวนน้องในการจองครั้งนี้ (1 ถึง booking.max_pets)"""
+    limit = slots.config()["max_pets"]
+    try:
+        n = int(str(1 if value in (None, "") else value).strip())
+    except ValueError:
+        n = 0
+    if not 1 <= n <= limit:
+        raise BookingError(f"จองได้ครั้งละ 1–{limit} ตัว ถ้ามากกว่านี้รบกวนติดต่อร้านค่ะ", field="pets")
+    return n
+
+
+def slots_used(b: dict) -> list[tuple[str, int]]:
+    """ช่องเวลาที่การจองนี้กันไว้ — การจองรุ่นก่อนมีจำนวนน้อง (ไม่มี slots_used) = 1 ช่างในช่องที่จอง"""
+    return [(k, u) for k, u in b.get("slots_used") or [(b["slot"], 1)]]
+
+
+async def _release(store, used: list[tuple[str, int]]) -> None:
+    for key, units in used:
+        await store.release_slot(key, units)
+
+
 def sniff_image(data: bytes) -> str | None:
     """ดูชนิดรูปจาก byte แรกของไฟล์ (ไม่เชื่อนามสกุล/Content-Type ที่ส่งมา)"""
     if data.startswith(b"\xff\xd8\xff"):
@@ -134,10 +156,13 @@ async def create(
     pet_photo: bytes | None,
     slip: bytes | None,
     pickup: dict | None = None,
+    pets=1,
     at=None,
 ) -> dict:
     """คืนข้อมูลการจอง (dict) — raise BookingError / StoreError ถ้าไม่สำเร็จ
-    pickup = {"lat", "lng", "address"} จากฟอร์มเมื่อลูกค้าติ๊กรับ-ส่ง (None = มาที่ร้านเอง)"""
+    pickup = {"lat", "lng", "address"} จากฟอร์มเมื่อลูกค้าติ๊กรับ-ส่ง (None = มาที่ร้านเอง)
+    pets = จำนวนน้อง: 2 ตัว = ใช้ช่างเต็มชั่วโมงนั้น, ตัวที่ 3 ขึ้นไป = กันชั่วโมงถัดไปด้วย (slots.plan)"""
+    pets = clean_pets(pets)
     pet_name = clean_name(pet_name, "ชื่อน้อง", "pet_name")
     owner_name = clean_name(owner_name, "ชื่อเจ้าของ", "owner_name")
     phone = clean_phone(phone)
@@ -150,8 +175,19 @@ async def create(
 
     store = get_store()
     key = slots.slot_key(dt)
-    if not await store.reserve_slot(key, slots.config()["capacity_per_slot"]):
-        raise BookingError("ช่องเวลานี้เพิ่งเต็ม รบกวนเลือกช่องใหม่", status=409, field="slot")
+    wanted = slots.plan(dt, pets)
+    if wanted is None:
+        raise BookingError(
+            f"เวลานี้ดูแลน้อง {pets} ตัวไม่ทันก่อนร้านปิดรับคิว รบกวนเลือกเวลาที่เร็วขึ้น", status=409, field="slot")
+    held: list[tuple[str, int]] = []
+    for slot_k, units in wanted:
+        if not await store.reserve_slot(slot_k, slots.config()["capacity_per_slot"], units):
+            await _release(store, held)
+            raise BookingError(
+                "ช่องเวลานี้เพิ่งเต็ม รบกวนเลือกช่องใหม่" if pets == 1
+                else f"ช่วงเวลานี้คิวว่างไม่พอสำหรับน้อง {pets} ตัว รบกวนเลือกช่องใหม่",
+                status=409, field="slot")
+        held.append((slot_k, units))
 
     reference = None
     try:
@@ -172,6 +208,8 @@ async def create(
             "phone": phone,
             "slot": key,
             "slot_ts": dt.timestamp(),
+            "pets": pets,
+            "slots_used": [list(x) for x in held],
             "status": "pending",
             "slip": slip_info,
             "pickup": ride,
@@ -188,7 +226,7 @@ async def create(
     except BaseException:
         # ไม่สำเร็จที่ขั้นไหนก็ตาม → คืนช่องเวลา/เลขสลิปที่กันไว้ ลูกค้าเลือกใหม่หรือแนบสลิปใหม่ได้ทันที
         try:
-            await store.release_slot(key)
+            await _release(store, held)
             if reference:
                 await store.release_slip_ref(reference)
         except StoreError:
@@ -209,6 +247,11 @@ def _pickup(raw: dict | None, dt) -> dict | None:
     return ride
 
 
+def _when(b: dict) -> str:
+    """วันเวลานัด — จองหลายตัวจนกินมากกว่า 1 ชั่วโมง แสดงเป็นช่วง เช่น 10:00–12:00 น."""
+    return slots.range_label(slots.parse_key(b["slot"]), len(slots_used(b)))
+
+
 def mask_phone(phone: str) -> str:
     return f"{phone[:3]}-xxx-{phone[6:]}" if len(phone) == 10 else "xxx"
 
@@ -221,7 +264,8 @@ def public_view(b: dict) -> dict:
         "owner_name": b["owner_name"],
         "phone": mask_phone(b["phone"]),
         "slot": b["slot"],
-        "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
+        "slot_label": _when(b),
+        "pets": b.get("pets", 1),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
@@ -344,7 +388,8 @@ def verify_view(b: dict) -> dict:
     return {
         "id": b["id"],
         "pet_name": b["pet_name"],
-        "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
+        "pets": b.get("pets", 1),
+        "slot_label": _when(b),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "pickup_time": (b.get("pickup") or {}).get("time"),
@@ -373,7 +418,7 @@ async def cancel_by_owner(booking_id, phone, owner_name, refund: dict, at=None) 
         refund={**info, "amount": b.get("amount_due", deposit()), "status": "pending", "requested_at": stamp},
     )
     await store.save(b)
-    await store.release_slot(b["slot"])
+    await _release(store, slots_used(b))
     logger.info("ลูกค้ายกเลิก %s ขอคืน %s บาท", b["id"], b["refund"]["amount"])
     return b
 
@@ -416,6 +461,7 @@ def admin_view(b: dict) -> dict:
         amount_due=b.get("amount_due", deposit()),
         refund=b.get("refund"),
         cancelled_by=b.get("cancelled_by"),
+        slots_used=[list(x) for x in slots_used(b)],
         created_at=b.get("created_at"),
         updated_at=b.get("updated_at"),
         next_status=sorted(TRANSITIONS.get(b["status"], set())),
@@ -453,7 +499,7 @@ async def set_status(booking_id: str, status: str) -> dict:
     await store.save(b)
     if status == "cancelled":
         # คืนช่องเวลาให้ลูกค้าคนอื่นจองได้ทันที (เลขสลิปยังถือว่าใช้แล้ว — มัดจำตามนโยบายร้าน)
-        await store.release_slot(b["slot"])
+        await _release(store, slots_used(b))
     logger.info("เปลี่ยนสถานะ %s → %s", booking_id, status)
     return admin_view(b)
 
@@ -508,8 +554,9 @@ def check_view(b: dict) -> dict:
     return {
         "id": b["id"],
         "pet_name": b["pet_name"],
+        "pets": b.get("pets", 1),
         "slot": b["slot"],
-        "slot_label": slots.slot_label(slots.parse_key(b["slot"])),
+        "slot_label": _when(b),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "status_hint": _hint(b),

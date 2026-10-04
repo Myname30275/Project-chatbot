@@ -19,7 +19,9 @@ REQUEST_TIMEOUT = httpx.Timeout(connect=5.0, write=10.0, read=120.0, pool=5.0)
 
 # สถานะที่ลองใหม่ได้: 429 = โดน rate limit (Typhoon ฟรีจำกัด 5 RPS / 200 RPM),
 # 5xx = ฝั่งผู้ให้บริการล่มชั่วคราว
-RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+# 422: Typhoon ตอบเป็นครั้งคราวตอนโหลดสูง ทั้งที่ payload เดิมส่งซ้ำแล้วผ่าน (ทดสอบ 4 ต.ค. 2569:
+# คำถามเดียวกัน 12 ครั้งผ่าน 12 ครั้ง แต่ในชุดทดสอบ 33 ข้อติดกันล้ม 3 ครั้ง) → ลองใหม่เหมือน 429/5xx
+RETRYABLE_STATUS = {422, 429, 500, 502, 503, 504}
 MAX_ATTEMPTS = 3
 BACKOFF_BASE = 1.0
 MAX_RETRY_WAIT = 5.0  # วินาที — เพดานของ Retry-After ที่ผู้ให้บริการสั่งให้รอ
@@ -37,6 +39,18 @@ class LLMConnectionError(Exception):
 
 def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {settings.LLM_API_KEY}"}
+
+
+def recent_history(history: list[dict[str, str]]) -> list[dict[str, str]]:
+    """ประวัติที่ส่งให้ LLM = N ข้อความล่าสุด (เริ่มที่ข้อความของลูกค้าเสมอ)
+
+    ส่งทั้งบทสนทนาไม่ได้: คุยยาว ๆ แล้ว prompt เกินขนาดที่โมเดลรับ Typhoon ตอบ 422 → ลูกค้าได้คำตอบว่าง
+    (พบ 4 ต.ค. 2569 จากชุดทดสอบที่เผลอใช้ session เดียวถามต่อกัน 27 ข้อ) · คำถามเรื่องร้านแทบไม่ต้องใช้
+    บริบทไกลกว่า 2–3 รอบ และผลวิเคราะห์รูป/ข้อมูลร้านถูกแนบใหม่ทุกครั้งอยู่แล้ว"""
+    recent = history[-settings.LLM_HISTORY_MESSAGES:] if settings.LLM_HISTORY_MESSAGES > 0 else []
+    while recent and recent[0].get("role") != "user":
+        recent = recent[1:]
+    return recent
 
 
 def _build_payload(
@@ -86,7 +100,7 @@ def _build_payload(
     )
     if extra_system:
         messages.append({"role": "system", "content": extra_system})
-    messages.extend(history)
+    messages.extend(recent_history(history))
     if context_blocks:
         # วางไว้ติดกับคำถามล่าสุด (หลัง history): ทดสอบจริงแล้วถ้าวางไว้ต้นบทสนทนา โมเดลเลือกใช้
         # ตารางราคาเต็มจาก RAG แทนราคาที่ระบบคำนวณจากรูปของน้องตัวนั้น

@@ -175,6 +175,21 @@ def no_size_info_reply(history: list[dict], message: str) -> str | None:
     return "\n".join(lines)
 
 
+_SIZE_LABELS = ("สุนัขเล็ก", "สุนัขกลาง", "สุนัขใหญ่")
+_ASKED_SIZE = ("กี่กิโล", "ส่งรูป", "น้ำหนักเท่าไหร่", "หนักเท่าไหร่", "แจ้งน้ำหนัก", "บอกน้ำหนัก", "ชั่งน้ำหนัก")
+WEIGHT_QUESTION = "น้องหนักกี่กิโลคะ หรือส่งรูปน้องมาให้น้องหอมประเมินไซส์ก็ได้ค่ะ"
+
+
+def weight_followup(message: str, reply: str) -> str | None:
+    """บอทไล่ราคาหลายขนาด (ยังไม่รู้ไซส์น้อง) แต่ไม่ได้ถามน้ำหนัก/ชวนส่งรูปปิดท้าย → เติมคำถามให้ด้วยโค้ด
+    prompt ข้อ 2 สั่งไว้แล้ว แต่ Typhoon ทำตามไม่ทุกรอบ (ชุดทดสอบ M2 ตก 1 ใน 4 รอบ)"""
+    if sum(label in reply for label in _SIZE_LABELS) < 2:
+        return None
+    if _WEIGHT_RE.search(message or "") or any(w in reply for w in _ASKED_SIZE):
+        return None
+    return WEIGHT_QUESTION
+
+
 async def respond_stream(
     session_id: str,
     message: str,
@@ -259,6 +274,10 @@ async def respond_stream(
             for sentence in out_guard.flush():
                 shown += sentence
                 yield {"delta": sentence}
+            followup = None if out_guard.blocked or has_pet_photo else weight_followup(message, shown)
+            if followup:
+                shown += "\n\n" + followup
+                yield {"delta": "\n\n" + followup}
         if out_guard.blocked:
             # ประโยคที่ไม่ผ่านไม่เคยถูกส่งออก — แทนคำตอบทั้งก้อนด้วย fallback
             shown = guard.output_fallback(out_guard.blocked_reason, session_id)

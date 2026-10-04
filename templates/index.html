@@ -304,6 +304,16 @@
             </label>
             <p class="field__error" data-error-for="pet_name"></p>
             <label class="field">
+              <span>จำนวนน้องที่พามา</span>
+              <select name="pets" id="bk-pets">
+                {% for n in range(1, catalog.booking.max_pets + 1) %}
+                <option value="{{ n }}">{{ n }} ตัว</option>
+                {% endfor %}
+              </select>
+            </label>
+            <p class="sheet__note">ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลได้ {{ catalog.booking.capacity_per_slot }} ตัวต่อชั่วโมง — พามามากกว่านั้น ระบบกันคิวชั่วโมงถัดไปให้ด้วย ไม่ต้องจองแยก</p>
+            <p class="field__error" data-error-for="pets"></p>
+            <label class="field">
               <span>ชื่อเจ้าของ</span>
               <input name="owner_name" maxlength="40" autocomplete="name" required />
             </label>
@@ -332,6 +342,7 @@
                 </span>
               </label>
               <div id="bk-pickup-box" class="pickup__box" hidden>
+                <p class="sheet__note">น้องสูงอายุหรือมีโรคประจำตัว ร้านไม่รับ-ส่ง รบกวนเจ้าของพามาเองนะคะ</p>
                 <div class="pickup__bar">
                   <span class="pickup__hint">แตะแผนที่หรือลากหมุดไปที่บ้าน</span>
                   <button type="button" class="btn btn--ghost btn--small" id="bk-locate">ใช้ตำแหน่งปัจจุบัน</button>

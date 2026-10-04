@@ -45,6 +45,19 @@ class QuoteTests(unittest.TestCase):
 
 
 class PromptTests(unittest.TestCase):
+    def test_only_recent_history_is_sent_to_the_llm(self):
+        # คุยยาว 40 รอบ: ส่งให้ LLM แค่ 12 ข้อความล่าสุด และเริ่มที่ข้อความของลูกค้า (กัน prompt เกินขนาด → 422)
+        history = []
+        for i in range(40):
+            history += [{"role": "user", "content": f"ถาม {i}"}, {"role": "assistant", "content": f"ตอบ {i}"}]
+        sent = llm_client.recent_history(history)
+        self.assertEqual(len(sent), 12)
+        self.assertEqual((sent[0]["role"], sent[0]["content"], sent[-1]["content"]), ("user", "ถาม 34", "ตอบ 39"))
+        self.assertEqual(llm_client.recent_history(history[:3]), history[:3])
+        payload = llm_client._build_payload(history, "คำถามใหม่", stream=False)
+        chat = [m for m in payload["messages"] if m["role"] != "system"]
+        self.assertEqual(len(chat), 13)  # 12 ข้อความย้อนหลัง + คำถามใหม่
+
     def test_system_prompt_has_rules_and_core_info_but_not_prices(self):
         p = prompt_builder.system_prompt()
         shop = pricing.load_catalog()["shop"]

@@ -54,7 +54,8 @@ async def get_slots():
         counts = await get_store().slot_counts(slots.all_keys())
     except StoreError as exc:
         return _error(503, str(exc))
-    return {"days": slots.availability(counts), "capacity": slots.config()["capacity_per_slot"]}
+    cfg = slots.config()
+    return {"days": slots.availability(counts), "capacity": cfg["capacity_per_slot"], "max_pets": cfg["max_pets"]}
 
 
 @router.get("/pickup")
@@ -79,6 +80,7 @@ async def post_booking(
     slot: str = Form(""),
     pet_photo: UploadFile | None = File(None),
     slip: UploadFile | None = File(None),
+    pets: str = Form("1"),
     want_pickup: str = Form(""),
     pickup_lat: str = Form(""),
     pickup_lng: str = Form(""),
@@ -86,14 +88,14 @@ async def post_booking(
 ):
     session_id, is_new = _resolve_session(request)
     ride = {"lat": pickup_lat, "lng": pickup_lng, "address": pickup_address} if want_pickup else None
-    resp = await _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride)
+    resp = await _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride, pets)
     if is_new:
         # ส่ง cookie กลับทุกกรณี (รวมตอน error) — ไม่งั้นคนที่จองไม่ผ่านจะได้ session ใหม่ทุกครั้งและหลุด rate limit
         _set_session_cookie(resp, session_id)
     return resp
 
 
-async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride) -> JSONResponse:
+async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_photo, slip, ride, pets) -> JSONResponse:
     if not _attempts.allow(session_id) or not _attempts_ip.allow(_client_ip(request)):
         return _error(429, "ส่งคำขอจองถี่เกินไป รอสักครู่แล้วลองใหม่นะคะ")
     try:
@@ -106,6 +108,7 @@ async def _create(request, session_id, pet_name, owner_name, phone, slot, pet_ph
             pet_photo=await _read(pet_photo),
             slip=await _read(slip),
             pickup=ride,
+            pets=pets,
         )
     except BookingError as exc:
         return _error(exc.status, exc.message, exc.field)

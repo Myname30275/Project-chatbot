@@ -167,6 +167,16 @@ class OutputGuardTests(unittest.TestCase):
         self.assertNotIn("ร้านอื่น", out)
         self.assertNotIn("แพร่เชื้อ", out)
 
+    def test_estimate_note_is_dropped_only_when_answer_has_no_price(self):
+        note = "เป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมากค่ะ"
+        no_price = OutputGuard()
+        out = "".join(no_price._release("น้องสูงอายุรับบริการได้ค่ะ\n" + note))
+        self.assertNotIn("ราคาประเมิน", out)
+        self.assertIn("รับบริการได้", out)
+        with_price = OutputGuard()
+        out = "".join(with_price._release("อาบน้ำสุนัขเล็ก 250 บาทค่ะ\n" + note))
+        self.assertIn("ราคาประเมินเบื้องต้น", out)
+
     def test_stream_of_safe_text_is_released_completely(self):
         text = "อาบน้ำสุนัขเล็ก 250 บาทค่ะ\nเป็นราคาประเมินเบื้องต้นค่ะ"
         g = OutputGuard()

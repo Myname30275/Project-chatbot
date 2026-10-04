@@ -76,6 +76,14 @@ class NoSizeInfoTests(unittest.TestCase):
         self.assertIn("750 บาท", reply)      # ตัดขนสุนัขใหญ่
         self.assertNotIn("250 บาท", reply)   # ไม่ปนราคาอาบน้ำ
 
+    def test_weight_question_is_added_when_bot_lists_sizes_but_forgets_to_ask(self):
+        listed = "อาบน้ำ + เป่าขน\n- สุนัขเล็ก: 250 บาท\n- สุนัขกลาง: 350 บาท\n- สุนัขใหญ่: 500 บาท"
+        self.assertEqual(assistant.weight_followup("อาบน้ำหมาเท่าไหร่คะ", listed), assistant.WEIGHT_QUESTION)
+        # ถามไปแล้ว / ลูกค้าบอกน้ำหนักแล้ว / ไม่ได้ไล่ราคาหลายขนาด → ไม่เติม
+        self.assertIsNone(assistant.weight_followup("อาบน้ำหมาเท่าไหร่คะ", listed + "\nน้องหนักกี่กิโลคะ"))
+        self.assertIsNone(assistant.weight_followup("หมาหนัก 8 กิโล อาบน้ำเท่าไหร่", listed))
+        self.assertIsNone(assistant.weight_followup("ตัดเล็บเท่าไหร่", "ตัดเล็บ 100 บาทค่ะ"))
+
     def test_normal_messages_are_not_affected(self):
         for message in ["น้องหนัก 8 กิโล", "ร้านเปิดกี่โมง", "ไม่รู้ว่าร้านอยู่ไหน", "อาบน้ำหมาเท่าไหร่",
                         "ไม่มีรูป แต่น้องหนัก 5 กิโล อาบน้ำเท่าไหร่"]:

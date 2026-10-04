@@ -142,7 +142,7 @@
     const flag = (b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "") +
       (b.pickup ? " 🚗" : "") + (refundPending(b) ? " 💸" : "");
     btn.innerHTML = '<span class="bk-chip__name"></span><span class="bk-chip__meta"></span>';
-    btn.querySelector(".bk-chip__name").textContent = b.pet_name + flag;
+    btn.querySelector(".bk-chip__name").textContent = b.pet_name + (b.pets > 1 ? ` ×${b.pets}` : "") + flag;
     btn.querySelector(".bk-chip__meta").textContent = b.status_label;
     btn.title = `${b.id} · ${b.owner_name} · ${b.status_label}${flag ? " · ต้องตรวจสลิปเอง" : ""}`;
     return btn;
@@ -182,8 +182,21 @@
         // คิวที่ยังนับอยู่ขึ้นก่อน คิวที่ยกเลิกแล้วต่อท้าย (จางลง)
         here.sort((a, b) => (a.status === "cancelled") - (b.status === "cancelled"));
         here.forEach((b) => cell.appendChild(chip(b)));
-        const active = here.filter((b) => b.status !== "cancelled").length;
-        if (active >= data.capacity) cell.classList.add("is-full");
+        // จองหลายตัวที่กินชั่วโมงถัดไป: แสดงชิป "ต่อ" ในชั่วโมงนั้นด้วย (กดเปิดรายละเอียดเดียวกัน)
+        const key = `${d}T${t}`;
+        (map[d] || []).forEach((b) => {
+          if (b.status === "cancelled" || b.slot === key) return;
+          if ((b.slots_used || []).some(([k]) => k === key)) {
+            const c = chip(b);
+            c.classList.add("bk-chip--cont");
+            c.querySelector(".bk-chip__meta").textContent = `ต่อจาก ${b.slot.slice(11)}`;
+            cell.appendChild(c);
+          }
+        });
+        // ช่องเต็ม = จำนวนช่างที่ถูกใช้ในชั่วโมงนี้ครบ (นับตามจำนวนน้อง ไม่ใช่จำนวนการจอง)
+        const used = (map[d] || []).filter((b) => b.status !== "cancelled").reduce((sum, b) =>
+          sum + (b.slots_used || [[b.slot, 1]]).filter(([k]) => k === key).reduce((x, [, u]) => x + u, 0), 0);
+        if (used >= data.capacity) cell.classList.add("is-full");
       }
     }
     board.innerHTML = "";
@@ -407,7 +420,7 @@
     [
       row("เลขจอง", b.id, "mono"),
       row("วันเวลา", b.slot_label),
-      row("น้อง", b.pet_name),
+      row("น้อง", b.pet_name + (b.pets > 1 ? ` (${b.pets} ตัว)` : "")),
       row("เจ้าของ", b.owner_name),
       row("เบอร์โทร", tel),
       ...pickupRows(b),

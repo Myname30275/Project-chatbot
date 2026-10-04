@@ -122,7 +122,7 @@
         <span class="check-item__badge"></span>
         <p class="check-item__hint"></p>
       </div>`;
-    el.querySelector(".check-item__pet").textContent = `น้อง${b.pet_name}`;
+    el.querySelector(".check-item__pet").textContent = `น้อง${b.pet_name}` + (b.pets > 1 ? ` (${b.pets} ตัว)` : "");
     el.querySelector(".check-item__when").textContent =
       b.slot_label + (b.pickup_time ? ` · ร้านไปรับน้อง ${b.pickup_time} น.` : "");
     el.querySelector(".check-item__id").textContent = `เลขจอง ${b.id}`;

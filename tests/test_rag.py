@@ -30,7 +30,7 @@ class ChunkerTests(unittest.TestCase):
 
     def test_every_faq_and_policy_section_is_a_chunk(self):
         ids = {c.id for c in build_chunks()}
-        self.assertTrue({f"faq:{i}" for i in range(1, 14)} <= ids)
+        self.assertTrue({f"faq:{i}" for i in range(1, 30)} <= ids)
         self.assertIn("policy:1", ids)
 
     def test_committed_index_matches_current_shop_data(self):

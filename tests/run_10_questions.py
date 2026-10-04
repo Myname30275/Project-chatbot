@@ -46,7 +46,11 @@ def ask(client: httpx.Client, question: str, retries: int = 2) -> dict:
     """ถาม 1 คำถาม — การเชื่อมต่อหลุดกลางทาง (เครือข่าย/serverless ตัดสตรีม) ลองใหม่ได้ retries ครั้ง"""
     for attempt in range(retries + 1):
         try:
-            return _ask_once(client, question)
+            got = _ask_once(client, question)
+            if got["answer"] or got["blocked"] or attempt == retries:
+                return got
+            print(f"  (คำตอบว่าง: {got['error'] or 'ไม่ทราบสาเหตุ'} — ลองใหม่)", flush=True)
+            time.sleep(3)
         except httpx.TransportError as exc:
             if attempt == retries:
                 raise
@@ -55,9 +59,10 @@ def ask(client: httpx.Client, question: str, retries: int = 2) -> dict:
 
 
 def _ask_once(client: httpx.Client, question: str) -> dict:
+    client.cookies.clear()  # แชทใหม่ทุกข้อ — ไม่งั้น session เดิมสะสมประวัติจากข้อก่อนหน้า
     start = time.perf_counter()
     first = None
-    text, blocked, actions, sources = "", None, [], []
+    text, blocked, actions, sources, error = "", None, [], [], None
     with client.stream("POST", f"{BASE}/api/v1/chat/stream", json={"message": question}) as r:
         r.raise_for_status()
         for line in r.iter_lines():
@@ -75,7 +80,9 @@ def _ask_once(client: httpx.Client, question: str) -> dict:
                 actions = ev["actions"]
             elif "knowledge" in ev:
                 sources = [s.get("title") or s.get("id") for s in ev["knowledge"]]
-    return dict(answer=text.strip(), blocked=blocked, actions=actions, sources=sources,
+            elif ev.get("error"):
+                error = ev.get("message") or "error"
+    return dict(answer=text.strip(), blocked=blocked, actions=actions, sources=sources, error=error,
                 first_token_s=round(first or 0, 2), total_s=round(time.perf_counter() - start, 2))
 
 

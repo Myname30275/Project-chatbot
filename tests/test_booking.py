@@ -186,6 +186,62 @@ class ServiceTests(unittest.TestCase):
         b = self.book(pet_name="ถั่ว​แดง\n\n", owner_name="  สม   ใจ ")
         self.assertEqual((b["pet_name"], b["owner_name"]), ("ถั่วแดง", "สม ใจ"))
 
+    # ---------- หลายตัวในการจองเดียว: ช่าง 2 คน ทำได้ 2 ตัว/ชั่วโมง ----------
+
+    def test_two_pets_take_the_whole_hour(self):
+        b = self.book(pets=2)
+        self.assertEqual((b["pets"], b["slots_used"]), (2, [[slot_at(), 2]]))
+        self.assertEqual(self.count(), 2)
+        self.analysis = good_slip(reference="REF002")
+        with self.assertRaises(BookingError) as ctx:
+            self.book()
+        self.assertEqual((ctx.exception.status, ctx.exception.field), (409, "slot"))
+
+    def test_three_pets_also_take_one_groomer_in_the_next_hour(self):
+        b = self.book(pets="3")
+        self.assertEqual(b["slots_used"], [[slot_at(10), 2], [slot_at(11), 1]])
+        self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (2, 1))
+        view = service.public_view(b)
+        self.assertEqual(view["pets"], 3)
+        self.assertIn("10:00–12:00 น.", view["slot_label"])
+        # ชั่วโมงถัดไปยังเหลือช่าง 1 คนให้คนอื่นจองได้
+        self.analysis = good_slip(reference="REF002")
+        self.book(slot=slot_at(11))
+        self.assertEqual(self.count(slot_at(11)), 2)
+
+    def test_cancelling_a_multi_pet_booking_releases_every_hour(self):
+        b = self.book(pets=4)
+        self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (2, 2))
+        run(service.set_status(b["id"], "cancelled"))
+        self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (0, 0))
+
+    def test_not_enough_room_in_next_hour_releases_everything(self):
+        self.book(slot=slot_at(11), pets=2)                     # 11:00 เต็มแล้ว
+        self.analysis = good_slip(reference="REF002")
+        with self.assertRaises(BookingError) as ctx:
+            self.book(slot=slot_at(10), pets=3)
+        self.assertIn("ว่างไม่พอสำหรับน้อง 3 ตัว", ctx.exception.message)
+        self.assertEqual(self.count(slot_at(10)), 0)            # ที่กันไว้ชั่วโมงแรกถูกคืน
+
+    def test_too_many_pets_for_the_last_slot_or_invalid_count(self):
+        with self.assertRaises(BookingError) as ctx:
+            self.book(slot=slot_at(16), pets=3)                 # 16:00 = คิวสุดท้าย ไม่มีชั่วโมงถัดไป
+        self.assertIn("ไม่ทัน", ctx.exception.message)
+        self.assertEqual(self.count(slot_at(16)), 0)
+        for bad in (0, 5, "abc"):
+            with self.subTest(pets=bad):
+                with self.assertRaises(BookingError) as ctx:
+                    self.book(pets=bad)
+                self.assertEqual(ctx.exception.field, "pets")
+
+    def test_old_bookings_without_pet_count_still_release_one_slot(self):
+        b = self.book()
+        del b["slots_used"], b["pets"]                          # การจองก่อนมีฟีเจอร์นี้
+        run(self.store.save(b))
+        run(service.set_status(b["id"], "cancelled"))
+        self.assertEqual(self.count(), 0)
+        self.assertEqual(service.public_view(b)["pets"], 1)
+
     def test_no_pickup_expects_deposit_only(self):
         b = self.book()
         self.assertIsNone(b["pickup"])

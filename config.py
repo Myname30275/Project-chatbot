@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     # ใส่ลง payload เฉพาะเมื่อมีค่า (ดู chatbot/llm_client.py::_build_payload)
     LLM_TEMPERATURE: float | None = None
     LLM_MAX_TOKENS: int | None = None
+    # จำนวนข้อความย้อนหลังที่ส่งให้ LLM ต่อ 1 คำถาม (12 = 6 รอบถาม-ตอบ) — ประวัติเต็มยังเก็บใน store ตามเดิม
+    LLM_HISTORY_MESSAGES: int = 12
 
     # อายุของประวัติบทสนทนาใน store ภายนอก (วินาที) ตั้งให้เท่าอายุ cookie = 7 วัน
     CONVERSATION_TTL_SECONDS: int = 60 * 60 * 24 * 7

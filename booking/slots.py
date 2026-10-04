@@ -71,6 +71,34 @@ def parse_slot(key: str, at: datetime | None = None) -> datetime | None:
     return dt if dt in day_slots(dt.date()) else None
 
 
+def plan(dt: datetime, pets: int) -> list[tuple[str, int]] | None:
+    """ช่องเวลาที่การจองนี้ใช้: [(key, จำนวนช่าง), ...] — ช่าง 1 คนทำ 1 ตัว/ชั่วโมง
+    1 ตัว = ช่าง 1 คน · 2 ตัว = ช่างเต็มชั่วโมงนั้น · ตัวที่ 3 ขึ้นไปใช้ชั่วโมงถัดไปต่อ
+    คืน None ถ้าชั่วโมงถัดไปเลยเวลารับคิวสุดท้ายของวัน"""
+    cap = config()["capacity_per_slot"]
+    hours = day_slots(dt.date())
+    if dt not in hours:
+        return None
+    i, left, out = hours.index(dt), pets, []
+    while left > 0:
+        if i >= len(hours):
+            return None
+        units = min(cap, left)
+        out.append((slot_key(hours[i]), units))
+        left -= units
+        i += 1
+    return out
+
+
+def range_label(dt: datetime, hours: int) -> str:
+    """เช่น "ส. 4 ต.ค. 2569 10:00–12:00 น." สำหรับการจองที่ใช้มากกว่า 1 ชั่วโมง"""
+    if hours <= 1:
+        return slot_label(dt)
+    dt = dt.astimezone(TZ)
+    end = dt + timedelta(minutes=config()["slot_minutes"] * hours)
+    return f"{day_label(dt.date())} {dt.strftime('%H:%M')}–{end.strftime('%H:%M')} น."
+
+
 def all_keys(at: datetime | None = None) -> list[str]:
     return [slot_key(s) for d in bookable_days(at) for s in day_slots(d)]
 

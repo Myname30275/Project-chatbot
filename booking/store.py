@@ -40,11 +40,11 @@ class StoreError(Exception):
 
 class BookingStore(ABC):
     @abstractmethod
-    async def reserve_slot(self, slot: str, capacity: int) -> bool:
-        """กันที่ 1 คิวในช่องเวลา — เต็มแล้วคืน False (ไม่นับเพิ่ม)"""
+    async def reserve_slot(self, slot: str, capacity: int, units: int = 1) -> bool:
+        """กันที่ units คิว (= จำนวนช่างที่ใช้) ในช่องเวลา — ไม่พอแล้วคืน False (ไม่นับเพิ่ม)"""
 
     @abstractmethod
-    async def release_slot(self, slot: str) -> None: ...
+    async def release_slot(self, slot: str, units: int = 1) -> None: ...
 
     @abstractmethod
     async def slot_counts(self, slots: list[str]) -> dict[str, int]: ...
@@ -109,14 +109,14 @@ class InMemoryBookingStore(BookingStore):
         self._phones: dict[str, list[str]] = {}
         self._images: dict[tuple[str, str], bytes] = {}
 
-    async def reserve_slot(self, slot, capacity):
-        if self._counts.get(slot, 0) >= capacity:
+    async def reserve_slot(self, slot, capacity, units=1):
+        if self._counts.get(slot, 0) + units > capacity:
             return False
-        self._counts[slot] = self._counts.get(slot, 0) + 1
+        self._counts[slot] = self._counts.get(slot, 0) + units
         return True
 
-    async def release_slot(self, slot):
-        self._counts[slot] = max(0, self._counts.get(slot, 0) - 1)
+    async def release_slot(self, slot, units=1):
+        self._counts[slot] = max(0, self._counts.get(slot, 0) - units)
 
     async def slot_counts(self, slots):
         return {s: self._counts.get(s, 0) for s in slots}
@@ -196,16 +196,16 @@ class RedisBookingStore(BookingStore):
             raise StoreError("ระบบจองขัดข้องชั่วคราว รบกวนลองใหม่อีกครั้ง")
         return body.get("result")
 
-    async def reserve_slot(self, slot, capacity):
-        n = int(await self._cmd("INCR", f"slotcount:{slot}"))
+    async def reserve_slot(self, slot, capacity, units=1):
+        n = int(await self._cmd("INCRBY", f"slotcount:{slot}", units))
         await self._cmd("EXPIRE", f"slotcount:{slot}", _TTL_COUNTER)
         if n > capacity:
-            await self._cmd("DECR", f"slotcount:{slot}")
+            await self._cmd("DECRBY", f"slotcount:{slot}", units)
             return False
         return True
 
-    async def release_slot(self, slot):
-        n = int(await self._cmd("DECR", f"slotcount:{slot}"))
+    async def release_slot(self, slot, units=1):
+        n = int(await self._cmd("DECRBY", f"slotcount:{slot}", units))
         if n < 0:  # กันตัวนับติดลบจากการคืนซ้ำ
             await self._cmd("SET", f"slotcount:{slot}", 0, "EX", _TTL_COUNTER)
 

@@ -116,8 +116,15 @@ def check_sentence(
 _DROP_RE = re.compile(r"ร้านอื่น|ร้านที่มีบริการ|ที่อื่นที่มีบริการ|ติดเชื้อ|แพร่เชื้อ|แพร่กระจาย|การแพร่")
 
 
+_PRICE_MENTION_RE = re.compile(r"\d\s*(บาท|baht|THB)", re.IGNORECASE)
+_ESTIMATE_NOTE_RE = re.compile(r"ราคาประเมินเบื้องต้น|estimated price", re.IGNORECASE)
+
+
+_LONE_PARTICLES = {"ค่ะ", "คะ", "นะคะ", "ครับ"}  # Typhoon บางรอบสตรีม "ค่ะ" ซ้ำท้ายคำตอบ ("…ได้ค่ะ ค่ะ")
+
+
 def droppable(sentence: str) -> bool:
-    return bool(_DROP_RE.search(sentence))
+    return bool(_DROP_RE.search(sentence)) or sentence.strip() in _LONE_PARTICLES
 
 
 def pii_from_user(texts: list[str]) -> set[str]:
@@ -150,6 +157,7 @@ class OutputGuard:
         self.extra_amounts = set(extra_amounts or ())
         self.pending = ""
         self.blocked_reason: str | None = None
+        self.said_price = False  # คำตอบมีตัวเลขราคา (… บาท / baht) แล้วหรือยัง
 
     @property
     def blocked(self) -> bool:
@@ -163,6 +171,12 @@ class OutputGuard:
                 self.blocked_reason = reason
                 return out
             if droppable(sentence):
+                continue
+            if _PRICE_MENTION_RE.search(sentence):
+                self.said_price = True
+            elif _ESTIMATE_NOTE_RE.search(sentence) and not self.said_price:
+                # prompt ให้พูดประโยคนี้เฉพาะคำตอบที่มีราคา แต่ Typhoon ติดพูดท้ายคำตอบที่ไม่มีราคาด้วย
+                # (ทดสอบ 4 ต.ค. 2569: คำถามเห็บหมัด/โรคประจำตัว) → ตัดทิ้งเฉพาะประโยค
                 continue
             out.append(sentence)
         return out
