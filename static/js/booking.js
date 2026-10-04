@@ -745,6 +745,27 @@
       b.textContent = "จองคิว";
       return b;
     },
+    // แชทตอบไม่ได้ (ไม่มีข้อมูลในคลังความรู้) → ติดต่อร้านโดยตรงได้ในปุ่มเดียว
+    call: () => {
+      const phone = document.body.dataset.shopPhone;
+      if (!phone) return null;
+      const a = document.createElement("a");
+      a.href = `tel:${phone.replace(/\D/g, "")}`;
+      a.className = "btn btn--small";
+      a.textContent = `โทรหาร้าน ${phone}`;
+      return a;
+    },
+    line: () => {
+      const id = document.body.dataset.shopLine;
+      if (!id) return null;
+      const a = document.createElement("a");
+      a.href = `https://line.me/R/ti/p/${id}`;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.className = "btn btn--small btn--ghost";
+      a.textContent = "แอด LINE ร้าน";
+      return a;
+    },
   };
 
   function addActions(bubble, list) {
@@ -752,7 +773,10 @@
     if (!wrap || wrap.querySelector(".book-cta")) return;
     const row = document.createElement("div");
     row.className = "book-cta chat-actions";
-    (list || []).forEach((name) => ACTION_BUTTONS[name] && row.appendChild(ACTION_BUTTONS[name]()));
+    (list || []).forEach((name) => {
+      const el = ACTION_BUTTONS[name] && ACTION_BUTTONS[name]();
+      if (el) row.appendChild(el);
+    });
     if (row.children.length) wrap.appendChild(row);
   }
 

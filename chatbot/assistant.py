@@ -278,8 +278,9 @@ async def respond_stream(
             session_id,
             history + [{"role": "user", "content": message}, {"role": "assistant", "content": shown}],
         )
-        suggested = actions.suggest(message, shown)
-        if suggested and not out_guard.blocked:
+        # คำตอบถูกแทนด้วย fallback (ด่าน 3) → ดูปุ่มจากข้อความ fallback อย่างเดียว (ปุ่มติดต่อร้าน)
+        suggested = actions.suggest("" if out_guard.blocked else message, shown)
+        if suggested:
             yield {"actions": suggested}
     yield {"done": True}
 

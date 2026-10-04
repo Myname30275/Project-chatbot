@@ -32,6 +32,17 @@ class SuggestTests(unittest.TestCase):
         self.assertEqual(actions.suggest("ขอบคุณค่ะ", 'กดปุ่ม "เช็คคิว" ได้เลยค่ะ'), ["check"])
         self.assertEqual(actions.suggest("โอเค", 'กดปุ่ม "จองคิว" ในแชทได้เลยค่ะ'), ["book"])
 
+    def test_no_data_answer_gets_contact_buttons(self):
+        from chatbot import prompt_builder
+
+        fallback = prompt_builder.fallback_message()
+        self.assertEqual(actions.suggest("ร้านมีที่จอดรถไหมคะ", fallback), ["call", "line"])
+        # ลูกค้าพูดถึงการจองด้วย แต่บอทตอบว่าไม่มีข้อมูล → ปุ่มติดต่อร้าน ไม่ใช่ปุ่มจอง
+        self.assertEqual(actions.suggest("จองแล้วจอดรถที่ไหนได้บ้าง", fallback), ["check", "call", "line"])
+        self.assertEqual(actions.suggest("หมาหนัก 200 กิโล", "รบกวนโทรสอบถามร้านโดยตรงที่ 02-000-0000 นะคะ"),
+                         ["call", "line"])
+        self.assertEqual(actions.suggest("ร้านเปิดกี่โมง", "เปิด 09:00–18:00 น. ค่ะ"), [])
+
     def test_lookup_request_detects_phone_or_booking_code(self):
         for message in ["0800600370", "080-060-0370 ค่ะ", "เบอร์ 0812345678 เช็คคิวให้หน่อย",
                         "HH-1004-01", "ยกเลิกคิว hh-1004-01"]:

@@ -50,8 +50,17 @@ def lookup_reply(channel: str = "web") -> str:
     )
 
 
+def contact_suggested(reply: str) -> bool:
+    """บอทบอกให้ติดต่อร้าน (ไม่มีข้อมูลในคลังความรู้ / น้ำหนักผิดปกติ / คำตอบถูกแทนด้วย fallback)
+    ดูจากเบอร์โทรหรือ LINE ของร้านในคำตอบ — ไม่ผูกกับถ้อยคำ จึงใช้ได้กับทุกข้อความที่แนะนำให้ติดต่อร้าน"""
+    from shop import pricing
+
+    contacts = pricing.load_catalog()["shop"]["contacts"]
+    return contacts["phone"] in (reply or "") or contacts["line"] in (reply or "")
+
+
 def suggest(message: str, reply: str = "") -> list[str]:
-    """ปุ่มที่ควรแสดงใต้คำตอบ เรียงตามความสำคัญ: "check" | "cancel" | "book" """
+    """ปุ่มที่ควรแสดงใต้คำตอบ เรียงตามความสำคัญ: "check" | "cancel" | "book" | "call" + "line" """
     text, said = message or "", reply or ""
     actions = []
     if CANCEL_WORDS.search(text) or "ยกเลิกคิว" in said:
@@ -60,4 +69,7 @@ def suggest(message: str, reply: str = "") -> list[str]:
         actions.insert(0, "check")
     if not actions and (BOOK_WORDS.search(text) or "จองคิว" in said):
         actions.append("book")
+    if contact_suggested(said):
+        # ถามเรื่องร้านที่แชทตอบไม่ได้ → ปุ่มโทร/แอด LINE (ถ้ามีปุ่มเช็คคิว/ยกเลิกอยู่แล้วให้ต่อท้าย · ไม่ปนกับปุ่มจอง)
+        actions = [a for a in actions if a != "book"] + ["call", "line"]
     return actions
