@@ -69,7 +69,7 @@ def clean_pets(value) -> int:
     except ValueError:
         n = 0
     if not 1 <= n <= limit:
-        raise BookingError(f"จองได้ครั้งละ 1–{limit} ตัว ถ้ามากกว่านี้รบกวนติดต่อร้านค่ะ", field="pets")
+        raise BookingError(f"จองได้ครั้งละ 1–{limit} ตัว ถ้ามากกว่านี้รบกวนจองแยกอีกคิวค่ะ", field="pets")
     return n
 
 
@@ -109,14 +109,23 @@ def deposit() -> int:
     return pricing.load_catalog()["payment"]["deposit"]
 
 
-def _due_text(due: int, fee: int) -> str:
-    return f"ยอดที่ต้องโอนคือ {due:,} บาท (มัดจำ {deposit()} + ค่ารับส่ง {fee})" if fee else f"ค่ามัดจำคือ {due:,} บาท"
+def amount_due(pets: int = 1, fee: int = 0) -> int:
+    """ยอดที่ลูกค้าต้องโอนตอนจอง = มัดจำต่อตัว × จำนวนน้อง + ค่ารับส่ง (เจ้าของร้านกำหนด 4 ต.ค. 2569)"""
+    return deposit() * pets + fee
 
 
-async def check_slip(data: bytes, mime: str, fee: int = 0) -> dict:
+def _due_text(pets: int, fee: int) -> str:
+    due = amount_due(pets, fee)
+    if pets == 1 and not fee:
+        return f"ค่ามัดจำคือ {due:,} บาท"
+    parts = f"มัดจำ {deposit()} × {pets} ตัว" if pets > 1 else f"มัดจำ {deposit()}"
+    return f"ยอดที่ต้องโอนคือ {due:,} บาท ({parts}{f' + ค่ารับส่ง {fee}' if fee else ''})"
+
+
+async def check_slip(data: bytes, mime: str, fee: int = 0, pets: int = 1) -> dict:
     """ตรวจสลิปด้วย Vision ตัวเดิม — ไม่ผ่านชัดเจนแล้ว raise · อ่านไม่ได้ = รับไว้ให้ร้านตรวจเอง
-    ยอดที่ต้องตรงกับสลิป = มัดจำ + ค่ารับส่ง (0 ถ้าไม่ได้ติ๊กรับ-ส่ง)"""
-    due = deposit() + fee
+    ยอดที่ต้องตรงกับสลิป = มัดจำ × จำนวนน้อง + ค่ารับส่ง (0 ถ้าไม่ได้ติ๊กรับ-ส่ง)"""
+    due = amount_due(pets, fee)
     try:
         analysis = await image_analyzer.analyze(data, mime)
     except VisionError as exc:
@@ -128,7 +137,7 @@ async def check_slip(data: bytes, mime: str, fee: int = 0) -> dict:
     slip = analysis.slip
     if slip.amount is not None and slip.amount != due:
         raise BookingError(
-            f"ยอดในสลิปคือ {slip.amount:,.0f} บาท แต่{_due_text(due, fee)} รบกวนตรวจสอบสลิปอีกครั้ง",
+            f"ยอดในสลิปคือ {slip.amount:,.0f} บาท แต่{_due_text(pets, fee)} รบกวนตรวจสอบสลิปอีกครั้ง",
             field="slip",
         )
     receiver = slip_check.receiver_matches(slip.receiver_name)
@@ -191,7 +200,7 @@ async def create(
 
     reference = None
     try:
-        slip_info = await check_slip(slip, slip_mime, ride["fee"] if ride else 0)
+        slip_info = await check_slip(slip, slip_mime, ride["fee"] if ride else 0, pets)
         seq = await store.next_seq(dt.strftime("%Y%m%d"))
         booking_id = f"HH-{dt:%m%d}-{seq:02d}"
         if slip_info["reference"]:
@@ -213,7 +222,7 @@ async def create(
             "status": "pending",
             "slip": slip_info,
             "pickup": ride,
-            "amount_due": deposit() + (ride["fee"] if ride else 0),
+            "amount_due": amount_due(pets, ride["fee"] if ride else 0),
             "created_at": created,
             "updated_at": created,
         }

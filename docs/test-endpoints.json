@@ -1,7 +1,7 @@
 {
   "base_url": "https://hom-hom-grooming.vercel.app",
   "mode": "safe",
-  "tested_at": "2026-10-04T22:25:48+07:00",
+  "tested_at": "2026-10-04T23:05:30+07:00",
   "results": [
     {
       "group": "หน้าเว็บ",
@@ -11,7 +11,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.42,
+      "seconds": 0.62,
       "note": ""
     },
     {
@@ -22,7 +22,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.29,
+      "seconds": 0.35,
       "note": ""
     },
     {
@@ -33,7 +33,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.29,
+      "seconds": 0.32,
       "note": ""
     },
     {
@@ -55,7 +55,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.27,
+      "seconds": 0.34,
       "note": ""
     },
     {
@@ -77,7 +77,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.58,
+      "seconds": 0.57,
       "note": ""
     },
     {
@@ -88,8 +88,8 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 3.46,
-      "note": "ตอบ: เปิดตั้งแต่ 09:00 – 18:00 น.   รับคิวสุดท้ายเวลา 1"
+      "seconds": 2.86,
+      "note": "ตอบ: เปิดตั้งแต่ 09:00 น. ถึง 18:00 น.   รับคิวสุดท้ายเ"
     },
     {
       "group": "แชท",
@@ -99,7 +99,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 3.2,
+      "seconds": 2.89,
       "note": "SSE 4 events"
     },
     {
@@ -110,7 +110,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.53,
+      "seconds": 0.55,
       "note": "4 ข้อความ"
     },
     {
@@ -121,7 +121,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.76,
+      "seconds": 0.77,
       "note": ""
     },
     {
@@ -138,23 +138,23 @@
     {
       "group": "แชท",
       "method": "POST",
-      "path": "/api/v1/conversations/5042639672d2/activate",
+      "path": "/api/v1/conversations/283d0a0f21bc/activate",
       "what": "สลับบทสนทนา",
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 1.35,
+      "seconds": 1.31,
       "note": ""
     },
     {
       "group": "แชท",
       "method": "DELETE",
-      "path": "/api/v1/conversations/5042639672d2",
+      "path": "/api/v1/conversations/283d0a0f21bc",
       "what": "ลบบทสนทนา",
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 1.01,
+      "seconds": 1.22,
       "note": ""
     },
     {
@@ -165,7 +165,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.77,
+      "seconds": 0.79,
       "note": ""
     },
     {
@@ -176,7 +176,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 13.28,
+      "seconds": 15.29,
       "note": "ตอบ: น้องสุนัข (Chihuahua) ดูจากรูปเป็นสุนัขเล็ก (< 10 "
     },
     {
@@ -187,7 +187,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.53,
+      "seconds": 0.54,
       "note": "1 ไฟล์"
     },
     {
@@ -198,7 +198,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 1.05,
+      "seconds": 1.09,
       "note": ""
     },
     {
@@ -209,7 +209,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.29,
+      "seconds": 0.27,
       "note": "enabled=True"
     },
     {
@@ -220,8 +220,8 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.94,
-      "note": "เสียง 67 KB"
+      "seconds": 0.78,
+      "note": "เสียง 63 KB"
     },
     {
       "group": "LINE",
@@ -242,7 +242,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.3,
+      "seconds": 0.28,
       "note": ""
     },
     {
@@ -253,7 +253,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.53,
+      "seconds": 0.52,
       "note": "14 วัน"
     },
     {
@@ -264,7 +264,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.28,
+      "seconds": 0.27,
       "note": ""
     },
     {
@@ -286,7 +286,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.29,
+      "seconds": 0.31,
       "note": ""
     },
     {
@@ -297,7 +297,7 @@
       "expected": "422",
       "status": 422,
       "ok": true,
-      "seconds": 0.27,
+      "seconds": 0.26,
       "note": ""
     },
     {
@@ -330,7 +330,7 @@
       "expected": "200",
       "status": 200,
       "ok": true,
-      "seconds": 0.53,
+      "seconds": 0.52,
       "note": "0 คิว"
     },
     {
@@ -341,7 +341,7 @@
       "expected": "404",
       "status": 404,
       "ok": true,
-      "seconds": 0.81,
+      "seconds": 0.8,
       "note": ""
     },
     {
@@ -352,7 +352,7 @@
       "expected": "404",
       "status": 404,
       "ok": true,
-      "seconds": 0.76,
+      "seconds": 0.78,
       "note": ""
     },
     {
@@ -374,7 +374,7 @@
       "expected": "303",
       "status": 303,
       "ok": true,
-      "seconds": 0.28,
+      "seconds": 0.27,
       "note": "ไป /admin?e=wrong"
     },
     {
@@ -396,7 +396,7 @@
       "expected": "401",
       "status": 401,
       "ok": true,
-      "seconds": 0.28,
+      "seconds": 0.27,
       "note": ""
     },
     {
@@ -407,7 +407,7 @@
       "expected": "401",
       "status": 401,
       "ok": true,
-      "seconds": 0.28,
+      "seconds": 0.29,
       "note": ""
     },
     {
@@ -418,7 +418,7 @@
       "expected": "401",
       "status": 401,
       "ok": true,
-      "seconds": 0.28,
+      "seconds": 0.26,
       "note": ""
     },
     {
@@ -429,7 +429,7 @@
       "expected": "401",
       "status": 401,
       "ok": true,
-      "seconds": 0.3,
+      "seconds": 0.27,
       "note": ""
     },
     {

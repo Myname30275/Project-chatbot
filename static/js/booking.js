@@ -246,8 +246,12 @@
     const fee = pickupFee();
     dueEl.innerHTML = "";
     const b = document.createElement("b");
-    b.textContent = `${DEPOSIT + fee} บาท`;
-    if (fee) dueEl.append("ยอด ", b, ` (มัดจำ ${DEPOSIT} + ค่ารับส่ง ${fee})`);
+    // มัดจำคิดต่อตัว: 50 บาท × จำนวนน้อง (+ ค่ารับส่ง) — เซิร์ฟเวอร์ใช้สูตรเดียวกันตรวจสลิป
+    const n = petCount();
+    b.textContent = `${DEPOSIT * n + fee} บาท`;
+    const deposit = n > 1 ? `มัดจำ ${DEPOSIT} × ${n} ตัว` : `มัดจำ ${DEPOSIT}`;
+    if (fee) dueEl.append("ยอด ", b, ` (${deposit} + ค่ารับส่ง ${fee})`);
+    else if (n > 1) dueEl.append("ยอด ", b, ` (${deposit})`);
     else dueEl.append("มัดจำ ", b);
   }
 

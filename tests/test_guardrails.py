@@ -177,6 +177,43 @@ class OutputGuardTests(unittest.TestCase):
         out = "".join(with_price._release("อาบน้ำสุนัขเล็ก 250 บาทค่ะ\n" + note))
         self.assertIn("ราคาประเมินเบื้องต้น", out)
 
+    def test_english_sentences_use_baht_not_thai_unit(self):
+        g = OutputGuard()
+        out = "".join(g._release("A bath for a small dog costs 250 บาท.\nอาบน้ำสุนัขเล็ก 250 บาทค่ะ"))
+        self.assertIn("costs 250 baht.", out)
+        self.assertIn("สุนัขเล็ก 250 บาทค่ะ", out)  # ประโยคไทยไม่ถูกแตะ
+
+    def test_bot_cannot_claim_a_slot_is_free_or_full(self):
+        from guardrails.output_guard import droppable
+
+        for claim in ["พรุ่งนี้เวลา 10:00 น. มีคิวว่างค่ะ", "วันเสาร์ 14:00 น. ยังว่างอยู่ค่ะ", "พรุ่งนี้ 10 โมงว่างค่ะ",
+                      "วันเสาร์คิวเต็มแล้วค่ะ"]:
+            with self.subTest(claim=claim):
+                self.assertTrue(droppable(claim))
+        for fine in ["walk-in ได้ถ้ามีคิวว่างค่ะ", "เลือกวันเวลาที่ว่าง แล้วแนบสลิปมัดจำ 50 บาท",
+                     "ระบบจะแสดงช่องที่ว่างจริงให้เลือกค่ะ", "ร้านเปิดวันอังคาร–อาทิตย์ 09:00–18:00 น. ค่ะ",
+                     "รับคิวสุดท้าย 16:00 น. ค่ะ"]:
+            with self.subTest(fine=fine):
+                self.assertFalse(droppable(fine))
+
+    def test_trailing_no_data_message_after_a_real_answer_becomes_contact_line(self):
+        fallback = "ขออภัยค่ะ เรื่องนี้น้องหอมยังไม่มีข้อมูล รบกวนสอบถามแอดมินทาง LINE @103fgxwt หรือโทร 02-000-0000 นะคะ"
+        answered = "ร้านใช้แชมพูและผลิตภัณฑ์แบรนด์ Bio-Groom ค่ะ\nวันจันทร์ร้านปิดตามวันหยุดประจำร้านค่ะ\n" + fallback
+        g = OutputGuard()
+        out = "".join([s for ch in answered for s in g.feed(ch)] + g.flush())
+        self.assertIn("Bio-Groom", out)
+        self.assertNotIn("ยังไม่มีข้อมูล", out)       # ไม่ขัดกับคำตอบที่เพิ่งตอบไป
+        self.assertNotIn("ขออภัย", out)
+        self.assertIn("02-000-0000", out)              # ยังบอกช่องทางติดต่อร้าน
+        # คำตอบที่เป็นข้อความไม่มีข้อมูลล้วน ๆ ต้องออกครบเหมือนเดิม
+        g = OutputGuard()
+        out = "".join([s for ch in fallback for s in g.feed(ch)] + g.flush())
+        self.assertEqual(out, fallback)
+        # คำขอโทษนำหน้าคำตอบปกติไม่หาย
+        g = OutputGuard()
+        text = "ขออภัยค่ะ ร้านไม่มีบริการฝากเลี้ยงค้างคืนค่ะ"
+        self.assertEqual("".join([s for ch in text for s in g.feed(ch)] + g.flush()), text)
+
     def test_stream_of_safe_text_is_released_completely(self):
         text = "อาบน้ำสุนัขเล็ก 250 บาทค่ะ\nเป็นราคาประเมินเบื้องต้นค่ะ"
         g = OutputGuard()

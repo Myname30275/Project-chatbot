@@ -25,6 +25,7 @@ from functools import lru_cache
 from shop import pricing
 
 _THAI_DIGITS = str.maketrans("๐๑๒๓๔๕๖๗๘๙", "0123456789")
+_THAI_RE = re.compile(r"[ก-๛]")
 
 _BAHT_RE = re.compile(r"(\d{1,3}(?:,\d{3})+|\d+)(?:\.(\d+))?\s*(?:บาท|฿|baht)", re.IGNORECASE)
 _BAHT_PREFIX_RE = re.compile(r"฿\s*(\d{1,3}(?:,\d{3})+|\d+)")
@@ -123,8 +124,28 @@ _ESTIMATE_NOTE_RE = re.compile(r"ราคาประเมินเบื้�
 _LONE_PARTICLES = {"ค่ะ", "คะ", "นะคะ", "ครับ"}  # Typhoon บางรอบสตรีม "ค่ะ" ซ้ำท้ายคำตอบ ("…ได้ค่ะ ค่ะ")
 
 
+_APOLOGY_RE = re.compile(r"ขออภัย(ด้วย)?(นะ)?(ค่ะ|คะ|ครับ)")
+_NO_DATA_RE = re.compile(r"ยังไม่มีข้อมูล")
+_ANSWERED_CHARS = 30  # ปล่อยเนื้อหาไปแล้วเกินนี้ = บอทตอบคำถามได้แล้ว
+
+
+def _contact_tail() -> str:
+    c = pricing.load_catalog()["shop"]["contacts"]
+    return f"\nหากมีข้อสงสัยเพิ่มเติม สอบถามร้านได้ทาง LINE {c['line']} หรือโทร {c['phone']} นะคะ"
+
+
+# บอทยืนยันเองว่าเวลานั้นว่าง/เต็ม — แชทไม่เห็นตารางคิวจริง (prompt ต้องทำข้อ 5 ห้ามไว้ แต่หลุดเป็นบางรอบ:
+# "พรุ่งนี้เวลา 10:00 น. มีคิวว่างค่ะ") · ไม่จับประโยคเงื่อนไข เช่น "walk-in ได้ถ้ามีคิวว่าง", "เลือกวันเวลาที่ว่าง"
+_AVAILABILITY_RE = re.compile(
+    r"(?<!ถ้า)(?<!หาก)(?<!เมื่อ)(?<!ที่)มีคิวว่าง(ค่ะ|นะคะ|ครับ|อยู่)"
+    r"|(?<!มี)คิวว่าง(ค่ะ|นะคะ|ครับ|อยู่)"
+    r"|(เวลา|โมง|น\.|วัน)[^\n]{0,25}(?<!ที่)(ยังว่าง|ว่างอยู่|ว่างค่ะ|ว่างนะคะ|เต็มแล้ว|คิวเต็ม)"
+)
+
+
 def droppable(sentence: str) -> bool:
-    return bool(_DROP_RE.search(sentence)) or sentence.strip() in _LONE_PARTICLES
+    return (bool(_DROP_RE.search(sentence)) or bool(_AVAILABILITY_RE.search(sentence))
+            or sentence.strip() in _LONE_PARTICLES)
 
 
 def pii_from_user(texts: list[str]) -> set[str]:
@@ -158,6 +179,8 @@ class OutputGuard:
         self.pending = ""
         self.blocked_reason: str | None = None
         self.said_price = False  # คำตอบมีตัวเลขราคา (… บาท / baht) แล้วหรือยัง
+        self.released = 0        # จำนวนตัวอักษรเนื้อหาที่ปล่อยไปแล้ว
+        self.held = ""           # "ขออภัยค่ะ" ที่รอดูว่าประโยคถัดไปเป็นข้อความไม่มีข้อมูลหรือไม่
 
     @property
     def blocked(self) -> bool:
@@ -178,8 +201,37 @@ class OutputGuard:
                 # prompt ให้พูดประโยคนี้เฉพาะคำตอบที่มีราคา แต่ Typhoon ติดพูดท้ายคำตอบที่ไม่มีราคาด้วย
                 # (ทดสอบ 4 ต.ค. 2569: คำถามเห็บหมัด/โรคประจำตัว) → ตัดทิ้งเฉพาะประโยค
                 continue
-            out.append(sentence)
+            self._emit(out, sentence)
         return out
+
+    def _emit(self, out: list[str], sentence: str) -> None:
+        """ปล่อยประโยคที่ผ่านแล้ว — ยกเว้น fallback "ยังไม่มีข้อมูล" ที่ Typhoon ติดต่อท้ายคำตอบที่ตอบได้แล้ว
+        (ทดสอบ 4 ต.ค. 2569: ตอบเรื่องโรคประจำตัว/ยี่ห้อแชมพูถูกแล้ว แต่ปิดด้วย "เรื่องนี้น้องหอมยังไม่มีข้อมูล")
+        ลูกค้าจะงงว่าตกลงมีข้อมูลหรือไม่ → แทนด้วยประโยคชวนติดต่อร้านถ้ามีข้อสงสัยเพิ่ม"""
+        core = sentence.strip()
+        if not core:
+            if self.held:
+                self.held += sentence
+            else:
+                out.append(sentence)
+            return
+        if _APOLOGY_RE.fullmatch(core):
+            if self.held:
+                out.append(self.held)
+            self.held = sentence
+            return
+        if _NO_DATA_RE.search(core) and self.released >= _ANSWERED_CHARS:
+            self.held = ""
+            out.append(_contact_tail())
+            return
+        if self.held:
+            out.append(self.held)
+            self.held = ""
+        # ประโยคภาษาอังกฤษที่ยังเขียนหน่วยเป็น "บาท" (prompt สั่งให้ใช้ baht แต่ทำตามไม่ทุกรอบ) → แปลงหน่วยให้
+        if "บาท" in sentence and re.search(r"[A-Za-z]{3,}", sentence) and not _THAI_RE.search(sentence.replace("บาท", "")):
+            sentence = sentence.replace("บาท", "baht")
+        out.append(sentence)
+        self.released += len(core)
 
     def feed(self, delta: str) -> list[str]:
         """รับข้อความที่สตรีมเข้ามา คืนส่วนที่ครบประโยคและตรวจผ่านแล้ว (พร้อมส่งให้ลูกค้า)"""
@@ -202,7 +254,11 @@ class OutputGuard:
         if self.blocked:
             return []
         ready, self.pending = self.pending, ""
-        return self._release(ready)
+        out = self._release(ready)
+        if self.held and not self.blocked:
+            out.append(self.held)
+            self.held = ""
+        return out
 
     def check_text(self, text: str) -> str | None:
         """โหมดไม่สตรีม: คืนเหตุผลที่ไม่ผ่าน หรือ None"""

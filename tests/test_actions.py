@@ -32,6 +32,10 @@ class SuggestTests(unittest.TestCase):
         self.assertEqual(actions.suggest("ขอบคุณค่ะ", 'กดปุ่ม "เช็คคิว" ได้เลยค่ะ'), ["check"])
         self.assertEqual(actions.suggest("โอเค", 'กดปุ่ม "จองคิว" ในแชทได้เลยค่ะ'), ["book"])
 
+    def test_book_button_always_shows_when_bot_says_press_it(self):
+        reply = 'กดปุ่ม "จองคิว" ในแชทได้เลยค่ะ หากต้องการเช็คสถานะ กดปุ่ม "เช็คคิว" ได้เลยค่ะ'
+        self.assertEqual(actions.suggest("พรุ่งนี้ 10 โมงว่างไหม จองให้หน่อยนะ", reply), ["book", "check"])
+
     def test_no_data_answer_gets_contact_buttons(self):
         from chatbot import prompt_builder
 

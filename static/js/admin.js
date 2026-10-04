@@ -424,7 +424,8 @@
       row("เจ้าของ", b.owner_name),
       row("เบอร์โทร", tel),
       ...pickupRows(b),
-      row("ยอดที่ต้องโอน", b.pickup ? `${baht(b.amount_due)} (มัดจำ + ค่ารับส่ง ${baht(b.pickup.fee)})` : baht(b.amount_due)),
+      row("ยอดที่ต้องโอน", baht(b.amount_due) + (b.pets > 1 || b.pickup
+        ? ` (มัดจำ${b.pets > 1 ? ` × ${b.pets} ตัว` : ""}${b.pickup ? ` + ค่ารับส่ง ${baht(b.pickup.fee)}` : ""})` : "")),
       row("สลิป", slipText(b.slip, b.amount_due)),
       row("เลขอ้างอิงสลิป", (b.slip && b.slip.reference) || "—", "mono"),
       row("จองเมื่อ", (b.created_at || "").replace("T", " ").slice(0, 16)),

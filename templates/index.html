@@ -137,7 +137,7 @@
           <article class="visit__card">
             <h3>การจองและมัดจำ</h3>
             <ul>
-              <li>โอนมัดจำ {{ catalog.payment.deposit }} บาทตอนจอง หักจากค่าบริการวันที่มารับบริการ</li>
+              <li>โอนมัดจำ {{ catalog.payment.deposit }} บาทต่อตัวตอนจอง หักจากค่าบริการวันที่มารับบริการ</li>
               <li>ยกเลิกเองได้ก่อนนัดอย่างน้อย 3 ชั่วโมง ร้านโอนคืนให้ ช้ากว่านั้นร้านขอเก็บมัดจำ</li>
               <li>ร้านตรวจยอดโอนแล้วยืนยันคิวให้ ดูสถานะได้ที่หน้าเช็คคิว</li>
             </ul>
@@ -311,7 +311,7 @@
                 {% endfor %}
               </select>
             </label>
-            <p class="sheet__note">ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลได้ {{ catalog.booking.capacity_per_slot }} ตัวต่อชั่วโมง — พามามากกว่านั้น ระบบกันคิวชั่วโมงถัดไปให้ด้วย ไม่ต้องจองแยก</p>
+            <p class="sheet__note">ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลได้ {{ catalog.booking.capacity_per_slot }} ตัวต่อชั่วโมง — 3–{{ catalog.booking.max_pets }} ตัว ระบบกันคิวชั่วโมงถัดไปให้ด้วย · มัดจำ {{ catalog.payment.deposit }} บาทต่อตัว · เกิน {{ catalog.booking.max_pets }} ตัวรบกวนจองแยกอีกคิว</p>
             <p class="field__error" data-error-for="pets"></p>
             <label class="field">
               <span>ชื่อเจ้าของ</span>

@@ -188,7 +188,25 @@ class ServiceTests(unittest.TestCase):
 
     # ---------- หลายตัวในการจองเดียว: ช่าง 2 คน ทำได้ 2 ตัว/ชั่วโมง ----------
 
+    def test_deposit_is_per_pet(self):
+        # สลิป 50 บาทกับการจอง 3 ตัว → ปฏิเสธ บอกยอดที่ถูก (50 × 3) แล้วคืนช่องเวลา
+        with self.assertRaises(BookingError) as ctx:
+            self.book(pets=3)
+        self.assertIn("150 บาท", ctx.exception.message)
+        self.assertIn("มัดจำ 50 × 3 ตัว", ctx.exception.message)
+        self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (0, 0))
+        self.analysis = good_slip(amount=150.0)
+        b = self.book(pets=3)
+        self.assertEqual(b["amount_due"], 150)
+        self.assertTrue(b["slip"]["auto_ok"])
+        # มีรับ-ส่งด้วย: 50 × 2 + ค่ารับส่ง 150
+        self.analysis = good_slip(amount=250.0, reference="REF002")
+        ride = dict(lat=SHOP_LAT, lng=east_of_shop(2), address="บ้านเลขที่ 9")
+        b2 = self.book(pets=2, slot=slot_at(13), pickup=ride)
+        self.assertEqual(b2["amount_due"], 250)
+
     def test_two_pets_take_the_whole_hour(self):
+        self.analysis = good_slip(amount=100.0)
         b = self.book(pets=2)
         self.assertEqual((b["pets"], b["slots_used"]), (2, [[slot_at(), 2]]))
         self.assertEqual(self.count(), 2)
@@ -198,6 +216,7 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual((ctx.exception.status, ctx.exception.field), (409, "slot"))
 
     def test_three_pets_also_take_one_groomer_in_the_next_hour(self):
+        self.analysis = good_slip(amount=150.0)
         b = self.book(pets="3")
         self.assertEqual(b["slots_used"], [[slot_at(10), 2], [slot_at(11), 1]])
         self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (2, 1))
@@ -210,14 +229,16 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.count(slot_at(11)), 2)
 
     def test_cancelling_a_multi_pet_booking_releases_every_hour(self):
+        self.analysis = good_slip(amount=200.0)
         b = self.book(pets=4)
         self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (2, 2))
         run(service.set_status(b["id"], "cancelled"))
         self.assertEqual((self.count(slot_at(10)), self.count(slot_at(11))), (0, 0))
 
     def test_not_enough_room_in_next_hour_releases_everything(self):
+        self.analysis = good_slip(amount=100.0)
         self.book(slot=slot_at(11), pets=2)                     # 11:00 เต็มแล้ว
-        self.analysis = good_slip(reference="REF002")
+        self.analysis = good_slip(amount=150.0, reference="REF002")
         with self.assertRaises(BookingError) as ctx:
             self.book(slot=slot_at(10), pets=3)
         self.assertIn("ว่างไม่พอสำหรับน้อง 3 ตัว", ctx.exception.message)

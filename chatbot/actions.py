@@ -67,9 +67,14 @@ def suggest(message: str, reply: str = "") -> list[str]:
         actions.append("cancel")
     if CHECK_WORDS.search(text) or "เช็คคิว" in said or lookup_request(text):
         actions.insert(0, "check")
-    if not actions and (BOOK_WORDS.search(text) or "จองคิว" in said):
+    if 'กดปุ่ม "จองคิว"' in said or 'ปุ่ม "จองคิว"' in said:
+        actions.insert(0, "book")  # บอทบอกให้กดปุ่มจอง → ต้องมีปุ่มจองเสมอ (ขึ้นก่อนปุ่มอื่น)
+    elif not actions and (BOOK_WORDS.search(text) or "จองคิว" in said):
         actions.append("book")
     if contact_suggested(said):
-        # ถามเรื่องร้านที่แชทตอบไม่ได้ → ปุ่มโทร/แอด LINE (ถ้ามีปุ่มเช็คคิว/ยกเลิกอยู่แล้วให้ต่อท้าย · ไม่ปนกับปุ่มจอง)
-        actions = [a for a in actions if a != "book"] + ["call", "line"]
+        # ถามเรื่องร้านที่แชทตอบไม่ได้ → ปุ่มโทร/แอด LINE (ถ้ามีปุ่มเช็คคิว/ยกเลิกอยู่แล้วให้ต่อท้าย)
+        # คำตอบ "ยังไม่มีข้อมูล" ล้วน ๆ ไม่ปนกับปุ่มจอง
+        if "ยังไม่มีข้อมูล" in said:
+            actions = [a for a in actions if a != "book"]
+        actions += ["call", "line"]
     return actions
