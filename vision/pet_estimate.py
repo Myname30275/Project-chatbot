@@ -58,10 +58,15 @@ def estimate_text(analysis: ImageAnalysis) -> str:
     ]
     for i, a in enumerate(animals, 1):
         lines += _describe_animal(i, a)
-    if any(a.species in ("dog", "cat") and not a.wound for a in animals):
+    if any(a.species == "dog" and not a.wound for a in animals):
         lines.append(
             "หมายเหตุสำหรับตอบลูกค้า: ขนาดประเมินจากรูปเท่านั้น ให้ขอน้ำหนักจริงของน้องเพื่อยืนยัน "
             "และแจ้งว่าเป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างาน"
+        )
+    elif any(a.species == "cat" and not a.wound for a in animals):
+        lines.append(
+            "หมายเหตุสำหรับตอบลูกค้า: แมวราคาเดียวทุกขนาด ไม่ต้องขอน้ำหนัก "
+            "แจ้งว่าเป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างาน"
         )
     return "\n".join(lines)
 
@@ -86,8 +91,11 @@ def _animal_reply(a: Animal) -> str:
     bath = pricing.quote("bath", size_key, addons)
     groom = pricing.quote("full_groom", size_key, addons)
     breed = f" ({a.breed_guess})" if a.breed_guess else ""
+    # แมวราคาเดียวทุกขนาด — ไม่ต้องบอก "ดูจากรูปเป็นแมว" ซ้ำกับชื่อชนิด
+    head = (f"น้อง{name}{breed} ค่ะ ราคาแมวเท่ากันทุกขนาด" if a.species == "cat"
+            else f"น้อง{name}{breed} ดูจากรูปเป็น{size_text}ค่ะ")
     lines = [
-        f"น้อง{name}{breed} ดูจากรูปเป็น{size_text}ค่ะ",
+        head,
         f"- อาบน้ำ + เป่าขน {_range(bath)}",
         f"- ตัดขนทั้งตัว (รวมอาบน้ำ) {_range(groom)}",
     ]
@@ -108,8 +116,11 @@ def customer_reply(analysis: ImageAnalysis) -> str:
         parts.append(f"ตัวที่ {i}: {text}" if len(animals) > 1 else text)
     if any(a.species in ("dog", "cat") and not a.wound and (a.species == "cat" or a.size in _SIZE_TH)
            for a in animals):
+        # ขอน้ำหนักเฉพาะเมื่อมีสุนัข (ราคาขึ้นกับขนาด) — แมวราคาเดียว ไม่ต้องขอ
+        needs_weight = any(a.species == "dog" and not a.wound and a.size in _SIZE_TH for a in animals)
         parts.append(
-            "ราคานี้ประเมินจากรูปเบื้องต้นนะคะ รบกวนแจ้งน้ำหนักจริงของน้องเพื่อยืนยัน "
-            "ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมากค่ะ"
+            "ราคานี้ประเมินจากรูปเบื้องต้นนะคะ "
+            + ("รบกวนแจ้งน้ำหนักจริงของน้องเพื่อยืนยัน " if needs_weight else "")
+            + "ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมากค่ะ"
         )
     return "\n\n".join(parts)

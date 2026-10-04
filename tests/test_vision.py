@@ -65,6 +65,14 @@ class PetEstimateTests(unittest.TestCase):
         r = self.reply(Animal(species="cat", species_name="แมว"))
         self.assertIn("300 บาท", r)
         self.assertIn("600 บาท", r)
+        # แมวราคาเดียวทุกขนาด: ไม่ขอน้ำหนัก และไม่พูดซ้ำว่า "ดูจากรูปเป็นแมว"
+        self.assertNotIn("น้ำหนัก", r)
+        self.assertNotIn("ดูจากรูปเป็นแมว", r)
+        self.assertIn("ราคาแมวเท่ากันทุกขนาด", r)
+
+    def test_dog_and_cat_together_still_asks_weight_for_the_dog(self):
+        r = self.reply(dog("small"), Animal(species="cat", species_name="แมว"))
+        self.assertIn("น้ำหนักจริง", r)
 
     def test_matting_adds_dematting_range(self):
         r = self.reply(dog("small", matting="severe"))
