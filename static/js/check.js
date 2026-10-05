@@ -128,7 +128,7 @@
       </div>`;
     el.querySelector(".check-item__pet").textContent = `น้อง${b.pet_name}` + (b.pets > 1 ? ` (${b.pets} ตัว)` : "");
     el.querySelector(".check-item__when").textContent =
-      b.slot_label + (b.pickup_time ? ` · ร้านไปรับน้อง ${b.pickup_time} น.` : "");
+      b.slot_label + (b.service_label ? ` · ${b.service_label}` : "") + (b.pickup_time ? ` · ร้านไปรับน้อง ${b.pickup_time} น.` : "");
     el.querySelector(".check-item__id").textContent = `เลขจอง ${b.id}`;
     el.querySelector(".check-item__badge").textContent = b.status_label;
     el.querySelector(".check-item__hint").textContent = b.status_hint;

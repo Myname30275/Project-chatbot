@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "docs" / "report.html"
 
 # ---------------- ข้อมูลที่ต้องกรอกเอง ----------------
-DEVELOPERS = [("", "")]  # (รหัสนักศึกษา, ชื่อ-นามสกุล) — เว้นว่างไว้ = แสดงช่องให้กรอกในเอกสาร
+DEVELOPERS = [("68076050", "แพรว พลอยกระจ่างศรี"), ("68076052", "ภาณุพงศ์ บุตรดี")]  # (รหัสนักศึกษา, ชื่อ-นามสกุล)
 PROD_URL = "https://hom-hom-grooming.vercel.app"
 REPO_URL = "https://github.com/Myname30275/Project-chatbot"
 
@@ -66,17 +66,17 @@ def section_project(cat, f):
     return f"""
 <h2>1. ชื่อโครงงานและผู้พัฒนา</h2>
 <p><b>ชื่อโครงงาน:</b> แชทบอทผู้ช่วยร้านอาบน้ำ-ตัดขนสุนัขและแมว "{e(shop['name'])}" ({e(shop['name_th'])})</p>
-<p><b>รูปแบบงาน:</b> งานเดี่ยว</p>
+<p><b>รูปแบบงาน:</b> งานคู่</p>
 {devs}
 <p>แชทบอท "{e(shop['assistant_name'])}" ตอบลูกค้าแทนเจ้าของร้านจากข้อมูลจริงของร้านเท่านั้น: ตอบราคา เวลาเปิดร้าน และนโยบาย
 ประเมินราคาจากรูปสัตว์เลี้ยง ตรวจสลิปมัดจำ และพาลูกค้าไปจองคิว เช็คคิว หรือยกเลิกคิวได้เองโดยไม่ต้องมีคนอธิบาย
 ส่วนการยืนยันคิวและการคืนเงินเป็นหน้าที่ของเจ้าของร้านผ่านหน้าหลังบ้าน</p>
 {table(["รายการ", "ที่อยู่"], [
     ["เว็บแชทบอท (ใช้งานจริง)", f'<a href="{PROD_URL}">{PROD_URL}</a>'],
-    ["โหมดเสียงคุยกับอวตาร", f"{PROD_URL}/avatar"],
-    ["หน้าเช็คคิว / ยกเลิกคิว", f"{PROD_URL}/check"],
-    ["หลังบ้านของเจ้าของร้าน", f"{PROD_URL}/admin (ต้องใช้รหัสผ่าน)"],
-    ["LINE Official Account", e(shop["contacts"]["line"])],
+    ["โหมดเสียงคุยกับอวตาร", f'<a href="{PROD_URL}/avatar">{PROD_URL}/avatar</a>'],
+    ["หน้าเช็คคิว / ยกเลิกคิว", f'<a href="{PROD_URL}/check">{PROD_URL}/check</a>'],
+    ["หลังบ้านของเจ้าของร้าน", f'<a href="{PROD_URL}/admin">{PROD_URL}/admin</a> (ต้องใช้รหัสผ่าน)'],
+    ["LINE Official Account", f'<a href="https://line.me/R/ti/p/{e(shop["contacts"]["line"])}">{e(shop["contacts"]["line"])}</a>'],
     ["Source code", f'<a href="{REPO_URL}">{REPO_URL}</a>'],
 ], "narrow")}
 """
@@ -87,8 +87,8 @@ def section_project(cat, f):
 FAQ10 = [
     ("ราคาอาบน้ำ-ตัดขนแต่ละไซส์เท่าไหร่", "คิดตามชนิดและน้ำหนัก (ตารางราคาด้านบน) ไม่รู้น้ำหนักส่งรูปน้องมาให้ประเมินได้"),
     ("เปิด-ปิดกี่โมง หยุดวันไหน", "{hours} {last_queue}"),
-    ("ต้องจองคิวล่วงหน้าไหม", "แนะนำจองล่วงหน้า 1 วัน ผ่านปุ่มจองคิวบนเว็บ โอนมัดจำ {deposit} บาทต่อน้อง 1 ตัวและแนบสลิป ร้านเป็นผู้ยืนยันคิว walk-in ได้ถ้ามีคิวว่าง"),
-    ("ใช้เวลานานแค่ไหนต่อตัว", "อาบน้ำประมาณ 1–2 ชั่วโมง ตัดขนทั้งตัวประมาณ 2–3 ชั่วโมง"),
+    ("ต้องจองคิวล่วงหน้าไหม", "แนะนำจองล่วงหน้า 1 วัน ผ่านปุ่มจองคิวบนเว็บ เลือกบริการและเวลา โอนมัดจำ {deposit} บาทต่อน้อง 1 ตัวและแนบสลิป ร้านเป็นผู้ยืนยันคิว walk-in ได้ถ้ามีคิวว่าง"),
+    ("ใช้เวลานานแค่ไหนต่อตัว", "อาบน้ำประมาณ 1–2 ชั่วโมง ตัดขนทั้งตัวประมาณ 2–3 ชั่วโมง ระบบจองกันเวลาช่างให้ {hours_text}"),
     ("รับน้องที่ดุหรือก้าวร้าวไหม", "รับ โดยเพิ่มค่าดูแลพิเศษ 100 บาท ร้านหยุดบริการกลางคันได้ถ้าไม่ปลอดภัย"),
     ("ขนพันกันมาก เสียค่าใช้จ่ายเพิ่มไหม", "เพิ่ม 150–300 บาท ร้านประเมินตอนน้องมาถึงร้าน"),
     ("มีบริการรับ-ส่งถึงบ้านไหม", "มี ไม่เกิน 5 กม. 150 บาท, 5–10 กม. 250 บาท (ไป-กลับ) ปักหมุดบ้านตอนจองคิว จ่ายพร้อมมัดจำ"),
@@ -156,7 +156,8 @@ def section_business(cat, f):
     other_rows += [[next(n), "แพ็กเกจ", e(p["name"]), f"ลด {p['discount_percent']}%", e(p["note"])] for p in cat["packages"]]
     other_rows += [[next(n), "สินค้าหน้าร้าน", e(p["name"]), baht(p["price"]), ""] for p in cat["products"]]
     fill = dict(hours=shop["hours"], last_queue=shop["last_queue"], deposit=cat["payment"]["deposit"],
-                cancel=cat["booking"]["cancel_hours_before"])
+                cancel=cat["booking"]["cancel_hours_before"],
+                hours_text=" · ".join(f"{x['label'].split(' เช่น')[0].split(' (')[0]} {x['hours']} ชั่วโมง" for x in cat["booking"]["services"]))
     return f"""
 <h2>2. ข้อมูลของธุรกิจ</h2>
 <h3>2.1 รายละเอียดและกลุ่มเป้าหมาย</h3>
@@ -171,7 +172,7 @@ def section_business(cat, f):
     ["การชำระเงิน", " · ".join(e(m) for m in cat["payment"]["methods"]) + f" · มัดจำ {cat['payment']['deposit']} บาทต่อน้อง 1 ตัว หักจากค่าบริการ"],
     ["ผู้ช่วยแชท", f"\"{e(shop['assistant_name'])}\" พนักงานต้อนรับออนไลน์ พูดสุภาพ เป็นกันเอง"],
 ], "narrow")}
-<p class="note">ที่อยู่ เบอร์โทร และข้อมูลลูกค้าทั้งหมดเป็นข้อมูลสมมติ ไม่มีข้อมูลส่วนบุคคลของบุคคลจริง</p>
+<p class="note">ที่อยู่ เบอร์โทร และข้อมูลลูกค้าทั้งหมดเป็นข้อมูลสมมติ ชื่อบัญชีรับมัดจำและสลิปที่ใช้ทดสอบเป็นของผู้พัฒนาเอง</p>
 
 <h3>2.2 สินค้าและบริการ ({f['items']} รายการ)</h3>
 <p>บริการที่คิดราคาตามขนาดตัว (บาท): {e(sizes['small'])} · {e(sizes['medium'])} · {e(sizes['large'])} · {e(sizes['cat'])}</p>
@@ -208,8 +209,9 @@ def section_architecture(f, endpoints):
                 r["status"], f"{r['seconds']} วิ", verdict(r["ok"])] for r in endpoints["results"]]
     return f"""
 <h2>3. แผนภาพสถาปัตยกรรมระบบ</h2>
-<figure><img src="img/arch-1-system.png" alt="แผนภาพสถาปัตยกรรมระบบ">
-<figcaption>ภาพที่ 1 สถาปัตยกรรมระบบ: ช่องทางของลูกค้า → API บน Vercel → ชั้นประมวลผล → บริการภายนอกและที่เก็บข้อมูล</figcaption></figure>
+<figure><img src="img/arch-aws.png" alt="แผนภาพสถาปัตยกรรมระบบ">
+<figcaption>ภาพที่ 1 สถาปัตยกรรมระบบ (รูปแบบ AWS architecture diagram): ผู้ใช้ → Vercel Cloud → Serverless Function → บริการภายนอก
+เลขในวงกลมคือลำดับขั้นตอนของ 1 คำขอ</figcaption></figure>
 
 <h3>3.1 องค์ประกอบของระบบ</h3>
 {table(["ส่วน", "เทคโนโลยี", "หน้าที่"], [
@@ -219,7 +221,7 @@ def section_architecture(f, endpoints):
     ["RAG", f"Gemini embedding + TF-IDF (hybrid) · {f['chunks']} ชิ้นข้อมูล", "ค้นข้อมูลร้านที่ตรงกับคำถามส่งให้ LLM บอทจึงตอบจากข้อมูลจริง ไม่แต่งเอง"],
     ["Vision", "Gemini Flash (มีโมเดลสำรอง)", "อ่านรูปสัตว์เลี้ยงและรูปสลิปเป็นข้อมูลมีโครงสร้าง แล้วโค้ดคิดราคา/ตรวจยอดจากตารางของร้าน"],
     ["Safety", "กฎในโค้ด · LLM ตรวจเจตนา · ตรวจคำตอบขาออก", "กัน prompt injection, ขอข้อมูลลูกค้าคนอื่น, เนื้อหาอันตราย, คำถามนอกเรื่อง, ราคา/ส่วนลดที่ไม่มีจริง"],
-    ["ระบบจองคิว", "โค้ด Python + Upstash Redis", f"ช่องเวลา ชั่วโมงละ {f['capacity']} ตัว, ใบจอง, ยืนยันตัวตนก่อนยกเลิก, คำขอคืนเงิน, หลังบ้านของเจ้าของร้าน"],
+    ["ระบบจองคิว", "โค้ด Python + Upstash Redis", f"ช่องเวลา (ช่าง {f['capacity']} คน กันเวลาตามบริการที่เลือก), ใบจอง, ยืนยันตัวตนก่อนยกเลิก, คำขอคืนเงิน, หลังบ้านของเจ้าของร้าน"],
     ["เสียง", "Cartesia TTS · Web Speech API", "แปลงคำตอบเป็นเสียงพูดในโหมดอวตาร"],
 ])}
 
@@ -239,24 +241,37 @@ endpoint ที่แก้ข้อมูลการจองบนระบ�
 
 # ---------------- 4. บทบาทหน้าที่ ----------------
 
+ROLE_RESULT = {
+    "วิเคราะห์ธุรกิจและทำคลังความรู้": "ตารางราคา {items} รายการ นโยบายร้าน FAQ {faq} ข้อ รายการบริการที่ร้านไม่มี (<code>shop/</code>)",
+    "LLM และ Prompt": "system prompt (ต้องทำ {must} ข้อ ห้ามทำ {must_not} ข้อ) ต่อกับ Typhoon บอทตอบตรงประเด็นจากข้อมูลร้าน",
+    "RAG ภาษาไทย": "ข้อมูลร้าน {chunks} ชิ้น ค้นแบบ hybrid (embedding + TF-IDF) บอทตอบจากคลังความรู้เป็นภาษาไทย",
+    "Backend และ API": "FastAPI: แชทแบบสตรีม ส่งรูป เสียง LINE webhook จองคิว หลังบ้าน ขึ้นระบบจริงบน Vercel + Upstash Redis",
+    "Vision": "อ่านรูปสัตว์เลี้ยงเพื่อประเมินราคา อ่านสลิปเพื่อตรวจยอดและชื่อผู้รับ รูปที่ไม่เกี่ยวกับร้านถูกปฏิเสธ",
+    "ความปลอดภัย": "ด่านตรวจ 3 ชั้น (กฎในโค้ด, LLM ตรวจเจตนา, ตรวจคำตอบขาออก) + ยืนยันตัวตนก่อนยกเลิกคิว/รับเงินคืน",
+    "ระบบจองคิวและหลังบ้าน": "เลือกบริการและเวลา จองครั้งละ 1–{max_pets} ตัว รับ-ส่งถึงบ้าน ยกเลิกและขอเงินคืนเอง เจ้าของร้านยืนยันคิวและแนบสลิปโอนคืน",
+    "UI / UX": "หน้าแรก + แชท โหมดเสียงกับอวตาร ฟอร์มจองคิวและใบจอง หน้าเช็คคิว มีสถานะกำลังประมวลผลและข้อความ error",
+    "ทดสอบและปรับปรุง": "เทสอัตโนมัติ {unit} ตัว + ชุดทดสอบกับระบบจริง (10 คำถาม, {img_n} ภาพ, กฎและความปลอดภัย {safety_n} ข้อ, endpoint {api_n} รายการ) บันทึกจุดปรับปรุง {improvements} จุด",
+    "เอกสารและสื่อนำเสนอ": "เอกสารฉบับนี้ แผนภาพสถาปัตยกรรม บันทึกผลทดสอบ คลิปสาธิต",
+}
+ROLES = [
+    (0, ["วิเคราะห์ธุรกิจและทำคลังความรู้", "LLM และ Prompt", "RAG ภาษาไทย"]),
+    (1, ["Backend และ API", "Vision", "ความปลอดภัย", "ระบบจองคิวและหลังบ้าน"]),
+    (None, ["UI / UX", "ทดสอบและปรับปรุง", "เอกสารและสื่อนำเสนอ"]),
+]
+
+
 def section_roles(f):
-    who = DEVELOPERS[0][1] or '<span class="fill">ชื่อ</span>'
-    rows = [
-        ("วิเคราะห์ธุรกิจและทำคลังความรู้", f"ตารางราคา {f['items']} รายการ นโยบายร้าน FAQ {f['faq']} ข้อ รายการบริการที่ร้านไม่มี (<code>shop/</code>)"),
-        ("Backend และ API", "FastAPI: แชทแบบสตรีม ส่งรูป เสียง LINE webhook จองคิว หลังบ้าน ขึ้นระบบจริงบน Vercel + Upstash Redis"),
-        ("LLM และ Prompt", f"system prompt (ต้องทำ {f['must']} ข้อ ห้ามทำ {f['must_not']} ข้อ) ต่อกับ Typhoon ส่งประวัติแชทเฉพาะช่วงล่าสุด"),
-        ("RAG ภาษาไทย", f"แบ่งข้อมูลร้านเป็น {f['chunks']} ชิ้น ค้นแบบ hybrid (embedding + TF-IDF) บอทตอบจากข้อมูลร้านเป็นภาษาไทย"),
-        ("Vision", "อ่านรูปสัตว์เลี้ยงเพื่อประเมินราคา อ่านสลิปเพื่อตรวจยอดและชื่อผู้รับ รูปที่ไม่เกี่ยวกับร้านถูกปฏิเสธ"),
-        ("ความปลอดภัย", "ด่านตรวจ 3 ชั้น (กฎในโค้ด, LLM ตรวจเจตนา, ตรวจคำตอบขาออก) + ยืนยันตัวตนก่อนยกเลิกคิว/รับเงินคืน"),
-        ("UI / UX", "หน้าแรก + แชท, โหมดเสียงกับอวตาร, ฟอร์มจองคิวและใบจอง, หน้าเช็คคิว มีสถานะกำลังประมวลผลและข้อความ error"),
-        ("ระบบจองคิวและหลังบ้าน", "จองได้ครั้งละ 1–4 ตัว รับ-ส่งถึงบ้าน ยกเลิกและขอเงินคืนเอง เจ้าของร้านยืนยันคิวและแนบสลิปโอนคืน"),
-        ("ทดสอบและปรับปรุง", f"เทสอัตโนมัติ {f['unit']} ตัว + ชุดทดสอบกับระบบจริง (10 คำถาม, 5 ภาพ, กฎและความปลอดภัย {f['safety_n']} ข้อ, endpoint {f['api_n']} รายการ) บันทึกจุดปรับปรุง {f['improvements']} จุด"),
-        ("เอกสารและสื่อนำเสนอ", "เอกสารฉบับนี้ แผนภาพสถาปัตยกรรม 3 ภาพ บันทึกผลทดสอบ คลิปสาธิต"),
-    ]
+    both = " และ ".join(name.split()[0] for _, name in DEVELOPERS)
+    rows = []
+    for who, tasks in ROLES:
+        name = both + " (ทำร่วมกัน)" if who is None else f"{e(DEVELOPERS[who][1])}<br><span class='note'>{e(DEVELOPERS[who][0])}</span>"
+        for i, task in enumerate(tasks):
+            lead = f'<td rowspan="{len(tasks)}" class="who">{name}</td>' if i == 0 else ""
+            rows.append(f"<tr>{lead}<td>{e(task)}</td><td>{ROLE_RESULT[task].format(**f)}</td></tr>")
     return f"""
-<h2>4. สรุปบทบาทหน้าที่ของผู้พัฒนา</h2>
-<p>โครงงานนี้เป็นงานเดี่ยว ผู้พัฒนาคนเดียวรับผิดชอบทุกส่วน</p>
-{table(["ใคร", "ทำอะไร", "ได้อะไร"], [[who, e(a), b] for a, b in rows])}
+<h2>4. สรุปบทบาทหน้าที่ของผู้พัฒนาแต่ละคน</h2>
+<p>แบ่งงานตามส่วนของระบบ และสลับกันตรวจงานของอีกฝ่าย ทั้งสองคนอธิบายได้ทุกส่วนของระบบ</p>
+<table><thead><tr><th>ใคร</th><th>ทำอะไร</th><th>ได้อะไร</th></tr></thead><tbody>{"".join(rows)}</tbody></table>
 """
 
 
@@ -285,25 +300,62 @@ def section_questions(ten):
 
 IMAGE_ANALYSIS = {
     "Chiwawa short.jpg": "Vision จำแนกเป็นสุนัขเล็ก โค้ดหยิบราคาสุนัขเล็กจากตารางราคา และขอน้ำหนักจริงเพื่อยืนยัน",
+    "Chiwawa.jpeg": "ขนยาวแต่ตัวเล็ก ได้ราคาสุนัขเล็กเท่ากับรูปที่ 1 (ความยาวขนไม่เปลี่ยนราคา)",
     "Cyberian.jpg": "Vision จำแนกเป็นสุนัขใหญ่ (> 25 กก.) ได้ราคาสุนัขใหญ่ถูกต้อง",
+    "Two dog.JPG": "เห็นสุนัขครบ 2 ตัว และแยกราคาตามขนาดของแต่ละตัว",
     "cat.JPG": "แมวราคาเดียวทุกขนาด บอทจึงไม่ถามน้ำหนัก",
-    "Crocodile.webp": "สัตว์ที่ร้านไม่รับ บอทปฏิเสธและไม่บอกราคา",
-    "slip_wrong_500.png": "อ่านยอดและชื่อผู้รับจากสลิป โค้ดเทียบกับมัดจำและชื่อบัญชีร้าน แจ้งจุดที่ไม่ตรงครบ 2 จุด และไม่ยืนยันคิวเอง",
+    "cat dog b.jfif": "รูปยาก: แมวดำนอนทับสุนัขดำ รอบแรก Vision เห็นแค่สุนัข 1 ตัว จึงเพิ่มกติกาให้นับสัตว์ทุกตัวแม้ซ้อนทับกัน รอบนี้เห็นครบ",
+    "cat 1.jpg": "รอบแรกถูกตีราคาเป็นแมว (300 / 600 บาท) จึงเพิ่มกติกาว่า cat = แมวบ้านเท่านั้น สัตว์ป่าตระกูลแมวจัดเป็นสัตว์ที่ร้านไม่รับ",
+    "Bird.jpg": "สัตว์ที่ร้านไม่รับ บอทปฏิเสธและไม่บอกราคา",
+    "Panda.jpg": "ไม่ใช่สุนัขหรือแมว บอทไม่ประเมินราคา",
+    "Kimera full matal.jfif": "ไม่ใช่รูปถ่ายจริง บอทไม่บรรยายรูปและไม่ตีราคา (จุดปรับปรุงที่ 3 ในหัวข้อ 8)",
+    "slip tp.jfif": "ยอดตรงมัดจำ ชื่อผู้รับตรงบัญชีร้าน บอทรับสลิปแต่ไม่ยืนยันคิวเอง รอร้านตรวจยอดเข้าบัญชี",
+    "slip t.jfif": "ยอดถูกแต่ชื่อผู้รับไม่ใช่บัญชีร้าน โค้ดเทียบชื่อผู้รับกับชื่อบัญชีร้านแล้วแจ้งลูกค้า",
+    "Slip Gum auction.jpg": "ยอดในสลิปไม่ใช่ยอดมัดจำ บอทแจ้งยอดที่อ่านได้และไม่รับเป็นสลิปมัดจำ",
+    "Slip credit.jpg": "สลิปจ่ายบัตรเครดิตของร้านค้าอื่น ยอดไม่ตรง บอทไม่รับเป็นสลิปมัดจำ",
+    "sl f.jpg": "ระบบอ่านสลิปจากรูป จึงแยกสลิปที่ถูกแก้ชื่อผู้รับไม่ได้ (ต้องตรวจกับธนาคาร) มาตรการที่มี: บอทไม่ยืนยันคิวเอง "
+                "เจ้าของร้านต้องตรวจยอดเข้าบัญชีก่อนยืนยันคิวและก่อนโอนเงินคืน และเลขอ้างอิงสลิปใช้จองซ้ำไม่ได้",
 }
+
+
+def thumbnails(img) -> None:
+    """ย่อรูปทดสอบเป็น JPG ไว้ใน docs/img/test-images/ (เอกสารเปิดได้ทุกเบราว์เซอร์ รวมไฟล์ .jfif/.webp)"""
+    from PIL import Image
+    out = ROOT / "docs" / "img" / "test-images"
+    out.mkdir(parents=True, exist_ok=True)
+    for r in img["results"]:
+        target = out / f"{r['no']:02d}.jpg"
+        im = Image.open(ROOT / img["folder"] / r["file"]).convert("RGB")
+        im.thumbnail((360, 360))
+        im.save(target, quality=82)
 
 
 def section_images(img):
     rows = img["results"]
-    body = [[r["no"], f'<img class="thumb" src="../tests/Image/{e(r["file"])}" alt=""><br>{e(r["what"])}', e(r["expected"]),
+    thumbnails(img)
+    groups = {}
+    for r in rows:
+        g = groups.setdefault(r["group"], [0, 0])
+        g[0] += 1
+        g[1] += bool(r["passed"])
+    body = [[r["no"], f'<img class="thumb" src="img/test-images/{r["no"]:02d}.jpg" alt=""><br>{e(r["what"])}', e(r["expected"]),
              br(r["reply"]) + f'<br><span class="why">{e(IMAGE_ANALYSIS.get(r["file"], ""))}</span>',
              f"{r['seconds']} วิ", verdict(r["passed"])] for r in rows]
+    failed = [r for r in rows if not r["passed"]]
+    note = ""
+    if failed:
+        note = ('<p class="note"><b>ข้อที่ไม่ผ่าน:</b> ' + " · ".join(f"ภาพที่ {r['no']} ({e(r['what'])})" for r in failed) +
+                " ดูผลวิเคราะห์ในตาราง และข้อจำกัดที่ทราบในหัวข้อ 9</p>")
     return f"""
-<h2>6. ชุดภาพทดสอบ 5 ภาพ</h2>
-<p>ส่งรูปเข้าระบบจริงทาง <code>POST /api/v1/attachments</code> เมื่อ {thai_date(img['tested_at'])} ด้วย <code>tests/run_5_images.py</code>
-Gemini อ่านรูปเป็นข้อมูลมีโครงสร้าง (ชนิดสัตว์ ขนาด สภาพขน หรือยอดเงินและชื่อผู้รับในสลิป) แล้ว <b>โค้ดเป็นผู้คิดราคาและตรวจยอด</b>
-จากข้อมูลร้าน ตัวเลขในคำตอบจึงไม่ได้มาจากการเดาของโมเดล สลิปที่ใช้เป็นภาพจำลอง ไม่มีข้อมูลบุคคลจริง</p>
-<p class="result"><b>ผล: ผ่าน {sum(r['passed'] for r in rows)}/{len(rows)}</b> · เวลาตอบเฉลี่ย {sum(r['seconds'] for r in rows) / len(rows):.1f} วินาที</p>
+<h2>6. ชุดภาพทดสอบ {len(rows)} ภาพ</h2>
+<p>ส่งรูปเข้าระบบจริงทาง <code>POST /api/v1/attachments</code> เมื่อ {thai_date(img['tested_at'])} ด้วย <code>tests/run_images.py</code>
+(รูปอยู่ใน <code>{e(img['folder'])}</code>) Gemini อ่านรูปเป็นข้อมูลมีโครงสร้าง (ชนิดสัตว์ ขนาด สภาพขน หรือยอดเงินและชื่อผู้รับในสลิป)
+แล้ว <b>โค้ดเป็นผู้คิดราคาและตรวจยอด</b> จากข้อมูลร้าน ตัวเลขในคำตอบจึงไม่ได้มาจากการเดาของโมเดล
+สลิปเป็นสลิปจริงของผู้พัฒนา (เลขบัญชีถูกปิดบางส่วนโดยแอปธนาคาร) รวมสลิปที่ตั้งใจแก้ชื่อผู้รับ 1 ใบเพื่อทดสอบสลิปปลอม</p>
+<p class="result"><b>ผล: ผ่าน {sum(r['passed'] for r in rows)}/{len(rows)}</b>
+({" · ".join(f"{e(g)} {ok}/{n}" for g, (n, ok) in groups.items())}) · เวลาตอบเฉลี่ย {sum(r['seconds'] for r in rows) / len(rows):.1f} วินาที</p>
 {table(["#", "ภาพ", "ผลที่คาดหวัง", "ผลวิเคราะห์ (คำตอบของบอท)", "เวลาตอบ", "ผล"], body, "tests")}
+{note}
 """
 
 
@@ -368,11 +420,19 @@ def section_improvements(f):
          "ไม่ส่งคำบรรยายรูปที่ไม่เกี่ยวกับร้านให้โมเดลแชตเลย (ไม่มีข้อมูล = บรรยายไม่ได้) · ให้ Vision ตอบด้วยว่าเป็นรูปถ่ายจริงหรือไม่ ภาพวาด/การ์ตูน/ของเล่นถูกจัดเป็นรูปที่ไม่เกี่ยวกับร้าน",
          "\"น้องหอมดูได้เฉพาะรูปน้องสุนัข/แมว และรูปสลิปมัดจำค่ะ รูปอื่นน้องหอมช่วยดูให้ไม่ได้ …\" · ภาพวาดไม่ถูกตีราคา (3/3 รอบ) · รูปสัตว์จริงยังได้ราคาถูกต้อง"),
     ]
-    rows = [[i, f"<b>{e(t)}</b>", e(before), e(fix), e(after)] for i, (t, before, fix, after) in enumerate(cases, 1)]
+    cards = "".join(f"""
+<section class="fix">
+<h3>จุดที่ {i}: {e(t)}</h3>
+<div class="fix__pair">
+<div class="fix__box fix__box--before"><h4>ก่อนปรับปรุง</h4><p>{e(before)}</p></div>
+<div class="fix__box fix__box--after"><h4>หลังปรับปรุง</h4><p>{e(after)}</p></div>
+</div>
+<p class="fix__how"><b>วิธีแก้:</b> {e(fix)}</p>
+</section>""" for i, (t, before, fix, after) in enumerate(cases, 1))
     return f"""
 <h2>8. จุดที่ปรับปรุง 3 จุด พร้อมผลก่อน-หลัง</h2>
 <p>ระหว่างพัฒนาบันทึกจุดปรับปรุงไว้ทั้งหมด {f['improvements']} จุดใน <code>docs/test-log.md</code> สามจุดที่เห็นผลชัดที่สุด:</p>
-{table(["#", "ปัญหา", "ก่อนปรับปรุง", "วิธีแก้", "หลังปรับปรุง"], rows, "tests")}
+{cards}
 <p class="note">บทเรียนร่วมของทั้งสามจุด: พฤติกรรมที่ prompt คุมไม่ได้ทุกรอบ ต้องคุมด้วยโค้ด และตัวตรวจอัตโนมัติจับได้แค่สิ่งที่คิดไว้ล่วงหน้า จึงต้องอ่านคำตอบจริงประกอบ</p>
 """
 
@@ -393,8 +453,9 @@ def section_checklist(f):
 <h3>ข้อจำกัดที่ทราบ</h3>
 <ul>
 <li>คำตอบของ LLM ไม่เหมือนกันทุกรอบ ผลทดสอบในเอกสารเป็นของรอบที่ระบุวันที่ไว้</li>
-<li>การตรวจสลิปอ่านจากรูป จึงจับสลิปที่ถูกแก้ไขไม่ได้โดยอัตโนมัติ ระบบให้เจ้าของร้านตรวจยอดเข้าบัญชีก่อนยืนยันคิวและก่อนโอนเงินคืนทุกครั้ง</li>
-<li>ยังไม่ได้ทดสอบกับสลิปจริงจากแอปธนาคาร และรูปสุนัขขนพันกันจริง</li>
+<li>การตรวจสลิปอ่านจากรูป จึงจับสลิปที่ถูกแก้ไขไม่ได้โดยอัตโนมัติ (ภาพทดสอบที่ 15 ไม่ผ่าน) การตรวจให้ได้ต้องเชื่อมบริการตรวจสลิปกับธนาคาร
+ระบบนี้จึงให้เจ้าของร้านตรวจยอดเข้าบัญชีก่อนยืนยันคิวและก่อนโอนเงินคืนทุกครั้ง</li>
+<li>ยังไม่ได้ทดสอบกับรูปสุนัขขนพันกันจริง</li>
 </ul>
 """
 
@@ -416,7 +477,7 @@ p{margin:8px 0}
 a{color:var(--accent)}
 code{font-family:Consolas,monospace;font-size:.88em;background:var(--head);padding:1px 4px;border-radius:3px;overflow-wrap:anywhere}
 table{width:100%;border-collapse:collapse;margin:10px 0 16px;font-size:14px}
-th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
 th{background:var(--head);font-weight:600}
 tr{break-inside:avoid}
 table.narrow td:first-child{width:26%;font-weight:600}
@@ -434,11 +495,19 @@ ul,ol{margin:6px 0;padding-left:22px}
 .why::before{content:"วิเคราะห์: ";font-weight:600}
 .chip{display:inline-block;margin-top:4px;font-size:12.5px;border:1px solid var(--line);border-radius:10px;padding:0 8px;color:var(--muted)}
 .fill{display:inline-block;min-width:140px;background:#fff3c4;border:1px dashed #c9a400;padding:0 8px;color:#7a6400}
-.thumb{width:110px;height:82px;object-fit:cover;border:1px solid var(--line);border-radius:4px}
+.thumb{width:110px;height:96px;object-fit:contain;background:#f6f7f8;border:1px solid var(--line);border-radius:4px}
+.who{font-weight:600;width:22%}
+.fix{border:1px solid var(--line);border-radius:6px;padding:4px 16px 10px;margin:14px 0;break-inside:avoid}
+.fix h3{margin-top:12px}
+.fix__pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.fix__box{border-left:4px solid var(--bad);background:#fbf3f2;padding:6px 12px;min-width:0;overflow-wrap:anywhere}
+.fix__box--after{border-left-color:var(--ok);background:#f1f8f3}
+.fix__box h4{margin:2px 0 4px}
+.fix__box p,.fix__how{margin:4px 0}
 figure{margin:16px 0;break-inside:avoid}
 figure img{width:100%;border:1px solid var(--line)}
 figcaption{text-align:center;color:var(--muted);font-size:13.5px;margin-top:4px}
-@media (max-width:760px){main{padding:24px 16px;margin:0}.two{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
+@media (max-width:760px){main{padding:24px 16px;margin:0}.two,.fix__pair{grid-template-columns:1fr}table{display:block;overflow-x:auto}}
 @page{size:A4;margin:14mm 12mm}
 @media print{body{background:#fff;font-size:11pt}main{max-width:none;margin:0;padding:0;box-shadow:none}
 table{font-size:9.5pt}table.small{font-size:8pt}.fill{background:none}a{color:inherit;text-decoration:none}h2{margin-top:22px}}
@@ -463,6 +532,8 @@ def facts(cat, ten, ps, ep, img):
         "must": len(re.findall(r"^\d+\. ", must, re.M)),
         "must_not": len(re.findall(r"^\d+\. ", must_not, re.M)),
         "capacity": cat["booking"]["capacity_per_slot"],
+        "max_pets": cat["booking"]["max_pets"],
+        "img_n": len(img["results"]),
         "improvements": len(re.findall(r"^## จุดปรับปรุงที่ \d+", log, re.M)),
         "unit": tests,
         "q10": score(ten["results"]), "safety": score(ps["results"]), "safety_n": len(ps["results"]),
@@ -473,7 +544,7 @@ def facts(cat, ten, ps, ep, img):
 def main():
     cat = json.loads((ROOT / "shop" / "catalog.json").read_text(encoding="utf-8"))
     ten, ps = load("test-10-questions.json"), load("test-prompt-safety.json")
-    ep, img = load("test-endpoints.json"), load("test-5-images.json")
+    ep, img = load("test-endpoints.json"), load("test-images.json")
     f = facts(cat, ten, ps, ep, img)
     body = "".join([
         section_project(cat, f), section_business(cat, f), section_architecture(f, ep), section_roles(f),
@@ -496,8 +567,6 @@ def main():
 """
     OUT.write_text(html, encoding="utf-8")
     print(f"เขียน {OUT} ({len(html) // 1024} KB) · unit tests {f['unit']} · จุดปรับปรุง {f['improvements']}")
-    if not any(name for _, name in DEVELOPERS):
-        print("ยังไม่ได้กรอกชื่อผู้พัฒนา (DEVELOPERS ใน docs/build_report.py)")
     return 0
 
 

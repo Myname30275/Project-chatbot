@@ -144,6 +144,12 @@
   "booking": {
     "open": "09:00",
     "last_start": "16:00",
+    "close": "18:00",
+    "services": [
+      {"id": "bath", "label": "อาบน้ำ + เป่าขน", "hours": 2},
+      {"id": "full_groom", "label": "ตัดขนทั้งตัว (รวมอาบน้ำ)", "hours": 3},
+      {"id": "other", "label": "บริการอื่น เช่น ตัดเล็บ ทำความสะอาดหู ตัดแต่งเฉพาะจุด", "hours": 1}
+    ],
     "slot_minutes": 60,
     "capacity_per_slot": 2,
     "max_pets": 4,

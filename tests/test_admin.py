@@ -52,7 +52,8 @@ class AdminTests(unittest.TestCase):
     def book(self, hour=10):
         r = self.customer.post(
             "/api/v1/booking",
-            data={"pet_name": "ถั่วแดง", "owner_name": "สมใจ", "phone": "0812345678", "slot": slot_at(hour)},
+            data={"pet_name": "ถั่วแดง", "owner_name": "สมใจ", "phone": "0812345678", "slot": slot_at(hour),
+                  "service": "other"},
             files={"pet_photo": ("p.jpg", JPEG, "image/jpeg"), "slip": ("s.png", PNG, "image/png")},
         )
         self.assertEqual(r.status_code, 201, r.text)

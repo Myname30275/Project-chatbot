@@ -107,7 +107,7 @@ class ServiceTests(unittest.TestCase):
 
     def book(self, **kw):
         fields = dict(pet_name="ถั่วแดง", owner_name="สมใจ", phone="081-234-5678",
-                      slot=slot_at(), pet_photo=JPEG, slip=PNG, at=NOW)
+                      slot=slot_at(), pet_photo=JPEG, slip=PNG, service="other", at=NOW)
         fields.update(kw)
         return run(service.create("sess-1", **fields))
 
@@ -241,12 +241,75 @@ class ServiceTests(unittest.TestCase):
         self.analysis = good_slip(amount=150.0, reference="REF002")
         with self.assertRaises(BookingError) as ctx:
             self.book(slot=slot_at(10), pets=3)
-        self.assertIn("ว่างไม่พอสำหรับน้อง 3 ตัว", ctx.exception.message)
+        self.assertIn("คิวว่างไม่พอ", ctx.exception.message)
         self.assertEqual(self.count(slot_at(10)), 0)            # ที่กันไว้ชั่วโมงแรกถูกคืน
+
+    def test_service_decides_how_many_hours_are_blocked(self):
+        # อาบน้ำ = 2 ชั่วโมงเต็ม · ตัดขนทั้งตัว = 3 ชั่วโมงเต็ม (ไม่คิดเศษครึ่งชั่วโมง)
+        bath = self.book(service="bath")
+        self.assertEqual(bath["slots_used"], [[slot_at(10), 1], [slot_at(11), 1]])
+        view = service.public_view(bath)
+        self.assertEqual(view["service_label"], "อาบน้ำ + เป่าขน")
+        self.assertIn("10:00–12:00 น.", view["slot_label"])
+        self.analysis = good_slip(reference="REF002")
+        groom = self.book(service="full_groom", slot=slot_at(13))
+        self.assertEqual([k for k, _ in groom["slots_used"]], [slot_at(13), slot_at(14), slot_at(15)])
+        self.assertIn("13:00–16:00 น.", service.public_view(groom)["slot_label"])
+        # ยกเลิกแล้วคืนครบทุกชั่วโมง
+        run(service.set_status(groom["id"], "cancelled"))
+        self.assertEqual([self.count(slot_at(h)) for h in (13, 14, 15)], [0, 0, 0])
+
+    def test_long_service_must_finish_before_closing(self):
+        # ร้านปิด 18:00: อาบน้ำเริ่ม 16:00 ได้ (ถึง 18:00) · ตัดขนเริ่มช้าสุด 15:00
+        with self.assertRaises(BookingError) as ctx:
+            self.book(service="full_groom", slot=slot_at(16))
+        self.assertEqual((ctx.exception.status, ctx.exception.field), (409, "slot"))
+        self.assertIn("ไม่ทันก่อนร้านปิด", ctx.exception.message)
+        self.assertEqual(self.count(slot_at(16)), 0)
+        b = self.book(service="full_groom", slot=slot_at(15))
+        self.assertEqual([k for k, _ in b["slots_used"]], [slot_at(15), slot_at(16), slot_at(17)])
+        self.analysis = good_slip(reference="REF002")
+        self.book(service="bath", slot=slot_at(16))
+        self.assertEqual((self.count(slot_at(16)), self.count(slot_at(17))), (2, 2))
+
+    def test_long_service_needs_every_hour_free(self):
+        # 11:00 เต็มแล้ว → อาบน้ำที่เริ่ม 10:00 (ต้องใช้ 10:00–12:00) จองไม่ได้ และคืนชั่วโมงแรกที่กันไว้
+        self.analysis = good_slip(amount=100.0)
+        self.book(slot=slot_at(11), pets=2)
+        self.analysis = good_slip(reference="REF002")
+        with self.assertRaises(BookingError) as ctx:
+            self.book(service="bath", slot=slot_at(10))
+        self.assertIn("2 ชั่วโมง", ctx.exception.message)
+        self.assertEqual(self.count(slot_at(10)), 0)
+
+    def test_three_pets_with_a_long_service_run_in_two_rounds(self):
+        # ช่าง 2 คน: 2 ตัวแรก 10:00–12:00 · ตัวที่ 3 รอบถัดไป 12:00–14:00
+        self.analysis = good_slip(amount=150.0)
+        b = self.book(service="bath", pets=3)
+        self.assertEqual(b["slots_used"], [[slot_at(10), 2], [slot_at(11), 2], [slot_at(12), 1], [slot_at(13), 1]])
+        self.assertIn("10:00–14:00 น.", service.public_view(b)["slot_label"])
+
+    def test_service_is_required_and_old_bookings_have_no_label(self):
+        for bad in (None, "", "massage"):
+            with self.subTest(service=bad):
+                with self.assertRaises(BookingError) as ctx:
+                    self.book(service=bad)
+                self.assertEqual(ctx.exception.field, "service")
+        b = self.book()
+        del b["service"]                                        # การจองก่อนมีช่องเลือกบริการ
+        self.assertEqual(service.public_view(b)["service_label"], "")
+
+    def test_availability_includes_last_working_hour_as_non_start(self):
+        day = next(d for d in slots.availability({}, NOW) if d["date"] == first_open_day().isoformat())
+        starts = {s["time"]: s["start"] for s in day["slots"]}
+        self.assertEqual((starts["16:00"], starts["17:00"]), (True, False))
 
     def test_too_many_pets_for_the_last_slot_or_invalid_count(self):
         with self.assertRaises(BookingError) as ctx:
-            self.book(slot=slot_at(16), pets=3)                 # 16:00 = คิวสุดท้าย ไม่มีชั่วโมงถัดไป
+            self.book(slot=slot_at(17), pets=1)                 # 17:00 เลยเวลารับคิวสุดท้าย
+        self.assertEqual(ctx.exception.field, "slot")
+        with self.assertRaises(BookingError) as ctx:
+            self.book(slot=slot_at(16), pets=3, service="bath")  # 2 รอบ × 2 ชม. = เลิก 20:00 เกินเวลาปิด
         self.assertIn("ไม่ทัน", ctx.exception.message)
         self.assertEqual(self.count(slot_at(16)), 0)
         for bad in (0, 5, "abc"):
@@ -356,7 +419,7 @@ class ApiTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def post(self, client=None, **fields):
-        data = {"pet_name": "ถั่วแดง", "owner_name": "สมใจ", "phone": "0812345678", "slot": slot_at()}
+        data = {"pet_name": "ถั่วแดง", "owner_name": "สมใจ", "phone": "0812345678", "slot": slot_at(), "service": "other"}
         data.update(fields)
         files = {"pet_photo": ("pet.jpg", JPEG, "image/jpeg"), "slip": ("slip.png", PNG, "image/png")}
         return (client or self.client).post("/api/v1/booking", data=data, files=files)

@@ -108,6 +108,7 @@
       ["เลขจอง", b.id],
       ["น้อง", b.pet_name],
       ["วันเวลานัด", b.slot_label],
+      ...(b.service_label ? [["บริการ", b.service_label]] : []),
       ["สถานะ", b.status_label],
     ];
     if (b.pickup_time) rows.push(["รับ-ส่ง", `ร้านไปรับ ${b.pickup_time} น.`]);

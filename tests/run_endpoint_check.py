@@ -177,7 +177,7 @@ def booking_full(c, slots_response):
     password = env_value("ADMIN_PASSWORD")
     slot = next(s["key"] for d in slots_response.json()["days"] for s in d["slots"] if s["left"] > 0)
     r = call(c, g, "POST", "/api/v1/booking", "จองคิว + Gemini ตรวจสลิปมัดจำ 50 บาท", 201,
-             data={"pet_name": "ถั่วแดง", "owner_name": OWNER, "phone": PHONE, "slot": slot},
+             data={"pet_name": "ถั่วแดง", "owner_name": OWNER, "phone": PHONE, "slot": slot, "service": "other"},
              files={"pet_photo": image("Chiwawa short.jpg"), "slip": image("slip_owner_50.png", "image/png")},
              check=lambda r: "เลขจอง " + r.json()["booking"]["id"])
     if r is None or r.status_code != 201:

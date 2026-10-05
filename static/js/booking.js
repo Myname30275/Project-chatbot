@@ -109,6 +109,7 @@
     if (n === 1) {
       if (!pick.pet.blob) { showError("pet_photo", "กรุณาเลือกรูปน้อง"); ok = false; }
       if (!value("pet_name")) { showError("pet_name", "กรุณากรอกชื่อน้อง"); ok = false; }
+      if (!form.elements.service.value) { showError("service", "กรุณาเลือกบริการที่ต้องการ"); ok = false; }
       if (!value("owner_name")) { showError("owner_name", "กรุณากรอกชื่อเจ้าของ"); ok = false; }
       if (!PHONE_RE.test(phoneDigits())) { showError("phone", "เบอร์โทรต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0"); ok = false; }
     } else if (n === 2) {
@@ -331,7 +332,8 @@
     if (n === 2 && map) requestAnimationFrame(() => map.invalidateSize());
     if (n === 3) {
       summaryEl.textContent =
-        `น้อง${value("pet_name")}${petCount() > 1 ? ` (${petCount()} ตัว)` : ""} · ${chosenSlot ? chosenSlot.label : ""}` +
+        `น้อง${value("pet_name")}${petCount() > 1 ? ` (${petCount()} ตัว)` : ""} · ` +
+        `${form.elements.service.selectedOptions[0].textContent.split(" เช่น")[0].split(" · ")[0]} · ${chosenSlot ? chosenSlot.label : ""}` +
         (wantPickup() && ride ? ` · ร้านไปรับน้อง ${pickupTime()} น.` : "");
       updateDue();
     }
@@ -365,21 +367,30 @@
     renderDays();
   }
 
-  /* จำนวนน้องในการจองนี้: ช่าง 1 คนทำ 1 ตัว/ชั่วโมง — 2 ตัวใช้ช่างเต็มชั่วโมง ตัวที่ 3 ขึ้นไปใช้ชั่วโมงถัดไปต่อ
+  /* เวลาที่การจองนี้ใช้: ช่าง 1 คนดูแลน้อง 1 ตัวต่อเนื่องตามชั่วโมงของบริการที่เลือก (อาบน้ำ 2 ชม. ตัดขน 3 ชม.)
+     น้องไม่เกินจำนวนช่าง = ทำพร้อมกัน ตัวที่เกินทำรอบถัดไปต่อจากรอบแรก
      (กติกาเดียวกับ booking/slots.py: plan — เซิร์ฟเวอร์ตรวจซ้ำตอนจอง) */
   function petCount() {
     return Number(form.elements.pets.value) || 1;
   }
-  function hoursNeeded() {
-    return Math.ceil(petCount() / capacity);
+  function serviceHours() {
+    const opt = form.elements.service.selectedOptions[0];
+    return Number(opt && opt.dataset.hours) || 1;
   }
-  // ช่องเริ่มต้นลำดับ i ของวันนั้นรับน้องครบทุกตัวได้ไหม
+  function hoursNeeded() {
+    return Math.ceil(petCount() / capacity) * serviceHours();
+  }
+  // เริ่มที่ช่องลำดับ i ของวันนั้นแล้วทำครบทุกตัวก่อนร้านปิดได้ไหม (day.slots รวมชั่วโมงสุดท้ายที่เริ่มคิวใหม่ไม่ได้)
   function fits(day, i) {
+    if (day.slots[i].start === false) return false;
     let left = petCount();
-    for (let j = i; left > 0; j++) {
-      const s = day.slots[j];
+    let j = i;
+    while (left > 0) {
       const units = Math.min(capacity, left);
-      if (!s || s.left < units) return false;
+      for (let h = 0; h < serviceHours(); h++, j++) {
+        const s = day.slots[j];
+        if (!s || s.left < units) return false;
+      }
       left -= units;
     }
     return true;
@@ -388,6 +399,12 @@
     const [h, m] = time.split(":").map(Number);
     return `${String(h + hoursNeeded()).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   }
+
+  form.elements.service.addEventListener("change", () => {
+    clearError("service");
+    chosenSlot = null; // บริการเปลี่ยน จำนวนชั่วโมงเปลี่ยน → ให้เลือกเวลาใหม่
+    if (days.length) renderDays();
+  });
 
   form.elements.pets.addEventListener("change", () => {
     clearError("pets");
@@ -435,6 +452,7 @@
     }
     const many = petCount() > 1;
     day.slots.forEach((s, i) => {
+      if (s.start === false) return; // ชั่วโมงทำงานช่วงท้ายวัน เริ่มคิวใหม่ไม่ได้
       const ok = fits(day, i);
       const btn = document.createElement("button");
       btn.type = "button";
@@ -446,7 +464,7 @@
       btn.innerHTML = '<span class="time-chip__t"></span><span class="time-chip__left"></span>';
       btn.querySelector(".time-chip__t").textContent = s.time;
       btn.querySelector(".time-chip__left").textContent =
-        s.left <= 0 ? "เต็ม" : !ok ? "ไม่พอ" : many ? "ว่าง" : s.left === 1 ? "เหลือ 1" : "ว่าง";
+        s.left <= 0 ? "เต็ม" : !ok ? "ไม่พอ" : many || hoursNeeded() > 1 ? "ว่าง" : s.left === 1 ? "เหลือ 1" : "ว่าง";
       btn.addEventListener("click", () => {
         const when = hoursNeeded() > 1 ? `${s.time}–${endTime(s.time)}` : s.time;
         chosenSlot = { key: s.key, label: `${day.label} ${when} น.` };
@@ -459,7 +477,7 @@
 
   /* ---------------- ส่งจอง ---------------- */
 
-  const STEP_OF_FIELD = { pet_photo: 1, pet_name: 1, pets: 1, owner_name: 1, phone: 1, slot: 2, pickup: 2, slip: 3 };
+  const STEP_OF_FIELD = { pet_photo: 1, pet_name: 1, service: 1, pets: 1, owner_name: 1, phone: 1, slot: 2, pickup: 2, slip: 3 };
 
   function setBusy(on) {
     busy = on;
@@ -480,6 +498,7 @@
     data.append("phone", phoneDigits());
     data.append("slot", chosenSlot.key);
     data.append("pets", String(petCount()));
+    data.append("service", form.elements.service.value);
     data.append("pet_photo", pick.pet.blob, "pet.jpg");
     data.append("slip", pick.slip.blob, "slip.jpg");
     if (wantPickup() && ride) {
@@ -665,6 +684,13 @@
     card.querySelector('[data-f="phone"]').textContent = b.phone;
     card.querySelector('[data-f="slot_label"]').textContent = b.slot_label;
     card.querySelector('[data-f="id"]').textContent = b.id;
+    if (b.service_label) {
+      const dt = document.createElement("dt");
+      dt.textContent = "บริการ";
+      const dd = document.createElement("dd");
+      dd.textContent = b.service_label;
+      card.querySelector('[data-f="id"]').previousElementSibling.before(dt, dd);
+    }
     if (b.pets > 1) {
       const dt = document.createElement("dt");
       dt.textContent = "จำนวน";

@@ -304,6 +304,16 @@
             </label>
             <p class="field__error" data-error-for="pet_name"></p>
             <label class="field">
+              <span>บริการที่ต้องการ</span>
+              <select name="service" id="bk-service" required>
+                <option value="">เลือกบริการ</option>
+                {% for s in catalog.booking.services %}
+                <option value="{{ s.id }}" data-hours="{{ s.hours }}">{{ s.label }} · {{ s.hours }} ชม.</option>
+                {% endfor %}
+              </select>
+            </label>
+            <p class="field__error" data-error-for="service"></p>
+            <label class="field">
               <span>จำนวนน้องที่พามา</span>
               <select name="pets" id="bk-pets">
                 {% for n in range(1, catalog.booking.max_pets + 1) %}
@@ -311,7 +321,7 @@
                 {% endfor %}
               </select>
             </label>
-            <p class="sheet__note">ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลได้ {{ catalog.booking.capacity_per_slot }} ตัวต่อชั่วโมง — 3–{{ catalog.booking.max_pets }} ตัว ระบบกันคิวชั่วโมงถัดไปให้ด้วย · มัดจำ {{ catalog.payment.deposit }} บาทต่อตัว · เกิน {{ catalog.booking.max_pets }} ตัวรบกวนจองแยกอีกคิว</p>
+            <p class="sheet__note">ระบบกันเวลาช่างให้ตามบริการที่เลือก (นับเป็นชั่วโมงเต็ม) · ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลพร้อมกันได้ {{ catalog.booking.capacity_per_slot }} ตัว ตัวที่ 3–{{ catalog.booking.max_pets }} ทำต่อรอบถัดไป · มัดจำ {{ catalog.payment.deposit }} บาทต่อตัว · เกิน {{ catalog.booking.max_pets }} ตัวรบกวนจองแยกอีกคิว</p>
             <p class="field__error" data-error-for="pets"></p>
             <label class="field">
               <span>ชื่อเจ้าของ</span>

@@ -44,6 +44,31 @@ def day_slots(d: date) -> list[datetime]:
     return out
 
 
+def work_hours(d: date) -> list[datetime]:
+    """ทุกชั่วโมงที่ช่างทำงานได้ของวันนั้น (เปิดร้านถึงชั่วโมงสุดท้ายก่อนปิด) — กว้างกว่า day_slots:
+    17:00 เริ่มคิวใหม่ไม่ได้ (เลยเวลารับคิวสุดท้าย) แต่งานที่เริ่มก่อนหน้านั้นทำต่อถึง 18:00 ได้"""
+    cfg = config()
+    if d.weekday() in cfg["closed_weekdays"]:
+        return []
+    step = timedelta(minutes=cfg["slot_minutes"])
+    t = datetime.combine(d, _hhmm(cfg["open"]), TZ)
+    close = datetime.combine(d, _hhmm(cfg["close"]), TZ)
+    out = []
+    while t + step <= close:
+        out.append(t)
+        t += step
+    return out
+
+
+def services() -> list[dict]:
+    """บริการหลักที่ให้เลือกตอนจอง: [{id, label, hours}] — hours = จำนวนชั่วโมงเต็มที่กันคิวต่อน้อง 1 ตัว"""
+    return config()["services"]
+
+
+def service(service_id: str | None) -> dict | None:
+    return next((s for s in services() if s["id"] == service_id), None)
+
+
 def bookable_days(at: datetime | None = None) -> list[date]:
     """วันที่จองได้: ล่วงหน้าอย่างน้อย min_days_ahead ถึง max_days_ahead วัน (ตามนโยบายร้าน)"""
     cfg = config()
@@ -71,22 +96,24 @@ def parse_slot(key: str, at: datetime | None = None) -> datetime | None:
     return dt if dt in day_slots(dt.date()) else None
 
 
-def plan(dt: datetime, pets: int) -> list[tuple[str, int]] | None:
-    """ช่องเวลาที่การจองนี้ใช้: [(key, จำนวนช่าง), ...] — ช่าง 1 คนทำ 1 ตัว/ชั่วโมง
-    1 ตัว = ช่าง 1 คน · 2 ตัว = ช่างเต็มชั่วโมงนั้น · ตัวที่ 3 ขึ้นไปใช้ชั่วโมงถัดไปต่อ
-    คืน None ถ้าชั่วโมงถัดไปเลยเวลารับคิวสุดท้ายของวัน"""
+def plan(dt: datetime, pets: int, hours: int = 1) -> list[tuple[str, int]] | None:
+    """ช่องเวลาที่การจองนี้ใช้: [(key, จำนวนช่าง), ...] — ช่าง 1 คนดูแลน้อง 1 ตัวต่อเนื่อง hours ชั่วโมง
+    (hours ตามบริการที่เลือก เช่น อาบน้ำ 2 ชม. ตัดขน 3 ชม. — ไม่คิดเศษครึ่งชั่วโมง)
+    น้องไม่เกินจำนวนช่าง = ทำพร้อมกัน · ตัวที่เกินรอทำรอบถัดไปต่อจากรอบแรก
+    คืน None ถ้าเวลาเริ่มไม่ใช่ช่องที่เปิดรับคิว หรืองานจะเลยเวลาปิดร้าน"""
     cap = config()["capacity_per_slot"]
-    hours = day_slots(dt.date())
-    if dt not in hours:
+    if dt not in day_slots(dt.date()):
         return None
-    i, left, out = hours.index(dt), pets, []
+    work = work_hours(dt.date())
+    i, left, out = work.index(dt), pets, []
     while left > 0:
-        if i >= len(hours):
-            return None
         units = min(cap, left)
-        out.append((slot_key(hours[i]), units))
+        for _ in range(hours):
+            if i >= len(work):
+                return None
+            out.append((slot_key(work[i]), units))
+            i += 1
         left -= units
-        i += 1
     return out
 
 
@@ -100,18 +127,21 @@ def range_label(dt: datetime, hours: int) -> str:
 
 
 def all_keys(at: datetime | None = None) -> list[str]:
-    return [slot_key(s) for d in bookable_days(at) for s in day_slots(d)]
+    return [slot_key(s) for d in bookable_days(at) for s in work_hours(d)]
 
 
 def availability(counts: dict[str, int], at: datetime | None = None) -> list[dict]:
-    """ตารางให้หน้าเว็บ: [{date, label, open, slots: [{key, time, left}]}] — วันปิดส่งมาด้วย
-    (open=False) ให้ปฏิทินแสดงเป็นวันหยุดได้"""
+    """ตารางให้หน้าเว็บ: [{date, label, open, slots: [{key, time, left, start}]}] — วันปิดส่งมาด้วย
+    (open=False) ให้ปฏิทินแสดงเป็นวันหยุดได้ · start=False = ชั่วโมงทำงานที่เริ่มคิวใหม่ไม่ได้
+    (หน้าเว็บใช้ดูว่างานที่ยาวหลายชั่วโมงทำต่อถึงชั่วโมงนั้นได้ไหม)"""
     cap = config()["capacity_per_slot"]
     out = []
     for d in bookable_days(at):
+        starts = set(day_slots(d))
         slots = [
-            {"key": slot_key(s), "time": s.strftime("%H:%M"), "left": max(0, cap - counts.get(slot_key(s), 0))}
-            for s in day_slots(d)
+            {"key": slot_key(s), "time": s.strftime("%H:%M"), "left": max(0, cap - counts.get(slot_key(s), 0)),
+             "start": s in starts}
+            for s in work_hours(d)
         ]
         out.append({"date": d.isoformat(), "label": day_label(d), "open": bool(slots), "slots": slots})
     return out

@@ -446,6 +446,7 @@
     [
       row("เลขจอง", b.id, "mono"),
       row("วันเวลา", b.slot_label),
+      ...(b.service_label ? [row("บริการ", b.service_label)] : []),
       row("น้อง", b.pet_name + (b.pets > 1 ? ` (${b.pets} ตัว)` : "")),
       row("เจ้าของ", b.owner_name),
       row("เบอร์โทร", tel),

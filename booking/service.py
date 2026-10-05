@@ -73,6 +73,14 @@ def clean_pets(value) -> int:
     return n
 
 
+def clean_service(value) -> dict:
+    """บริการหลักที่ลูกค้าเลือก — กำหนดว่าคิวนี้กันเวลาช่างกี่ชั่วโมงต่อน้อง 1 ตัว (booking.services)"""
+    found = slots.service(str(value or "").strip())
+    if not found:
+        raise BookingError("กรุณาเลือกบริการที่ต้องการ", field="service")
+    return found
+
+
 def slots_used(b: dict) -> list[tuple[str, int]]:
     """ช่องเวลาที่การจองนี้กันไว้ — การจองรุ่นก่อนมีจำนวนน้อง (ไม่มี slots_used) = 1 ช่างในช่องที่จอง"""
     return [(k, u) for k, u in b.get("slots_used") or [(b["slot"], 1)]]
@@ -166,11 +174,14 @@ async def create(
     slip: bytes | None,
     pickup: dict | None = None,
     pets=1,
+    service=None,
     at=None,
 ) -> dict:
     """คืนข้อมูลการจอง (dict) — raise BookingError / StoreError ถ้าไม่สำเร็จ
     pickup = {"lat", "lng", "address"} จากฟอร์มเมื่อลูกค้าติ๊กรับ-ส่ง (None = มาที่ร้านเอง)
-    pets = จำนวนน้อง: 2 ตัว = ใช้ช่างเต็มชั่วโมงนั้น, ตัวที่ 3 ขึ้นไป = กันชั่วโมงถัดไปด้วย (slots.plan)"""
+    service = บริการหลักที่เลือก: กันเวลาช่างตามชั่วโมงของบริการ (อาบน้ำ 2 ชม. ตัดขน 3 ชม.)
+    pets = จำนวนน้อง: ไม่เกินจำนวนช่าง = ทำพร้อมกัน, ตัวที่ 3 ขึ้นไป = ทำรอบถัดไปต่อจากรอบแรก (slots.plan)"""
+    chosen = clean_service(service)
     pets = clean_pets(pets)
     pet_name = clean_name(pet_name, "ชื่อน้อง", "pet_name")
     owner_name = clean_name(owner_name, "ชื่อเจ้าของ", "owner_name")
@@ -184,17 +195,18 @@ async def create(
 
     store = get_store()
     key = slots.slot_key(dt)
-    wanted = slots.plan(dt, pets)
+    wanted = slots.plan(dt, pets, chosen["hours"])
     if wanted is None:
         raise BookingError(
-            f"เวลานี้ดูแลน้อง {pets} ตัวไม่ทันก่อนร้านปิดรับคิว รบกวนเลือกเวลาที่เร็วขึ้น", status=409, field="slot")
+            f"เริ่มเวลานี้ดูแลน้อง {pets} ตัวไม่ทันก่อนร้านปิด (ใช้เวลา {_span(pets, chosen)} ชั่วโมง) รบกวนเลือกเวลาที่เร็วขึ้น",
+            status=409, field="slot")
     held: list[tuple[str, int]] = []
     for slot_k, units in wanted:
         if not await store.reserve_slot(slot_k, slots.config()["capacity_per_slot"], units):
             await _release(store, held)
             raise BookingError(
-                "ช่องเวลานี้เพิ่งเต็ม รบกวนเลือกช่องใหม่" if pets == 1
-                else f"ช่วงเวลานี้คิวว่างไม่พอสำหรับน้อง {pets} ตัว รบกวนเลือกช่องใหม่",
+                "ช่องเวลานี้เพิ่งเต็ม รบกวนเลือกช่องใหม่" if len(wanted) == 1
+                else f"ช่วงเวลานี้คิวว่างไม่พอ (บริการนี้ใช้เวลา {len(wanted)} ชั่วโมง) รบกวนเลือกช่องใหม่",
                 status=409, field="slot")
         held.append((slot_k, units))
 
@@ -218,6 +230,7 @@ async def create(
             "slot": key,
             "slot_ts": dt.timestamp(),
             "pets": pets,
+            "service": chosen["id"],
             "slots_used": [list(x) for x in held],
             "status": "pending",
             "slip": slip_info,
@@ -261,6 +274,18 @@ def _when(b: dict) -> str:
     return slots.range_label(slots.parse_key(b["slot"]), len(slots_used(b)))
 
 
+def _span(pets: int, chosen: dict) -> int:
+    """จำนวนชั่วโมงรวมที่การจองนี้ใช้ = ชั่วโมงของบริการ × จำนวนรอบ (รอบละไม่เกินจำนวนช่าง)"""
+    cap = slots.config()["capacity_per_slot"]
+    return chosen["hours"] * -(-pets // cap)
+
+
+def service_label(b: dict) -> str:
+    """ชื่อบริการที่เลือกตอนจอง — การจองรุ่นก่อนมีช่องเลือกบริการ = ว่าง"""
+    found = slots.service(b.get("service"))
+    return found["label"].split(" เช่น")[0] if found else ""
+
+
 def mask_phone(phone: str) -> str:
     return f"{phone[:3]}-xxx-{phone[6:]}" if len(phone) == 10 else "xxx"
 
@@ -275,6 +300,7 @@ def public_view(b: dict) -> dict:
         "slot": b["slot"],
         "slot_label": _when(b),
         "pets": b.get("pets", 1),
+        "service_label": service_label(b),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
         "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
@@ -398,6 +424,7 @@ def verify_view(b: dict) -> dict:
         "id": b["id"],
         "pet_name": b["pet_name"],
         "pets": b.get("pets", 1),
+        "service_label": service_label(b),
         "slot_label": _when(b),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
@@ -609,6 +636,7 @@ def check_view(b: dict) -> dict:
         "id": b["id"],
         "pet_name": b["pet_name"],
         "pets": b.get("pets", 1),
+        "service_label": service_label(b),
         "slot": b["slot"],
         "slot_label": _when(b),
         "status": b["status"],
