@@ -3,9 +3,10 @@
 ใช้:  python docs/build_aws_diagram.py          สร้างไฟล์ HTML
       python docs/build_aws_diagram.py --png    สร้าง HTML แล้วส่งออก PNG 1920×1080 ด้วย Playwright
 
-รูปแบบตามแนวทางของ AWS (aws.amazon.com/th/what-is/architecture-diagramming): ผู้ใช้อยู่ซ้าย · กรอบกลุ่มซ้อนกัน
+โครงตามแนวทางของ AWS (aws.amazon.com/th/what-is/architecture-diagramming): ผู้ใช้อยู่ซ้าย · กรอบกลุ่มซ้อนกัน
 (Cloud → Function → กลุ่มย่อย) มีไอคอนมุมบนซ้าย · บริการเป็นไอคอนสี่เหลี่ยมสีตามหมวด มีชื่อใต้ไอคอน ·
 ลูกศรหักมุมฉาก มีเลขลำดับขั้นตอน และคำอธิบายขั้นตอนด้านล่าง
+สีและตัวอักษรใช้ธีมเดียวกับระบบและแผนภาพชุดเดิม (พื้นครีม เส้นน้ำตาล ฟอนต์ Mali / Nunito) ให้เข้าชุดกับภาพที่ 2–3
 แผนภาพชุดเดิม (docs/build_slides.py → docs/img/arch-1-system.png ฯลฯ) ยังเก็บไว้เป็นไฟล์สำรอง
 """
 
@@ -20,9 +21,11 @@ OUT = ROOT / "docs" / "architecture-aws.html"
 PNG = ROOT / "docs" / "img" / "arch-aws.png"
 W, H = 1600, 900
 
-INK = "#232F3E"
-# สีตามหมวดบริการของชุดไอคอน AWS
-COMPUTE, ML, DB, NET, INTEG, SEC, STORE, GENERAL = "#ED7100", "#01A88D", "#C925D1", "#8C4FFF", "#E7157B", "#DD344C", "#7AA116", "#232F3E"
+INK = "#5c3d2e"
+PAPER = "#fffbf3"
+# สีตามหมวดบริการ (แบ่งหมวดแบบชุดไอคอน AWS แต่ใช้สีของธีมร้าน): โค้ดของเรา = ส้มน้ำตาล · บริการ AI/ภายนอก = น้ำเงิน ·
+# ข้อมูล = เขียว · ความปลอดภัย = แดงอิฐ · เครือข่าย = น้ำตาลเทา · ผู้ใช้ = น้ำตาลเข้ม
+COMPUTE, ML, DB, NET, INTEG, SEC, STORE, GENERAL = "#b86e1b", "#456a8c", "#456a8c", "#7a5f50", "#4f6e37", "#b0503a", "#4f6e37", "#5c3d2e"
 
 
 def facts() -> dict:
@@ -70,7 +73,7 @@ def node(cx, cy, glyph, color, title, *lines, size=52):
     """ไอคอนบริการ: สี่เหลี่ยมสีตามหมวด + ลายเส้นสีขาว ชื่อและคำอธิบายอยู่ใต้ไอคอน"""
     k = size / 48
     x, y = cx - size / 2, cy - size / 2
-    out = [f'<rect x="{x}" y="{y}" width="{size}" height="{size}" rx="4" fill="{color}"/>',
+    out = [f'<rect x="{x}" y="{y}" width="{size}" height="{size}" rx="10" fill="{color}"/>',
            f'<g transform="translate({x},{y}) scale({k})" fill="none" stroke="#fff" stroke-width="2.4" '
            f'stroke-linecap="round" stroke-linejoin="round">{GLYPH[glyph]}</g>',
            text(cx, y + size + 17, title, "name")]
@@ -78,13 +81,13 @@ def node(cx, cy, glyph, color, title, *lines, size=52):
     return "".join(out)
 
 
-def group(x, y, w, h, label, color, glyph=None, dashed=False, fill="none"):
+def group(x, y, w, h, label, color, glyph=None, dashed=False, fill="none", width=1.8):
     """กรอบกลุ่มแบบ AWS: เส้นขอบบาง + ป้ายไอคอนมุมบนซ้าย"""
     dash = ' stroke-dasharray="7 5"' if dashed else ""
-    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{fill}" stroke="{color}" stroke-width="1.6"{dash}/>']
+    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="14" fill="{fill}" stroke="{color}" stroke-width="{width}"{dash}/>']
     tx = x + 10
     if glyph:
-        out.append(f'<rect x="{x}" y="{y}" width="28" height="28" fill="{color}"/>'
+        out.append(f'<path d="M{x} {y + 28}V{y + 14}a14 14 0 0 1 14-14H{x + 28}V{y + 20}a8 8 0 0 1-8 8z" fill="{color}"/>'
                    f'<g transform="translate({x + 2},{y + 2}) scale(0.5)" fill="none" stroke="#fff" stroke-width="3" '
                    f'stroke-linecap="round" stroke-linejoin="round">{GLYPH[glyph]}</g>')
         tx = x + 38
@@ -111,21 +114,22 @@ def diagram() -> str:
     p = []
     p.append(text(40, 46, "สถาปัตยกรรมระบบแชทบอท Hom Hom Grooming", "h1", "start"))
     p.append(text(40, 72, "ร้านอาบน้ำ-ตัดขนสุนัขและแมว · https://hom-hom-grooming.vercel.app", "h2", "start"))
+    p.append('<image href="../static/img/logo-badge.png" x="1498" y="14" width="72" height="72"/>')
 
     # ---- ผู้ใช้ (ซ้าย) ----
-    p.append(group(30, 100, 200, 590, "ผู้ใช้งาน", GENERAL, "user", fill="#fff"))
+    p.append(group(30, 100, 200, 590, "ผู้ใช้งาน", GENERAL, "user", fill="#fff5e1", width=2))
     p.append(node(130, 185, "user", GENERAL, "ลูกค้า (เว็บเบราว์เซอร์)", "แชท · ส่งรูป · โหมดเสียง", "จองคิว · เช็คคิว · ยกเลิกคิว"))
     p.append(node(130, 385, "chat", INTEG, "LINE Platform", f"ลูกค้าในแอป LINE {f['line']}", "Messaging API (webhook + reply)"))
     p.append(node(130, 585, "user", GENERAL, "เจ้าของร้าน", "หลังบ้าน /admin", "ยืนยันคิว · โอนเงินคืน"))
 
     # ---- Vercel Cloud ----
-    p.append(group(270, 100, 880, 590, "Vercel Cloud", GENERAL, "cloud", fill="#fff"))
+    p.append(group(270, 100, 880, 590, "Vercel Cloud", GENERAL, "cloud", fill="#fffdf8", width=2.4))
     p.append(node(345, 385, "edge", NET, "Edge Network", "HTTPS · CDN", "ไฟล์หน้าเว็บ", "HTML / CSS / JS"))
 
     p.append(group(430, 140, 700, 535, "Serverless Function · FastAPI (Python)", COMPUTE, "lambda", dashed=True))
 
     # API routes
-    p.append(group(448, 180, 190, 480, "API routes (channels/)", "#147EBA", fill="#E6F2F8"))
+    p.append(group(448, 180, 190, 480, "API routes (channels/)", "#7a5f50", fill="#ffffff"))
     api = [("chat", "Chat API", "/api/v1/chat/stream (SSE)"), ("image", "Attachments API", "/api/v1/attachments"),
            ("sound", "TTS API", "/api/v1/tts/stream"), ("chat", "LINE Webhook", "/line/webhook"),
            ("calendar", "Booking API", "/api/v1/booking/*"), ("lock", "Admin API", "/api/v1/admin/*")]
@@ -133,7 +137,7 @@ def diagram() -> str:
         p.append(node(543, 228 + i * 75, g, COMPUTE if g != "lock" else SEC, title, path, size=34))
 
     # Application logic
-    p.append(group(668, 180, 444, 300, "ชั้นประมวลผล (Application logic)", "#1D8102", fill="#EAF3E3"))
+    p.append(group(668, 180, 444, 300, "ชั้นประมวลผล (Application logic)", "#b86e1b", fill="#f8dda8", width=2.4))
     logic = [("flow", COMPUTE, "Assistant pipeline", "chatbot/ · แกนกลางของทุกช่องทาง"),
              ("shield", SEC, "Guardrails 3 ด่าน", "กฎในโค้ด · ตรวจเจตนา · ตรวจคำตอบ"),
              ("search", ML, "RAG retriever", "rag/ · embedding + TF-IDF"),
@@ -146,13 +150,13 @@ def diagram() -> str:
         p.append(node(742 + (i % 3) * 148, 240 + (i // 3) * 140, g, color, title, head, tail, size=44))
 
     # ข้อมูลที่ deploy พร้อมโค้ด
-    p.append(group(668, 500, 444, 160, "ข้อมูลร้านที่ deploy พร้อมโค้ด", "#687078", fill="#F2F3F3"))
+    p.append(group(668, 500, 444, 160, "ข้อมูลร้านที่ deploy พร้อมโค้ด", "#4f6e37", fill="#eef4e6"))
     p.append(node(742, 555, "doc", STORE, "shop/", f"ราคา {f['items']} รายการ", f"FAQ {f['faq']} ข้อ · นโยบาย", size=44))
     p.append(node(890, 555, "index", STORE, "rag/index.json", f"{f['chunks']} ชิ้นข้อมูล", "เวกเตอร์ 768 มิติ", size=44))
     p.append(node(1038, 555, "doc", STORE, "prompts/", "กฎต้องทำ / ห้ามทำ", "คำสั่งตรวจเจตนา · อ่านรูป", size=44))
 
     # ---- บริการภายนอก ----
-    p.append(group(1210, 100, 360, 590, "บริการภายนอก (เรียกผ่าน HTTPS API)", GENERAL, "api", fill="#fff"))
+    p.append(group(1210, 100, 360, 590, "บริการภายนอก (เรียกผ่าน HTTPS API)", "#456a8c", "api", dashed=True, fill="#f6f9fc"))
     ext = [("brain", ML, "Typhoon LLM", "เรียบเรียงคำตอบภาษาไทย · ตรวจเจตนา"),
            ("eye", ML, "Google Gemini", "Vision อ่านรูป · Embedding สำหรับ RAG"),
            ("sound", ML, "Cartesia TTS", "แปลงคำตอบเป็นเสียง (โหมดอวตาร)"),
@@ -198,11 +202,12 @@ def diagram() -> str:
 
 
 CSS = f"""
-text{{font-family:"Sarabun","Leelawadee UI","Tahoma",sans-serif;fill:{INK}}}
-.h1{{font-size:28px;font-weight:700}} .h2{{font-size:16px;fill:#545B64}}
-.group{{font-size:14px;font-weight:600}}
-.name{{font-size:13.5px;font-weight:700}} .sub{{font-size:11.5px;fill:#545B64}}
-.num{{font-size:14px;font-weight:700;fill:#fff}} .legend{{font-size:13px}}
+@import url("https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&display=swap");
+text{{font-family:"Nunito","IBM Plex Sans Thai Looped",sans-serif;fill:{INK}}}
+.h1{{font-family:"Mali","Nunito",sans-serif;font-size:30px;font-weight:700}} .h2{{font-size:16px;fill:#7a5f50}}
+.group{{font-size:14px;font-weight:800}}
+.name{{font-size:13.5px;font-weight:800}} .sub{{font-size:11.5px;fill:#6b5142}}
+.num{{font-size:14px;font-weight:800;fill:{PAPER}}} .legend{{font-size:13px}}
 """
 
 
@@ -214,7 +219,7 @@ def svg() -> str:
 <marker id="ah2" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10 0L0 5L10 10z" fill="{INK}"/></marker>
 <style>{CSS}</style>
 </defs>
-<rect width="{W}" height="{H}" fill="#fff"/>
+<rect width="{W}" height="{H}" fill="{PAPER}"/>
 {diagram()}
 </svg>"""
 
@@ -223,8 +228,7 @@ def main() -> int:
     html = f"""<!doctype html>
 <html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>สถาปัตยกรรมระบบ Hom Hom Grooming</title>
-<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
-<style>body{{margin:0;background:#fff}}svg{{display:block;width:100%;height:auto}}</style></head>
+<style>body{{margin:0;background:{PAPER}}}svg{{display:block;width:100%;height:auto}}</style></head>
 <body>{svg()}</body></html>
 """
     OUT.write_text(html, encoding="utf-8")

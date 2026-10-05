@@ -211,7 +211,7 @@ def section_architecture(f, endpoints):
     return f"""
 <h2>3. แผนภาพสถาปัตยกรรมระบบ</h2>
 <figure><img src="img/arch-aws.png" alt="แผนภาพสถาปัตยกรรมระบบ">
-<figcaption>ภาพที่ 1 สถาปัตยกรรมระบบ (รูปแบบ AWS architecture diagram): ผู้ใช้ → Vercel Cloud → Serverless Function → บริการภายนอก
+<figcaption>ภาพที่ 1 สถาปัตยกรรมระบบ (จัดโครงแบบ AWS architecture diagram ใช้ธีมสีของระบบ): ผู้ใช้ → Vercel Cloud → Serverless Function → บริการภายนอก
 เลขในวงกลมคือลำดับขั้นตอนของ 1 คำขอ</figcaption></figure>
 
 <h3>3.1 องค์ประกอบของระบบ</h3>
