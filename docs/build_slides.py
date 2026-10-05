@@ -15,6 +15,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "docs"))
+import build_aws_diagram as aws  # noqa: E402  แผ่นที่ 1
 OUT = ROOT / "docs" / "architecture-slides.html"
 W, H = 1600, 900
 
@@ -301,9 +303,9 @@ def slide_booking(f: dict) -> str:
         ("ตรวจเวลา", (f"ก่อนนัด ≥ {h} ชั่วโมง", "สถานะยังไม่ยกเลิก"), "bx"),
         ("ยกเลิก + คืนช่อง", ("กันกดซ้ำ (SET NX)", "คืนทุกชั่วโมงที่กันไว้"), "bx"),
         ("คำขอคืนเงิน", ("ยอดที่ลูกค้าโอนมา", "เทียบชื่อบัญชีกับ", "ชื่อผู้โอนในสลิป"), "bx"),
-        ("เจ้าของร้านโอนคืน", ("ต้องแนบสลิปโอนคืน", "ก่อนกดยืนยัน"), "bx-core"),
+        ("เจ้าของร้านโอนคืน", ("ตรวจยอดมัดจำเข้าบัญชี", "แนบสลิปโอนคืน", "แล้วจึงกดยืนยัน"), "bx-core"),
         ("ลูกค้าเห็นผล", ("หน้าเช็คคิว: โอนคืนแล้ว", "ดูสลิปได้หลังยืนยัน", "ชื่อเจ้าของ"), "bx-hl"),
-    ], {1: ["ไม่ตรง → 404 ไม่บอกช่องที่ผิด", "ผิด 5 ครั้ง → ล็อก 24 ชม."], 2: ["409 เลยกำหนด"], 5: ["ไม่แนบสลิป → 422"]})
+    ], {1: ["ไม่ตรง → 404 ไม่บอกช่องที่ผิด", "ผิด 5 ครั้ง → ล็อก 24 ชม."], 2: ["409 เลยกำหนด"], 5: ["ไม่แนบสลิป → 422", "ไม่พบยอดเข้า → ไม่คืนเงิน"]})
 
     p.append(f'<rect class="bx-note" x="40" y="800" width="1520" height="62" rx="14" />')
     p.append(text(60, 838, "กันสวมรอยรับมัดจำ 3 ชั้น:  ① ต้องรู้เลขจอง + เบอร์ + ชื่อเจ้าของ (ชื่อไม่แสดงบนหน้าเช็คคิว)   "
@@ -360,7 +362,8 @@ svg text { font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif; fill:
 
 def build() -> str:
     f = facts()
-    slides = [("system", slide_system(f)), ("message", slide_message(f)), ("booking", slide_booking(f))]
+    # แผ่นที่ 1 = ภาพรวมระบบแบบ AWS (ชุดเดียวกับในเอกสาร report) · แผ่นภาพรวมแบบเดิมเก็บไว้ท้ายสุดเป็นแผ่นสำรอง
+    slides = [("aws", aws.svg()), ("message", slide_message(f)), ("booking", slide_booking(f)), ("system", slide_system(f))]
     body = "\n".join(f'<section class="slide" id="{name}">\n{content}\n</section>' for name, content in slides)
     return f"""<!doctype html>
 <html lang="th">
@@ -373,8 +376,9 @@ def build() -> str:
 <body>
 <div class="intro">
   <h1>แผนภาพสถาปัตยกรรม — ฉบับนำเสนอ (16:9)</h1>
-  <p>3 แผ่น: ภาพรวมระบบ · เส้นทางของ 1 ข้อความ · ระบบจองและยกเลิกคิว — ไฟล์ PNG 1920×1080 อยู่ใน <code>docs/img/arch-*.png</code>
-  · รายละเอียดฉบับเต็ม: <a href="architecture.html">architecture.html</a> · สร้างด้วย <code>python docs/build_slides.py --png</code></p>
+  <p>3 แผ่น: ภาพรวมระบบ (โครงแบบ AWS) · เส้นทางของ 1 ข้อความ · ระบบจองและยกเลิกคิว + แผ่นสำรอง 1 แผ่น (ภาพรวมระบบแบบเดิม)
+  — ไฟล์ PNG 1920×1080 อยู่ใน <code>docs/img/</code>: <code>arch-aws.png</code>, <code>arch-2-message.png</code>, <code>arch-3-booking.png</code>, <code>arch-1-system.png</code> (สำรอง)
+  · รายละเอียดฉบับเต็ม: <a href="architecture.html">architecture.html</a> · สร้างด้วย <code>python docs/build_slides.py --png</code> · เอกสารส่งอาจารย์: <a href="report.html">report.html</a></p>
 </div>
 {body}
 </body>
@@ -392,8 +396,9 @@ def export_png() -> None:
         page = browser.new_page(viewport={"width": 1700, "height": 1000}, device_scale_factor=1.2)
         page.goto(OUT.as_uri(), wait_until="networkidle")
         page.wait_for_timeout(800)
-        for i, name in enumerate(("system", "message", "booking"), 1):
-            page.locator(f"#{name} svg").screenshot(path=str(img / f"arch-{i}-{name}.png"))
+        for name, file in (("aws", "arch-aws"), ("system", "arch-1-system"), ("message", "arch-2-message"),
+                           ("booking", "arch-3-booking")):
+            page.locator(f"#{name} svg").screenshot(path=str(img / f"{file}.png"))
         browser.close()
 
 

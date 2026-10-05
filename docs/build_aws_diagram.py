@@ -65,7 +65,7 @@ GLYPH = {
 }
 
 
-def text(x, y, s, cls="t", anchor="middle"):
+def text(x, y, s, cls="a-name", anchor="middle"):
     return f'<text x="{x}" y="{y}" class="{cls}" text-anchor="{anchor}">{escape(s)}</text>'
 
 
@@ -76,8 +76,8 @@ def node(cx, cy, glyph, color, title, *lines, size=52):
     out = [f'<rect x="{x}" y="{y}" width="{size}" height="{size}" rx="10" fill="{color}"/>',
            f'<g transform="translate({x},{y}) scale({k})" fill="none" stroke="#fff" stroke-width="2.4" '
            f'stroke-linecap="round" stroke-linejoin="round">{GLYPH[glyph]}</g>',
-           text(cx, y + size + 17, title, "name")]
-    out += [text(cx, y + size + 33 + i * 15, line, "sub") for i, line in enumerate(lines)]
+           text(cx, y + size + 17, title, "a-name")]
+    out += [text(cx, y + size + 33 + i * 15, line, "a-sub") for i, line in enumerate(lines)]
     return "".join(out)
 
 
@@ -91,20 +91,20 @@ def group(x, y, w, h, label, color, glyph=None, dashed=False, fill="none", width
                    f'<g transform="translate({x + 2},{y + 2}) scale(0.5)" fill="none" stroke="#fff" stroke-width="3" '
                    f'stroke-linecap="round" stroke-linejoin="round">{GLYPH[glyph]}</g>')
         tx = x + 38
-    out.append(f'<text x="{tx}" y="{y + 19}" class="group" fill="{color}">{escape(label)}</text>')
+    out.append(f'<text x="{tx}" y="{y + 19}" class="a-group" fill="{color}">{escape(label)}</text>')
     return "".join(out)
 
 
 def arrow(points, both=False, dashed=False):
     d = "M" + " L".join(f"{x} {y}" for x, y in points)
-    extra = ' marker-start="url(#ah2)"' if both else ""
+    extra = ' marker-start="url(#aws-ah2)"' if both else ""
     dash = ' stroke-dasharray="6 5"' if dashed else ""
-    return f'<path d="{d}" fill="none" stroke="{INK}" stroke-width="1.8" marker-end="url(#ah)"{extra}{dash}/>'
+    return f'<path d="{d}" fill="none" stroke="{INK}" stroke-width="1.8" marker-end="url(#aws-ah)"{extra}{dash}/>'
 
 
 def step(x, y, n):
     return (f'<circle cx="{x}" cy="{y}" r="13" fill="{INK}"/>'
-            f'<text x="{x}" y="{y + 5}" class="num" text-anchor="middle">{n}</text>')
+            f'<text x="{x}" y="{y + 5}" class="a-num" text-anchor="middle">{n}</text>')
 
 
 # ---------------- แผนภาพ ----------------
@@ -112,8 +112,8 @@ def step(x, y, n):
 def diagram() -> str:
     f = facts()
     p = []
-    p.append(text(40, 46, "สถาปัตยกรรมระบบแชทบอท Hom Hom Grooming", "h1", "start"))
-    p.append(text(40, 72, "ร้านอาบน้ำ-ตัดขนสุนัขและแมว · https://hom-hom-grooming.vercel.app", "h2", "start"))
+    p.append(text(40, 46, "สถาปัตยกรรมระบบแชทบอท Hom Hom Grooming", "a-h1", "start"))
+    p.append(text(40, 72, "ร้านอาบน้ำ-ตัดขนสุนัขและแมว · https://hom-hom-grooming.vercel.app", "a-h2", "start"))
     p.append('<image href="../static/img/logo-badge.png" x="1498" y="14" width="72" height="72"/>')
 
     # ---- ผู้ใช้ (ซ้าย) ----
@@ -197,17 +197,17 @@ def diagram() -> str:
         col, row = divmod(i, 4)
         x, y = 44 + col * 790, 738 + row * 40
         p.append(step(x, y, i + 1))
-        p.append(text(x + 24, y + 5, s, "legend", "start"))
+        p.append(text(x + 24, y + 5, s, "a-legend", "start"))
     return "".join(p)
 
 
 CSS = f"""
 @import url("https://fonts.googleapis.com/css2?family=Mali:wght@600;700&family=Nunito:wght@400;600;700;800&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600;700&display=swap");
 text{{font-family:"Nunito","IBM Plex Sans Thai Looped",sans-serif;fill:{INK}}}
-.h1{{font-family:"Mali","Nunito",sans-serif;font-size:30px;font-weight:700}} .h2{{font-size:16px;fill:#7a5f50}}
-.group{{font-size:14px;font-weight:800}}
-.name{{font-size:13.5px;font-weight:800}} .sub{{font-size:11.5px;fill:#6b5142}}
-.num{{font-size:14px;font-weight:800;fill:{PAPER}}} .legend{{font-size:13px}}
+.a-h1{{font-family:"Mali","Nunito",sans-serif;font-size:30px;font-weight:700}} .a-h2{{font-size:16px;fill:#7a5f50}}
+.a-group{{font-size:14px;font-weight:800}}
+.a-name{{font-size:13.5px;font-weight:800}} .a-sub{{font-size:11.5px;fill:#6b5142}}
+.a-num{{font-size:14px;font-weight:800;fill:{PAPER}}} .a-legend{{font-size:13px}}
 """
 
 
@@ -215,8 +215,8 @@ def svg() -> str:
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img"
  aria-label="แผนภาพสถาปัตยกรรมระบบแชทบอท Hom Hom Grooming">
 <defs>
-<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="{INK}"/></marker>
-<marker id="ah2" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10 0L0 5L10 10z" fill="{INK}"/></marker>
+<marker id="aws-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="{INK}"/></marker>
+<marker id="aws-ah2" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10 0L0 5L10 10z" fill="{INK}"/></marker>
 <style>{CSS}</style>
 </defs>
 <rect width="{W}" height="{H}" fill="{PAPER}"/>

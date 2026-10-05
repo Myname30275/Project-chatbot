@@ -535,7 +535,7 @@ def facts(cat, ten, ps, ep, img):
         "capacity": cat["booking"]["capacity_per_slot"],
         "max_pets": cat["booking"]["max_pets"],
         "img_n": len(img["results"]),
-        "improvements": len(re.findall(r"^## จุดปรับปรุงที่ \d+", log, re.M)),
+        "improvements": len(re.findall(r"^## .*จุดปรับปรุงที่ \d+", log, re.M)),
         "unit": tests,
         "q10": score(ten["results"]), "safety": score(ps["results"]), "safety_n": len(ps["results"]),
         "api": score(ep["results"], "ok"), "api_n": len(ep["results"]), "img": score(img["results"]),

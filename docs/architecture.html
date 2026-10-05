@@ -198,8 +198,8 @@
         <li>สถานะ ณ 5 ต.ค. 2569</li>
         <li>branch <code>main</code> · hom-hom-grooming.vercel.app</li>
         <li>FastAPI บน Vercel</li>
-        <li>เทส 159 ตัวผ่าน</li>
-        <li>ทดสอบกับระบบจริง: 10 คำถาม 10/10 · กฎและความปลอดภัย 35/35 · endpoint 40/40</li>
+        <li>เทส 171 ตัวผ่าน</li>
+        <li>ทดสอบกับระบบจริง: 10 คำถาม 10/10 · กฎและความปลอดภัย 35/35 · endpoint 41/41 · ภาพ 14/15</li>
       </ul>
     </header>
 
@@ -222,8 +222,8 @@
         จึงผ่าน guardrails, RAG และ prompt ชุดเดียวกันทั้งหมด แต่ละกล่องในรูปคือโฟลเดอร์หรือไฟล์จริงในโค้ด
       </p>
       <figure>
-        <a href="img/arch-1-system.png"><img src="img/arch-1-system.png" alt="ภาพรวมสถาปัตยกรรมระบบแชทบอทน้องหอม" style="display:block;width:100%;height:auto;border-radius:10px" /></a>
-        <figcaption>ลูกค้าและเจ้าของร้านเข้าระบบผ่านหน้าเว็บหรือ LINE → FastAPI บน Vercel (ช่องทาง → แกนกลางแชท / ระบบจอง / ตัวอ่านรูป) → บริการภายนอก · กดที่ภาพเพื่อดูขนาดเต็ม (1920×1080) · ฉบับนำเสนอทั้ง 3 แผ่น: <a href="architecture-slides.html">architecture-slides.html</a></figcaption>
+        <a href="img/arch-aws.png"><img src="img/arch-aws.png" alt="ภาพรวมสถาปัตยกรรมระบบแชทบอทน้องหอม (โครงแบบ AWS)" style="display:block;width:100%;height:auto;border-radius:10px" /></a>
+        <figcaption>ผู้ใช้ → Vercel Cloud (Edge Network → Serverless Function: API routes → ชั้นประมวลผล → ข้อมูลร้าน) → บริการภายนอก เลขในวงกลมคือลำดับขั้นตอนของ 1 คำขอ · กดที่ภาพเพื่อดูขนาดเต็ม (1920×1080) · ภาพรวมแบบเดิม: <a href="img/arch-1-system.png">arch-1-system.png</a> · ฉบับนำเสนอทั้ง 3 แผ่น: <a href="architecture-slides.html">architecture-slides.html</a></figcaption>
       </figure>
     </section>
 
@@ -424,7 +424,8 @@
       <ul class="plain">
         <li><strong>เข้าสู่ระบบ:</strong> รหัสจาก <code>ADMIN_PASSWORD</code> · cookie <code>หมดอายุ.HMAC</code> (ปลอมไม่ได้, SameSite=Strict, 12 ชม.) · ผิดเกิน 5 ครั้ง/นาที/IP ต้องรอ · ไม่ตั้งรหัส = ปิดหลังบ้าน</li>
         <li><strong>มุมมอง:</strong> ตารางรายสัปดาห์ (วัน × ช่องเวลา, สีตามสถานะ, ⚠ ต้องตรวจสลิปเอง) · ปฏิทินรายเดือน (จำนวนคิว + รอยืนยัน) · ค้นเลขจอง (ลูกค้ายื่นใบจองที่หน้าร้าน) · รีเฟรชเองทุก 60 วินาที</li>
-        <li><strong>จองหลายตัว:</strong> เลือกจำนวนน้อง 1–4 ตัวในฟอร์ม · ช่าง 2 คนทำได้ 2 ตัว/ชั่วโมง: 2 ตัว = เต็มชั่วโมงนั้น, 3–4 ตัว = กันชั่วโมงถัดไปด้วย (<code>slots.plan</code>) · มัดจำ 50 บาท × จำนวนตัว · หลังบ้านแสดง “×3” และชิป “ต่อจาก 10:00”</li>
+        <li><strong>เลือกบริการ:</strong> ฟอร์มมีช่อง “บริการที่ต้องการ” ระบบกันเวลาช่างเป็นชั่วโมงเต็มตามบริการ — อาบน้ำ 2 ชม. · ตัดขนทั้งตัว 3 ชม. · บริการอื่น 1 ชม. (<code>catalog.booking.services</code>) งานต้องเสร็จก่อนร้านปิด 18:00 · ใบจองและหลังบ้านแสดงบริการ + ช่วงเวลา</li>
+        <li><strong>จองหลายตัว:</strong> เลือกจำนวนน้อง 1–4 ตัวในฟอร์ม · ช่าง 2 คนดูแลพร้อมกันได้ 2 ตัว ตัวที่ 3–4 ทำรอบถัดไป (<code>slots.plan</code>) · มัดจำ 50 บาท × จำนวนตัว · หลังบ้านแสดง “×3” และชิป “ต่อจาก 10:00”</li>
         <li><strong>สถานะ:</strong> รอร้านยืนยัน → ยืนยันแล้ว → มาใช้บริการแล้ว · หรือ ยกเลิก (คืนช่องเวลาทันที) · เปลี่ยนผิดลำดับไม่ได้</li>
         <li><strong>คืนเงิน:</strong> สรุป “รอโอนคืน” · แผงรายละเอียดแสดงบัญชีที่ต้องโอน + ผลเทียบชื่อผู้โอน · ปุ่ม “ยืนยันโอนคืนแล้ว” กดได้หลังแนบสลิปเท่านั้น (เซิร์ฟเวอร์บังคับด้วย)</li>
         <li><strong>รับ-ส่งน้อง:</strong> คิวที่มีรับ-ส่งมีไอคอน · เห็นเวลาที่ต้องไปรับ ที่อยู่ ระยะทาง และลิงก์นำทางไปหมุดที่ลูกค้าปัก</li>
@@ -449,7 +450,7 @@
             <tr><td><code>shop/</code></td><td><code>catalog.json</code> (แหล่งข้อมูลเดียว), <code>policies.md</code>, <code>faq.md</code>, <code>pricing.py</code></td></tr>
             <tr><td><code>prompts/</code></td><td><code>chat_system.txt</code>, <code>voice_hint.txt</code>, <code>line_hint.txt</code>, <code>guard_judge.txt</code>, <code>image_analyze.txt</code></td></tr>
             <tr><td><code>templates/</code>, <code>static/</code></td><td><code>index.html</code>, <code>check.html</code>, <code>_cancel_sheet.html</code>, <code>avatar.html</code>, <code>admin.html</code> · <code>chat.js</code>, <code>booking.js</code>, <code>cancel.js</code>, <code>check.js</code>, <code>admin.js</code>, <code>voice.js</code>, <code>voice-avatar.js</code> · <code>style.css</code> · <code>img/</code> (โลโก้, ภาพ hero, หน้าน้องหอม) · <code>avatar/</code> (VRM + Idle.fbx)</td></tr>
-            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 159 ตัว · สคริปต์ทดสอบกับระบบจริง <code>run_10_questions.py</code>, <code>run_prompt_safety.py</code>, <code>run_endpoint_check.py</code> · <code>system-architecture.md</code>, <code>test-log.md</code>, <code>booking-plan.md</code>, หน้านี้</td></tr>
+            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 171 ตัว · สคริปต์ทดสอบกับระบบจริง <code>run_10_questions.py</code>, <code>run_prompt_safety.py</code>, <code>run_endpoint_check.py</code>, <code>run_images.py</code> · <code>report.html</code> (เอกสารส่งอาจารย์) · <code>system-architecture.md</code>, <code>test-log.md</code>, <code>booking-plan.md</code>, หน้านี้</td></tr>
           </tbody>
         </table>
       </div>
@@ -460,7 +461,7 @@
       <h2><span class="n">10</span>API endpoints</h2>
       <p>
         ทุก endpoint ทดสอบกับระบบจริงแล้ว (4 ต.ค. 2569) ด้วย <code>tests/run_endpoint_check.py</code>:
-        เว็บจริงบน Vercel ผ่าน 40/40 (โหมดไม่สร้างการจอง — endpoint ที่แก้ข้อมูลตรวจว่าปฏิเสธถูกต้อง)
+        เว็บจริงบน Vercel ผ่าน 41/41 (โหมดไม่สร้างการจอง — endpoint ที่แก้ข้อมูลตรวจว่าปฏิเสธถูกต้อง)
         และเส้นทางเต็มบนเครื่อง 43/43 (จองจริงให้ Gemini อ่านสลิป → ร้านยืนยัน → ลูกค้ายกเลิก → ร้านแนบสลิปโอนคืน → ลูกค้าดูสลิป)
       </p>
       <div class="table-wrap">
@@ -479,7 +480,7 @@
             <tr><td><code>GET /api/v1/tts/config</code> · <code>POST /api/v1/tts/stream</code></td><td>ใช้ Cartesia ได้ไหม / ข้อความ → เสียง PCM 24 kHz</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/booking/slots</code></td><td>ช่องเวลาที่จองได้ 14 วัน + จำนวนที่ว่าง</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/booking/pickup</code></td><td>ตำแหน่งร้าน + ตารางค่ารับส่ง · ใส่ <code>?lat=&amp;lng=</code> ได้ระยะทาง + ค่ารับส่งของหมุด</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td><code>POST /api/v1/booking</code></td><td>จองคิว (ชื่อน้อง ชื่อเจ้าของ เบอร์ จำนวนน้อง ช่องเวลา รูปน้อง สลิป + จุดรับถ้าติ๊กรับ-ส่ง) → ใบจอง</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td><code>POST /api/v1/booking</code></td><td>จองคิว (ชื่อน้อง บริการ ชื่อเจ้าของ เบอร์ จำนวนน้อง ช่องเวลา รูปน้อง สลิป + จุดรับถ้าติ๊กรับ-ส่ง) → ใบจอง</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /check</code> · <code>POST /api/v1/booking/check</code></td><td>เช็คคิวด้วยเบอร์โทร → ชื่อน้อง วันเวลา เลขจอง สถานะ (จำกัด 10 ครั้ง/นาที)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>POST /api/v1/booking/cancel/verify</code> · <code>POST /api/v1/booking/cancel</code></td><td>ยกเลิกคิว: ยืนยันตัวตน (เลขจอง + เบอร์ + ชื่อเจ้าของ) → บัญชีรับเงินคืน → ยกเลิก + คืนช่องเวลา</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td><code>GET /api/v1/booking/cancel-options</code></td><td>รายชื่อธนาคาร + ชั่วโมงขั้นต่ำก่อนนัด</td><td class="s-ok">ทำแล้ว</td></tr>
@@ -558,7 +559,7 @@
             <tr><td>โครงโฟลเดอร์ + pipeline กลาง</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>RAG ภาษาไทย + คลังความรู้ ≥ 15 รายการ</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>Guardrails 3 ด่าน + ทดสอบ safety 5 กรณี</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>Vision + ทดสอบ 10 ภาพ</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>Vision + ทดสอบ 15 ภาพ (14/15)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>ปรับปรุง before/after (ทำไว้ 12 จุด)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>UI ใหม่ + หน้าอวตาร + เสียง Cartesia</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>จองคิว: ป๊อปอัป + ตรวจสลิป + ใบจอง (PNG) + หน้าเช็คคิว</td><td class="s-ok">ทำแล้ว</td></tr>
@@ -568,11 +569,13 @@
             <tr><td>รับ-ส่งน้อง: ปักหมุดแผนที่ → ค่ารับส่ง → สลิป = มัดจำ + ค่ารับส่ง</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>ยกเลิกคิวด้วยการยืนยันตัวตน + คืนเงิน + สลิปโอนคืน</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>จองหลายตัวในครั้งเดียว (1–4 ตัว) + มัดจำคิดต่อตัว + คลังความรู้ 29 FAQ</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>แผนภาพฉบับนำเสนอ 3 แผ่น (<code>architecture-slides.html</code> + PNG)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>แผนภาพฉบับนำเสนอ 3 แผ่น แผ่นแรกโครงแบบ AWS (<code>architecture-slides.html</code> + PNG)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>แชทบอทชี้ไปปุ่ม เช็คคิว / ยกเลิกคิว / จองคิว</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>ตารางทดสอบ 10 คำถาม + เวลาตอบ (10/10 เฉลี่ย 3.5 วิ)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>สุ่มทดสอบกฎต้องทำ/ห้ามทำ + ความปลอดภัย (35/35 แชทใหม่ทุกข้อ)</td><td class="s-ok">ทำแล้ว</td></tr>
-            <tr><td>ทดสอบทุก endpoint กับระบบจริง (40/40 · เส้นทางเต็ม 43/43)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>ทดสอบทุก endpoint กับระบบจริง (41/41 · เส้นทางเต็ม 43/43)</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>เลือกบริการตอนจอง + กันเวลาช่างตามบริการ</td><td class="s-ok">ทำแล้ว</td></tr>
+            <tr><td>เอกสารการพัฒนาโครงงานและผลการทดสอบ (<code>report.html</code> + PDF)</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>Merge เข้า main + deploy Vercel</td><td class="s-ok">ทำแล้ว</td></tr>
             <tr><td>รายงานความคืบหน้า (10 ต.ค.) · รายงาน Google Doc + PDF · คลิปเดโม ≤ 3 นาที · สไลด์นำเสนอ (24 ต.ค.)</td><td class="s-todo">ยังไม่ทำ</td></tr>
             <tr><td>ทดสอบกับของจริง: สลิปจากแอปธนาคาร, รูปแมว/ขนพัน, คุย LINE, ไมค์จริง</td><td class="s-todo">ยังไม่ทำ</td></tr>
