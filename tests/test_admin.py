@@ -201,8 +201,15 @@ class AdminTests(unittest.TestCase):
         r = self.customer.post("/api/v1/booking/check", json={"phone": "0812345678"})
         return r.json()["bookings"][0]["status_hint"]
 
+    def confirm(self, booking_id):
+        """เจ้าของร้านตรวจยอดเข้าบัญชีแล้วกดยืนยันคิว"""
+        self.login()
+        r = self.owner.post(f"/api/v1/admin/bookings/{booking_id}/status", json={"status": "confirmed"})
+        self.assertEqual(r.status_code, 200, r.text)
+
     def test_cancel_from_another_device_after_verifying_owner(self):
         b = self.book()
+        self.confirm(b["id"])  # ร้านยืนยันยอดมัดจำแล้ว → คืนเงินได้ตามปกติ
         other_device = TestClient(self.app)  # ไม่มีประวัติแชทของคนจอง — ยืนยันตัวตนแทน
         v = self.verify(b["id"].lower(), client=other_device, owner_name=" คุณ สมใจ ")
         self.assertEqual(v.status_code, 200, v.text)
@@ -212,6 +219,7 @@ class AdminTests(unittest.TestCase):
         r = self.cancel(b["id"], client=other_device)
         self.assertEqual(r.status_code, 200, r.text)
         self.assertEqual((r.json()["booking"]["status"], r.json()["refund_amount"]), ("cancelled", 50))
+        self.assertTrue(r.json()["payment_verified"])
         self.assertNotIn("0812345678", r.text)  # เลขบัญชี/เบอร์ไม่ย้อนกลับไปหน้าลูกค้า
         self.assertEqual(self.left(), 2)  # ช่องเวลาว่างให้คนอื่นจองทันที
         self.assertIn("จะโอนคืน 50 บาท", self.check_hint())
@@ -246,9 +254,53 @@ class AdminTests(unittest.TestCase):
         r = self.proof(b["id"], client=TestClient(self.app))
         self.assertEqual((r.status_code, r.headers["content-type"], r.content), (200, "image/jpeg", JPEG))
 
-    def refunded(self, booking_id, data=JPEG, client=None):
+    def refunded(self, booking_id, data=JPEG, client=None, checked=False):
         return (client or self.owner).post(
-            f"/api/v1/admin/bookings/{booking_id}/refunded", files={"proof": ("refund.jpg", data, "image/jpeg")})
+            f"/api/v1/admin/bookings/{booking_id}/refunded", files={"proof": ("refund.jpg", data, "image/jpeg")},
+            data={"payment_checked": "1"} if checked else {})
+
+    # ---------- สลิปแก้ชื่อ/ปลอม: จองแล้วรีบยกเลิกก่อนร้านตรวจยอด เพื่อขอ "เงินคืน" ที่ไม่เคยโอน ----------
+
+    def test_refund_of_unconfirmed_booking_needs_owner_to_check_the_bank_first(self):
+        b = self.book()                      # สลิปผ่านการอ่านรูป แต่ร้านยังไม่ได้ตรวจยอดเข้าบัญชี
+        r = self.cancel(b["id"])
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertFalse(r.json()["payment_verified"])
+        self.assertIn("ตรวจยอดมัดจำเข้าบัญชีก่อน", self.check_hint())
+        self.assertEqual(self.check_item()["refund_status_label"], "รอร้านตรวจยอดก่อนโอนคืน")
+
+        self.login()
+        refund = self.owner.get(f"/api/v1/admin/bookings/{b['id']}").json()["booking"]["refund"]
+        self.assertFalse(refund["payment_verified"])
+        # แนบสลิปโอนคืนอย่างเดียวไม่พอ ต้องยืนยันว่าตรวจบัญชีแล้วเงินเข้าจริง
+        blocked = self.refunded(b["id"])
+        self.assertEqual(blocked.status_code, 409)
+        self.assertIn("ตรวจว่าเงินเข้าบัญชีจริง", blocked.json()["message"])
+        self.assertEqual(self.check_item()["refund_status"], "pending")
+        ok = self.refunded(b["id"], checked=True)
+        self.assertEqual(ok.status_code, 200, ok.text)
+        self.assertTrue(ok.json()["booking"]["refund"]["payment_verified"])
+
+    def test_owner_can_reject_refund_when_no_money_arrived(self):
+        b = self.book()
+        self.cancel(b["id"])
+        self.assertEqual(self.customer.post(f"/api/v1/admin/bookings/{b['id']}/refund-rejected").status_code, 401)
+        self.login()
+        r = self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refund-rejected")
+        self.assertEqual(r.status_code, 200, r.text)
+        self.assertEqual(r.json()["booking"]["refund"]["status"], "rejected")
+        item = self.check_item()
+        self.assertEqual((item["refund_status"], item["refund_proof"]), ("rejected", False))
+        self.assertIn("ไม่พบยอดมัดจำ", item["status_hint"])
+        self.assertEqual(self.refunded(b["id"], checked=True).status_code, 409)   # ปฏิเสธแล้วโอนคืนไม่ได้
+        self.assertEqual(self.proof(b["id"]).status_code, 404)
+
+    def test_confirmed_booking_refund_cannot_be_rejected(self):
+        b = self.book()
+        self.confirm(b["id"])
+        self.cancel(b["id"])
+        r = self.owner.post(f"/api/v1/admin/bookings/{b['id']}/refund-rejected")
+        self.assertEqual(r.status_code, 409)   # ร้านยืนยันยอดเองแล้ว ต้องคืนตามนโยบาย
 
     def proof(self, booking_id, client=None, **who):
         body = {"booking_id": booking_id, **self.OWNER, **who}

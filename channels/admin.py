@@ -173,13 +173,32 @@ async def change_status(booking_id: str, body: StatusRequest, request: Request):
 
 
 @router.post("/api/v1/admin/bookings/{booking_id}/refunded")
-async def mark_refunded(booking_id: str, request: Request, proof: UploadFile | None = File(None)):
-    """กด "ยืนยันโอนคืนแล้ว" — ต้องแนบสลิปโอนคืน (multipart field: proof)"""
+async def mark_refunded(
+    booking_id: str,
+    request: Request,
+    proof: UploadFile | None = File(None),
+    payment_checked: str = Form(""),
+):
+    """กด "ยืนยันโอนคืนแล้ว" — ต้องแนบสลิปโอนคืน (multipart field: proof)
+    คิวที่ยกเลิกก่อนร้านยืนยันยอด ต้องส่ง payment_checked=1 (ร้านตรวจบัญชีแล้วว่าเงินเข้าจริง)"""
     if not is_admin(request):
         return _denied()
     data = await proof.read(service.MAX_IMAGE_BYTES + 1) if proof else None
     try:
-        return {"booking": await service.mark_refunded(booking_id, data)}
+        return {"booking": await service.mark_refunded(booking_id, data, payment_checked == "1")}
+    except BookingError as exc:
+        return _error(exc.status, exc.message)
+    except StoreError as exc:
+        return _error(503, str(exc))
+
+
+@router.post("/api/v1/admin/bookings/{booking_id}/refund-rejected")
+async def reject_refund(booking_id: str, request: Request):
+    """ตรวจบัญชีแล้วไม่พบยอดมัดจำของคิวที่ยกเลิกก่อนยืนยัน → ไม่คืนเงิน"""
+    if not is_admin(request):
+        return _denied()
+    try:
+        return {"booking": await service.reject_refund(booking_id)}
     except BookingError as exc:
         return _error(exc.status, exc.message)
     except StoreError as exc:

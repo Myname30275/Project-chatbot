@@ -28,13 +28,17 @@
     line.className = "check-refund__line";
     const amount = `${Number(b.refund_amount).toLocaleString("th-TH")} บาท`;
     line.innerHTML = "<span>คืนเงิน</span> <b></b>";
-    line.querySelector("b").textContent =
-      `${b.refund_status_label} ${amount}` + (b.refunded_at ? ` · ${thaiStamp(b.refunded_at)}` : "");
+    // ร้านไม่พบยอดเข้า = ไม่มีการคืนเงิน จึงไม่แสดงจำนวนเงิน
+    line.querySelector("b").textContent = b.refund_status === "rejected"
+      ? b.refund_status_label
+      : `${b.refund_status_label} ${amount}` + (b.refunded_at ? ` · ${thaiStamp(b.refunded_at)}` : "");
     box.appendChild(line);
     if (b.refund_status !== "done") {
       const wait = document.createElement("p");
       wait.className = "check-refund__hint";
-      wait.textContent = "ร้านกำลังดำเนินการโอนคืนเข้าบัญชีที่แจ้งไว้ โอนแล้วจะแนบสลิปให้ดูที่นี่ค่ะ";
+      wait.textContent = b.refund_status === "rejected"
+        ? "ร้านตรวจบัญชีแล้วไม่พบยอดมัดจำของคิวนี้ ถ้าโอนมาแล้วจริง รบกวนติดต่อร้านพร้อมหลักฐานการโอนค่ะ"
+        : "ร้านจะตรวจยอดมัดจำและโอนคืนเข้าบัญชีที่แจ้งไว้ โอนแล้วจะแนบสลิปให้ดูที่นี่ค่ะ";
       box.appendChild(wait);
       return box;
     }

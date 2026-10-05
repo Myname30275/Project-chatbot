@@ -188,7 +188,7 @@
         setError(refundForm, body.field || "_", body.message || "ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้งนะคะ");
         return;
       }
-      finish(body.booking, body.refund_amount);
+      finish(body.booking, body.refund_amount, body.payment_verified);
     } catch (err) {
       console.error("[cancel] submit:", err);
       refundForm.querySelector("[data-status]").textContent = "ติดต่อร้านไม่ได้ เช็กอินเทอร์เน็ตแล้วลองอีกครั้งนะคะ";
@@ -199,9 +199,11 @@
 
   /* ---------------- เสร็จ ---------------- */
 
-  function finish(b, amount) {
+  function finish(b, amount, verified) {
+    // คิวที่ร้านยังไม่ได้ยืนยันยอดมัดจำ: บอกตรง ๆ ว่าร้านตรวจยอดเข้าบัญชีก่อนโอนคืน
     const text =
-      `ยกเลิกคิวของน้อง${b.pet_name} (${b.id}) เรียบร้อยค่ะ ร้านจะโอนคืน ${baht(amount)} ` +
+      `ยกเลิกคิวของน้อง${b.pet_name} (${b.id}) เรียบร้อยค่ะ ` +
+      (verified ? `ร้านจะโอนคืน ${baht(amount)} ` : `ร้านจะตรวจยอดมัดจำเข้าบัญชีก่อน แล้วโอนคืน ${baht(amount)} `) +
       "เข้าบัญชีที่แจ้งไว้ ดูสถานะการโอนคืนได้ที่หน้าเช็คคิวนะคะ";
     doneEl.querySelector("[data-done-text]").textContent = text;
     show("done");

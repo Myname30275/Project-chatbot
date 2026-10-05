@@ -164,6 +164,7 @@ def booking_safe(c):
         ("GET", "/api/v1/admin/bookings/HH-0101-01", "รายละเอียดการจอง"),
         ("POST", "/api/v1/admin/bookings/HH-0101-01/status", "เปลี่ยนสถานะ"),
         ("POST", "/api/v1/admin/bookings/HH-0101-01/refunded", "ยืนยันโอนคืน"),
+        ("POST", "/api/v1/admin/bookings/HH-0101-01/refund-rejected", "ปฏิเสธการคืนเงิน"),
         ("GET", "/api/v1/admin/bookings/HH-0101-01/image/slip", "ดูสลิป"),
     ]:
         call(c, g, method, path, f"{what} โดยไม่ login → ปฏิเสธ", 401, json={"status": "confirmed"} if "status" in path else None)

@@ -424,7 +424,10 @@ async def cancel_by_owner(booking_id, phone, owner_name, refund: dict, at=None) 
         status="cancelled",
         cancelled_by="customer",
         updated_at=stamp,
-        refund={**info, "amount": b.get("amount_due", deposit()), "status": "pending", "requested_at": stamp},
+        # payment_verified = ร้านเคยยืนยันยอดเข้าบัญชีของคิวนี้แล้วหรือยัง
+        # ยัง (ยกเลิกตอน "รอร้านยืนยัน") = สลิปอาจถูกแก้ชื่อผู้รับ/เป็นสลิปปลอม → ร้านต้องตรวจบัญชีก่อนโอนคืน
+        refund={**info, "amount": b.get("amount_due", deposit()), "status": "pending", "requested_at": stamp,
+                "payment_verified": bool(b.get("confirmed_at"))},
     )
     await store.save(b)
     await _release(store, slots_used(b))
@@ -432,9 +435,12 @@ async def cancel_by_owner(booking_id, phone, owner_name, refund: dict, at=None) 
     return b
 
 
-async def mark_refunded(booking_id: str, proof: bytes | None) -> dict:
-    """หลังบ้าน: ร้านโอนคืนให้ลูกค้าแล้ว — ต้องแนบสลิปโอนคืน (ลูกค้าดูได้ที่หน้าเช็คคิวหลังยืนยันตัวตน)"""
-    _check_image(proof, "สลิปโอนคืน", "proof")
+def payment_verified(refund: dict) -> bool:
+    """คำขอคืนเงินรุ่นก่อนมีฟิลด์นี้ ถือว่ายังไม่ได้ตรวจ (ปลอดภัยไว้ก่อน)"""
+    return bool(refund.get("payment_verified"))
+
+
+async def _pending_refund(booking_id: str):
     store = get_store()
     b = await store.get(booking_id)
     if not b:
@@ -442,12 +448,42 @@ async def mark_refunded(booking_id: str, proof: bytes | None) -> dict:
     refund = b.get("refund")
     if not refund or refund.get("status") != "pending":
         raise BookingError("คิวนี้ไม่มีรายการรอโอนคืน", status=409)
+    return store, b, refund
+
+
+async def mark_refunded(booking_id: str, proof: bytes | None, payment_checked: bool = False) -> dict:
+    """หลังบ้าน: ร้านโอนคืนให้ลูกค้าแล้ว — ต้องแนบสลิปโอนคืน (ลูกค้าดูได้ที่หน้าเช็คคิวหลังยืนยันตัวตน)
+
+    คิวที่ถูกยกเลิกก่อนร้านยืนยันยอด: ต้องยืนยันมาด้วยว่าตรวจบัญชีแล้วเงินเข้าจริง (payment_checked)
+    กันกรณีจองด้วยสลิปแก้ชื่อ/สลิปปลอม แล้วรีบยกเลิกเพื่อขอ "เงินคืน" ที่ไม่เคยโอนมา"""
+    store, b, refund = await _pending_refund(booking_id)
+    if not payment_verified(refund) and not payment_checked:
+        raise BookingError(
+            "คิวนี้ถูกยกเลิกก่อนร้านยืนยันยอดมัดจำ กรุณาตรวจว่าเงินเข้าบัญชีจริงก่อนโอนคืน แล้วติ๊กยืนยัน",
+            status=409, field="payment_checked")
+    _check_image(proof, "สลิปโอนคืน", "proof")
+    if not payment_verified(refund):
+        refund.update(payment_verified=True, payment_checked_at=slots.now().isoformat(timespec="seconds"))
     await store.save_image(booking_id, "refund", proof)
     stamp = slots.now().isoformat(timespec="seconds")
     refund.update(status="done", refunded_at=stamp, proof=True)
     b["updated_at"] = stamp
     await store.save(b)
     logger.info("โอนคืนแล้ว %s", booking_id)
+    return admin_view(b)
+
+
+async def reject_refund(booking_id: str) -> dict:
+    """หลังบ้าน: ตรวจบัญชีแล้วไม่พบยอดมัดจำของคิวนี้ → ไม่คืนเงิน (ลูกค้าเห็นที่หน้าเช็คคิวให้ติดต่อร้าน)
+    ใช้ได้เฉพาะคิวที่ร้านยังไม่เคยยืนยันยอด — คิวที่ยืนยันแล้วต้องคืนตามนโยบาย"""
+    store, b, refund = await _pending_refund(booking_id)
+    if payment_verified(refund):
+        raise BookingError("คิวนี้ร้านยืนยันยอดมัดจำไปแล้ว ปฏิเสธการคืนเงินไม่ได้", status=409)
+    stamp = slots.now().isoformat(timespec="seconds")
+    refund.update(status="rejected", rejected_at=stamp)
+    b["updated_at"] = stamp
+    await store.save(b)
+    logger.warning("ปฏิเสธการคืนเงิน %s: ไม่พบยอดมัดจำเข้าบัญชี", booking_id)
     return admin_view(b)
 
 
@@ -503,6 +539,9 @@ async def set_status(booking_id: str, status: str) -> dict:
         raise BookingError("คิวนี้ถูกยกเลิกไปแล้ว", status=409)
     b["status"] = status
     b["updated_at"] = slots.now().isoformat(timespec="seconds")
+    if status == "confirmed":
+        # ร้านกดยืนยัน = ตรวจแล้วว่ายอดมัดจำเข้าบัญชีจริง (ใช้ตัดสินตอนคืนเงินว่าเงินเคยเข้าหรือยัง)
+        b["confirmed_at"] = b["updated_at"]
     if status == "cancelled":
         b["cancelled_by"] = "shop"
     await store.save(b)
@@ -527,8 +566,13 @@ def _hint(b: dict) -> str:
     refund = b.get("refund")
     if refund:
         amount = f"{refund['amount']:,} บาท"
-        return (f"ยกเลิกแล้ว ร้านโอนคืน {amount} แล้ว" if refund["status"] == "done"
-                else f"ยกเลิกแล้ว ร้านจะโอนคืน {amount} เข้าบัญชีที่แจ้งไว้")
+        if refund["status"] == "done":
+            return f"ยกเลิกแล้ว ร้านโอนคืน {amount} แล้ว"
+        if refund["status"] == "rejected":
+            return "ยกเลิกแล้ว ร้านตรวจไม่พบยอดมัดจำของคิวนี้ จึงยังไม่มีการคืนเงิน รบกวนติดต่อร้านทาง LINE หรือโทรค่ะ"
+        if not payment_verified(refund):
+            return f"ยกเลิกแล้ว ร้านจะตรวจยอดมัดจำเข้าบัญชีก่อน แล้วโอนคืน {amount} เข้าบัญชีที่แจ้งไว้"
+        return f"ยกเลิกแล้ว ร้านจะโอนคืน {amount} เข้าบัญชีที่แจ้งไว้"
     return STATUS_HINT.get(b["status"], "")
 
 
@@ -539,7 +583,8 @@ def refund_view(b: dict) -> dict:
         return {"refund_status": None}
     return {
         "refund_status": refund["status"],
-        "refund_status_label": "โอนคืนแล้ว" if refund["status"] == "done" else "รอร้านโอนคืน",
+        "refund_status_label": {"done": "โอนคืนแล้ว", "rejected": "ไม่พบยอดมัดจำ ยังไม่คืนเงิน"}.get(
+            refund["status"], "รอร้านโอนคืน" if payment_verified(refund) else "รอร้านตรวจยอดก่อนโอนคืน"),
         "refund_amount": refund["amount"],
         "refunded_at": refund.get("refunded_at"),
         "refund_proof": bool(refund.get("proof")),

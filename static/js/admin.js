@@ -25,6 +25,8 @@
     cancelled: { label: "ยกเลิกคิว", cls: "btn--danger", ask: "ยกเลิกคิวนี้? ช่องเวลาจะว่างให้ลูกค้าคนอื่นจองได้ทันที" },
   };
   const refundPending = (b) => !!(b.refund && b.refund.status === "pending");
+  // ยกเลิกก่อนร้านยืนยันยอดมัดจำ — เงินอาจไม่เคยเข้าจริง (สลิปแก้ชื่อ/สลิปปลอม) ต้องตรวจบัญชีก่อนโอนคืน
+  const refundUnverified = (b) => refundPending(b) && !b.refund.payment_verified;
 
   let view = "week";
   let anchor = null; // YYYY-MM-DD วันที่อ้างอิงของหน้าที่แสดง
@@ -121,6 +123,7 @@
       ["มาแล้ว", n("done"), "done"],
       ["ยกเลิก", n("cancelled"), "cancelled"],
       ["รอโอนคืน", inView.filter(refundPending).length, "refund"],
+      ["รอตรวจยอดก่อนคืน", inView.filter(refundUnverified).length, "refund-check"],
     ];
     summaryEl.innerHTML = "";
     for (const [label, count, status] of items) {
@@ -140,7 +143,7 @@
     btn.dataset.status = b.status;
     btn.dataset.id = b.id;
     const flag = (b.status === "pending" && b.slip && b.slip.auto_ok === false ? " ⚠" : "") +
-      (b.pickup ? " 🚗" : "") + (refundPending(b) ? " 💸" : "");
+      (b.pickup ? " 🚗" : "") + (refundUnverified(b) ? " 💸⚠" : refundPending(b) ? " 💸" : "");
     btn.innerHTML = '<span class="bk-chip__name"></span><span class="bk-chip__meta"></span>';
     btn.querySelector(".bk-chip__name").textContent = b.pet_name + (b.pets > 1 ? ` ×${b.pets}` : "") + flag;
     btn.querySelector(".bk-chip__meta").textContent = b.status_label;
@@ -288,10 +291,16 @@
     const where = r.method === "bank" ? `บัญชี${r.bank} ${r.account}` : `พร้อมเพย์ ${r.account}`;
     const state = r.status === "done"
       ? `✓ โอนคืนแล้ว ${baht(r.amount)} (${(r.refunded_at || "").replace("T", " ").slice(0, 16)})`
-      : `💸 รอโอนคืน ${baht(r.amount)}`;
+      : r.status === "rejected" ? "✕ ไม่คืนเงิน — ตรวจบัญชีแล้วไม่พบยอดมัดจำของคิวนี้"
+      : r.payment_verified ? `💸 รอโอนคืน ${baht(r.amount)}`
+      : `⚠ รอตรวจยอดก่อนโอนคืน ${baht(r.amount)}`;
+    const paid = r.payment_verified ? "✓ ร้านยืนยันยอดเข้าบัญชีแล้ว"
+      : r.status === "rejected" ? "✕ ไม่พบยอดเข้าบัญชี"
+      : "⚠ ยังไม่เคยยืนยันยอด — ลูกค้ายกเลิกก่อนร้านตรวจ สลิปอาจถูกแก้ไข ตรวจบัญชีก่อนโอนคืน";
     return [
       row("ยกเลิกโดย", `ลูกค้า (${(r.requested_at || "").replace("T", " ").slice(0, 16)})`),
       row("คืนเงิน", state),
+      row("ยอดมัดจำ", paid),
       row("โอนคืนเข้า", where, "mono"),
       row("ชื่อบัญชี", r.account_name),
       // กันสวมรอย: โอนคืนเข้าบัญชีชื่อเดียวกับผู้โอนมัดจำเท่านั้น
@@ -326,6 +335,12 @@
     box.className = "refund-proof";
     box.innerHTML = `
       <p class="refund-proof__title">ยืนยันโอนคืน <b></b></p>
+      <div class="refund-proof__warn" data-unverified hidden>
+        <p><strong>คิวนี้ถูกยกเลิกก่อนร้านยืนยันยอดมัดจำ</strong> — ระบบอ่านสลิปจากรูปเท่านั้น สลิปที่ถูกแก้ชื่อผู้รับหรือยอดเงินอาจผ่านได้
+          เปิดบัญชีร้านตรวจว่ามียอดนี้เข้าจริงก่อนโอนคืน</p>
+        <label><input type="checkbox" data-checked /> ตรวจบัญชีแล้ว มียอดมัดจำของคิวนี้เข้าจริง</label>
+        <button type="button" class="btn btn--small btn--danger" data-reject>ไม่พบยอดเงินเข้า (ไม่คืนเงิน)</button>
+      </div>
       <p class="refund-proof__hint">แนบสลิปที่โอนคืนให้ลูกค้าก่อน ลูกค้าดูสลิปนี้ได้ที่หน้าเช็คคิว (หลังยืนยันตัวตน)</p>
       <img class="refund-proof__img" alt="สลิปโอนคืนที่แนบ" hidden />
       <input type="file" accept="image/jpeg,image/png,image/webp" hidden />
@@ -334,11 +349,21 @@
         <button type="button" class="btn btn--small" data-confirm disabled>ยืนยันโอนคืนแล้ว</button>
       </div>`;
     box.querySelector("b").textContent = baht(b.refund.amount);
-    const input = box.querySelector("input");
+    const input = box.querySelector('input[type="file"]');
     const img = box.querySelector("img");
     const pickBtn = box.querySelector("[data-pick]");
     const confirmBtn = box.querySelector("[data-confirm]");
+    const checked = box.querySelector("[data-checked]");
+    const unverified = !b.refund.payment_verified;
+    box.querySelector("[data-unverified]").hidden = !unverified;
     let blob = null;
+    // ยืนยันโอนคืนได้เมื่อแนบสลิปแล้ว และ (ถ้ายอดยังไม่เคยถูกยืนยัน) ติ๊กว่าตรวจบัญชีแล้ว
+    const ready = () => !!blob && (!unverified || checked.checked);
+    checked.addEventListener("change", () => { confirmBtn.disabled = !ready(); });
+    box.querySelector("[data-reject]").addEventListener("click", () =>
+      save(b, "refund-rejected", null,
+        "ยืนยันว่าตรวจบัญชีแล้วไม่พบยอดมัดจำของคิวนี้? ระบบจะไม่คืนเงิน และแจ้งลูกค้าให้ติดต่อร้าน",
+        "บันทึกแล้ว: ไม่พบยอดเงินเข้า ไม่คืนเงิน"));
 
     pickBtn.addEventListener("click", () => input.click());
     input.addEventListener("change", async () => {
@@ -350,16 +375,17 @@
       img.src = URL.createObjectURL(blob);
       img.hidden = false;
       pickBtn.textContent = "เปลี่ยนสลิป";
-      confirmBtn.disabled = false;
+      confirmBtn.disabled = !ready();
     });
     confirmBtn.addEventListener("click", async () => {
-      if (!blob) return;
+      if (!ready()) return;
       if (!window.confirm(`ยืนยันว่าโอนคืน ${baht(b.refund.amount)} ให้ลูกค้าแล้ว?`)) return;
       const note = drawerBody.querySelector(".drawer__msg");
       drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = true));
       note.textContent = "กำลังบันทึก…";
       const upload = new FormData();
       upload.append("proof", blob, "refund.jpg");
+      if (unverified) upload.append("payment_checked", "1");
       try {
         const r = await fetch(`/api/v1/admin/bookings/${encodeURIComponent(b.id)}/refunded`, { method: "POST", body: upload });
         if (r.status === 401) { location.reload(); return; }
@@ -370,7 +396,7 @@
       } catch (err) {
         note.textContent = err.message || "บันทึกไม่สำเร็จ ลองอีกครั้ง";
         drawerBody.querySelectorAll(".drawer__actions button").forEach((x) => (x.disabled = false));
-        confirmBtn.disabled = !blob;
+        confirmBtn.disabled = !ready();
       }
     });
     return box;

@@ -180,7 +180,8 @@ async def cancel_booking(body: CancelRequest, request: Request):
         return _error(exc.status, exc.message, exc.field)
     except StoreError as exc:
         return _error(503, str(exc))
-    return {"ok": True, "booking": service.verify_view(b), "refund_amount": b["refund"]["amount"]}
+    return {"ok": True, "booking": service.verify_view(b), "refund_amount": b["refund"]["amount"],
+            "payment_verified": service.payment_verified(b["refund"])}
 
 
 @router.post("/refund-proof")
