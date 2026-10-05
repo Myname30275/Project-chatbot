@@ -1,6 +1,7 @@
 """สร้าง "เอกสารการพัฒนาโครงงานและผลการทดสอบ" (ส่งมอบชิ้นที่ 2 ตามสไลด์ Week 12) → docs/report.html
 
-ใช้:  python docs/build_report.py
+ใช้:  python docs/build_report.py          สร้างไฟล์ HTML
+      python docs/build_report.py --pdf    สร้าง HTML แล้วส่งออก docs/report.pdf (A4) ด้วย Playwright
 
 ข้อมูลร้านอ่านจาก shop/ และผลทดสอบอ่านจาก docs/test-*.json ที่สคริปต์ใน tests/run_*.py บันทึกไว้
 รันทดสอบใหม่แล้วสั่งสคริปต์นี้ซ้ำ ตารางในเอกสารจะเปลี่ยนตาม — แก้ชื่อผู้พัฒนาที่ DEVELOPERS ด้านล่าง
@@ -567,6 +568,18 @@ def main():
 """
     OUT.write_text(html, encoding="utf-8")
     print(f"เขียน {OUT} ({len(html) // 1024} KB) · unit tests {f['unit']} · จุดปรับปรุง {f['improvements']}")
+    if "--pdf" in sys.argv:
+        from playwright.sync_api import sync_playwright
+        pdf = OUT.with_suffix(".pdf")
+        with sync_playwright() as pw:
+            b = pw.chromium.launch()
+            page = b.new_page()
+            page.goto(OUT.as_uri())
+            page.wait_for_load_state("networkidle")
+            page.evaluate("document.fonts.ready")
+            page.pdf(path=str(pdf), format="A4", print_background=True)
+            b.close()
+        print(f"ส่งออก {pdf}")
     return 0
 
 
