@@ -1182,8 +1182,8 @@ svg {
   position: relative;
   display: flex;
   flex-direction: column;
-  width: min(480px, 100%);
-  max-height: min(720px, calc(100dvh - 32px));
+  width: min(560px, 100%);
+  max-height: min(760px, calc(100dvh - 32px));
   background: var(--paper);
   border: var(--line);
   border-radius: 28px;
@@ -1201,7 +1201,7 @@ svg {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 14px 12px 6px 20px;
+  padding: 16px 14px 6px 24px;
 }
 .sheet__head h2 {
   flex: 1;
@@ -1213,7 +1213,7 @@ svg {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   margin: 0;
-  padding: 4px 20px 12px;
+  padding: 4px 24px 12px;
   list-style: none;
   counter-reset: bk;
   border-bottom: 2px dashed var(--ink-line);
@@ -1260,13 +1260,14 @@ svg {
 .sheet__body {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 20px 4px;
+  /* เว้นขอบซ้าย-ขวาให้ช่องกรอกและวงโฟกัสไม่ชิดขอบหน้าต่าง */
+  padding: 16px 24px 6px;
 }
 .sheet__foot {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 20px 16px;
+  padding: 12px 24px 16px;
   border-top: 2px dashed var(--ink-line);
 }
 .sheet__foot #bk-back {
@@ -1274,7 +1275,7 @@ svg {
 }
 .sheet__status {
   margin: 0;
-  padding: 0 20px;
+  padding: 0 24px;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--honey-deep);
@@ -1937,8 +1938,13 @@ svg {
   margin-top: 8px;
 }
 .field select {
+  /* ตัวเลือกที่ยาวที่สุดห้ามดันช่องให้กว้างเกินหน้าต่าง: กว้างเท่าช่องกรอกอื่น ข้อความยาวตัดด้วย … */
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  text-overflow: ellipsis;
   height: 44px;
-  padding: 0 10px;
+  padding: 0 12px;
   background: #fff;
   color: var(--ink);
   border: var(--line);
