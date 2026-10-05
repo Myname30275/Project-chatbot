@@ -21,3 +21,7 @@ Example UI/Design skill/anthropic-skills/
 ~$*
 .vercel
 .env*
+
+# รูปทดสอบที่มีสลิปจริงของผู้พัฒนา — เก็บไว้ในเครื่องเท่านั้น
+tests/test 10 pic/
+docs/img/test-images/
