@@ -138,8 +138,13 @@ def parse(raw: str) -> ImageAnalysis | None:
         receiver_name=_short(s.get("receiver_name"), 60) or None,
         sender_name=_short(s.get("sender_name"), 60) or None,
     )
+    image_type = _pick(data.get("image_type"), IMAGE_TYPES, "other")
+    if image_type == "pet" and data.get("real_photo") is False:
+        # ภาพวาด/การ์ตูน/ของเล่นรูปสัตว์ ไม่ใช่น้องที่จะมารับบริการ — ไม่ประเมินราคา (พบ 5 ต.ค. 2569:
+        # ภาพวาดหมาแมว 5 ตัวถูกตีราคาเหมือนสัตว์จริง) · ไม่มีฟิลด์ real_photo = เชื่อ image_type ตามเดิม
+        image_type, animals = "other", []
     return ImageAnalysis(
-        image_type=_pick(data.get("image_type"), IMAGE_TYPES, "other"),
+        image_type=image_type,
         animals=animals,
         slip=slip,
         other_description=_short(data.get("other_description"), 80),

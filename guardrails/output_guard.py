@@ -124,6 +124,7 @@ _ESTIMATE_NOTE_RE = re.compile(r"ราคาประเมินเบื้�
 _LONE_PARTICLES = {"ค่ะ", "คะ", "นะคะ", "ครับ"}  # Typhoon บางรอบสตรีม "ค่ะ" ซ้ำท้ายคำตอบ ("…ได้ค่ะ ค่ะ")
 
 
+_DOUBLE_PARTICLE_RE = re.compile(r"(นะคะ|ค่ะ|คะ)\s*ค่ะ")
 _APOLOGY_RE = re.compile(r"ขออภัย(ด้วย)?(นะ)?(ค่ะ|คะ|ครับ)")
 _NO_DATA_RE = re.compile(r"ยังไม่มีข้อมูล")
 _ANSWERED_CHARS = 30  # ปล่อยเนื้อหาไปแล้วเกินนี้ = บอทตอบคำถามได้แล้ว
@@ -230,6 +231,8 @@ class OutputGuard:
         # ประโยคภาษาอังกฤษที่ยังเขียนหน่วยเป็น "บาท" (prompt สั่งให้ใช้ baht แต่ทำตามไม่ทุกรอบ) → แปลงหน่วยให้
         if "บาท" in sentence and re.search(r"[A-Za-z]{3,}", sentence) and not _THAI_RE.search(sentence.replace("บาท", "")):
             sentence = sentence.replace("บาท", "baht")
+        # คำลงท้ายซ้ำ ("…นะคะค่ะ", "…ค่ะค่ะ") — โมเดลเติม "ค่ะ" ต่อท้ายประโยคที่ลงท้ายอยู่แล้ว
+        sentence = _DOUBLE_PARTICLE_RE.sub(r"\1", sentence)
         out.append(sentence)
         self.released += len(core)
 

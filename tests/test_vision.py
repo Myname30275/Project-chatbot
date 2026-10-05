@@ -47,6 +47,17 @@ class ParseTests(unittest.TestCase):
         self.assertEqual(a.slip.date, "29/09/2026")  # พ.ศ. → ค.ศ.
         self.assertEqual(a.slip.reference, "AB-1234DROP")
 
+    def test_drawings_and_toys_of_animals_are_not_priced_as_pets(self):
+        cartoon = {"image_type": "pet", "real_photo": False,
+                   "animals": [{"species": "dog", "species_name": "สุนัข", "size": "medium"}]}
+        a = image_analyzer.parse(json.dumps(cartoon))
+        self.assertEqual((a.image_type, a.animals), ("other", []))
+        real = image_analyzer.parse(json.dumps({**cartoon, "real_photo": True}))
+        self.assertEqual((real.image_type, len(real.animals)), ("pet", 1))
+        # โมเดลไม่ส่งฟิลด์ real_photo มา → เชื่อ image_type ตามเดิม
+        cartoon.pop("real_photo")
+        self.assertEqual(image_analyzer.parse(json.dumps(cartoon)).image_type, "pet")
+
     def test_garbage_returns_none(self):
         self.assertIsNone(image_analyzer.parse("ขออภัย ฉันดูรูปไม่ออก"))
 
@@ -157,6 +168,21 @@ class ExtractImageTests(unittest.TestCase):
             item = run(documents.extract("IMG_1.jpg", "image/jpeg", b"x"))
         self.assertEqual(item["meta"]["image_type"], "pet")
         self.assertIn("250 บาท", item["meta"]["reply"])
+
+    def test_unrelated_image_description_never_reaches_the_chat_model(self):
+        # รูปการ์ตูน/รูปอื่นที่ไม่เกี่ยวกับร้าน: Vision บรรยายได้ แต่ห้ามส่งคำบรรยายต่อให้โมเดลแชต
+        # ไม่งั้นลูกค้าถาม "รูปที่ส่งไปเป็นรูปอะไร" บอทจะเล่าเรื่องนอกร้านได้
+        async def fake(data, mime):
+            return ImageAnalysis("other", other_description="คิเมร่าจากอนิเมะ Fullmetal Alchemist")
+
+        with patch.object(image_analyzer, "analyze", fake):
+            item = run(documents.extract("IMG_2.jpg", "image/jpeg", b"x"))
+        self.assertEqual(item["meta"]["image_type"], "other")
+        for leaked in ("คิเมร่า", "Fullmetal", "อนิเมะ"):
+            self.assertNotIn(leaked, item["text"])
+            self.assertNotIn(leaked, item["meta"]["reply"])
+        self.assertIn("ห้ามบรรยาย", item["text"])
+        self.assertIn("ไม่ใช่รูปน้องหรือสลิป", item["meta"]["reply"])
 
     def test_vision_down_and_no_text_tells_customer_instead_of_guessing(self):
         async def down(data, mime):

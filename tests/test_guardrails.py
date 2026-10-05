@@ -177,6 +177,13 @@ class OutputGuardTests(unittest.TestCase):
         out = "".join(with_price._release("อาบน้ำสุนัขเล็ก 250 บาทค่ะ\n" + note))
         self.assertIn("ราคาประเมินเบื้องต้น", out)
 
+    def test_doubled_polite_particle_is_cleaned(self):
+        g = OutputGuard()
+        out = "".join(g._release("สอบถามเรื่องการจองคิวได้เลยนะคะค่ะ\nอาบน้ำสุนัขเล็ก 250 บาทค่ะ ค่ะ"))
+        self.assertIn("ได้เลยนะคะ\n", out)
+        self.assertNotIn("นะคะค่ะ", out)
+        self.assertNotIn("ค่ะ ค่ะ", out)
+
     def test_english_sentences_use_baht_not_thai_unit(self):
         g = OutputGuard()
         out = "".join(g._release("A bath for a small dog costs 250 บาท.\nอาบน้ำสุนัขเล็ก 250 บาทค่ะ"))
