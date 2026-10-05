@@ -78,5 +78,6 @@ def public_config() -> dict:
         "shop": {"lat": c["shop_lat"], "lng": c["shop_lng"]},
         "zones": [{"max_km": z["max_km"], "fee": z["price"]} for z in zones()],
         "road_factor": c["road_factor"],
+        "view_km": c.get("view_km", 12),
         "lead_minutes": c["lead_minutes"],
     }

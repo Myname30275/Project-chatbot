@@ -1391,12 +1391,107 @@ svg {
   color: var(--ink-soft);
 }
 .pickup__map {
-  height: 230px;
+  height: 280px;
   border: var(--line);
   border-radius: 16px;
   overflow: hidden;
   background: var(--cream);
   z-index: 0;
+}
+.pickup__search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.pickup__search input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+}
+.pickup__search .btn {
+  min-height: 44px;
+  flex: none;
+}
+.pickup__results {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  border: var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.pickup__results li + li {
+  border-top: 1px solid var(--ink-line);
+}
+.pickup__results button {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pickup__results button:hover,
+.pickup__results button:focus-visible {
+  background: var(--cream);
+}
+.pickup__results b,
+.pickup__results small {
+  display: block;
+}
+.pickup__results small {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+#bk-place-status:empty {
+  display: none;
+}
+#bk-place-status {
+  margin: 0 0 8px;
+}
+.pickup__legend {
+  margin: 6px 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.pickup__legend-line {
+  display: inline-block;
+  width: 26px;
+  margin-right: 6px;
+  border-top: 2.5px dashed var(--ink);
+  vertical-align: middle;
+}
+.pickup__zone span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 1px 8px;
+  border: 1.5px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+/* กฎ svg ทั่วไปของหน้า (ขนาดไอคอน) ทำให้ชั้นวาดวงกลมของ Leaflet เหลือ 20px — คืนขนาดตามที่ Leaflet กำหนด */
+.pickup__map .leaflet-overlay-pane svg {
+  width: auto;
+  height: auto;
+  max-width: none;
+  max-height: none;
+  fill: none;
+  stroke: none;
 }
 .pickup__quote {
   min-height: 1.4em;

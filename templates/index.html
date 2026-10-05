@@ -353,11 +353,20 @@
               </label>
               <div id="bk-pickup-box" class="pickup__box" hidden>
                 <p class="sheet__note">น้องสูงอายุหรือมีโรคประจำตัว ร้านไม่รับ-ส่ง รบกวนเจ้าของพามาเองนะคะ</p>
+                <div class="pickup__search" role="search">
+                  <label class="sr-only" for="bk-place">ค้นหาสถานที่ใกล้บ้าน</label>
+                  <input type="search" id="bk-place" maxlength="80" autocomplete="off" enterkeyhint="search"
+                    placeholder="ค้นหา เช่น ชื่อหมู่บ้าน ซอย คอนโด" />
+                  <button type="button" class="btn btn--small" id="bk-place-go">ค้นหา</button>
+                </div>
+                <ul id="bk-place-results" class="pickup__results" hidden></ul>
+                <p id="bk-place-status" class="pickup__hint" role="status" aria-live="polite"></p>
                 <div class="pickup__bar">
-                  <span class="pickup__hint">แตะแผนที่หรือลากหมุดไปที่บ้าน</span>
+                  <span class="pickup__hint">หรือแตะแผนที่ / ลากหมุดไปที่บ้าน</span>
                   <button type="button" class="btn btn--ghost btn--small" id="bk-locate">ใช้ตำแหน่งปัจจุบัน</button>
                 </div>
                 <div id="bk-map" class="pickup__map" role="application" aria-label="แผนที่ปักหมุดจุดรับน้อง"></div>
+                <p class="pickup__legend"><span class="pickup__legend-line"></span>เส้นประ = ระยะที่ร้านรับ-ส่งได้ (ประมาณตามถนน) · วงใน = โซนค่ารับส่งถูกกว่า</p>
                 <p id="bk-pickup-quote" class="pickup__quote" aria-live="polite"></p>
                 <label class="field">
                   <span>ที่อยู่ / จุดสังเกตให้คนขับ</span>

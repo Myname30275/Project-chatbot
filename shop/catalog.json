@@ -161,6 +161,7 @@
       "shop_lat": 13.7230,
       "shop_lng": 100.7280,
       "road_factor": 1.3,
+      "view_km": 12,
       "lead_minutes": 30
     }
   },

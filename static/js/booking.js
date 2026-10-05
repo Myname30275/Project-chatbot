@@ -174,25 +174,45 @@
     if (map) return; // ติ๊กรัว ๆ ระหว่างโหลด
     const L = window.L;
     const shop = [pickupCfg.shop.lat, pickupCfg.shop.lng];
-    map = L.map("bk-map", { scrollWheelZoom: false }).setView(shop, 12);
+    map = L.map("bk-map", { scrollWheelZoom: false, zoomSnap: 0.25 });
+    resetView();
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(map);
     L.marker(shop, {
-      icon: L.icon({ iconUrl: "/static/img/logo-badge.png", iconSize: [40, 40], className: "pickup__shop" }),
+      icon: L.icon({ iconUrl: "/static/img/logo-badge.png", iconSize: [30, 30], className: "pickup__shop" }),
       title: "ร้าน",
       keyboard: false,
     }).addTo(map);
-    // วงระยะให้บริการ (เส้นตรง) — ระยะถนนโดยประมาณ = เส้นตรง × road_factor
-    const maxKm = pickupCfg.zones[pickupCfg.zones.length - 1].max_km;
-    L.circle(shop, {
-      radius: (maxKm / pickupCfg.road_factor) * 1000,
-      color: "#5c3d2e", weight: 2, dashArray: "6 6", fillColor: "#e8a840", fillOpacity: 0.08,
-      interactive: false,
-    }).addTo(map);
+    // วงระยะของแต่ละโซนค่ารับส่ง — รัศมีบนแผนที่เป็นระยะเส้นตรง = ระยะถนนโดยประมาณ ÷ road_factor
+    // (ตรงกับที่เซิร์ฟเวอร์ใช้ตัดสิน: หมุดในวงนอก = รับ-ส่งได้) วงนอกสุดเป็นเส้นประ = ขอบเขตที่ร้านไปรับ-ส่ง
+    pickupCfg.zones.forEach((z, i) => {
+      const outer = i === pickupCfg.zones.length - 1;
+      const ring = L.circle(shop, {
+        radius: zoneRadius(z),
+        color: "#5c3d2e", weight: outer ? 2.5 : 1.5, dashArray: outer ? "8 7" : "2 6",
+        fillColor: "#e8a840", fillOpacity: outer ? 0.07 : 0.1, interactive: false,
+      }).addTo(map);
+      // ป้ายราคาที่ขอบบนของวง
+      L.marker([ring.getBounds().getNorth(), shop[1]], {
+        interactive: false, keyboard: false,
+        icon: L.divIcon({ className: "pickup__zone", html: `<span>ไม่เกิน ${z.max_km} กม. · ${z.fee} บาท</span>`, iconSize: [0, 0] }),
+      }).addTo(map);
+    });
     map.on("click", (e) => setPin(e.latlng));
-    requestAnimationFrame(() => map.invalidateSize());
+    requestAnimationFrame(() => { map.invalidateSize(); resetView(); });
+  }
+
+  function zoneRadius(zone) {
+    return (zone.max_km / pickupCfg.road_factor) * 1000;
+  }
+
+  // มุมมองตั้งต้น: เห็นรอบร้าน view_km กิโลเมตร (กว้างกว่าระยะรับ-ส่งเล็กน้อย ให้เห็นวงทั้งวง)
+  function resetView() {
+    const L = window.L;
+    const shop = L.latLng(pickupCfg.shop.lat, pickupCfg.shop.lng);
+    map.fitBounds(shop.toBounds(pickupCfg.view_km * 2 * 1000));
   }
 
   function setPin(latlng) {
@@ -223,6 +243,10 @@
       if (!r.ok) {
         quoteEl.textContent = "";
         showError("pickup", body.message || "จุดนี้คิดค่ารับส่งไม่ได้");
+        const L = window.L;
+        const shop = L.latLng(pickupCfg.shop.lat, pickupCfg.shop.lng);
+        const area = shop.toBounds(zoneRadius(pickupCfg.zones[pickupCfg.zones.length - 1]) * 2);
+        map.fitBounds(area.extend(latlng), { padding: [24, 24] });
         return;
       }
       ride = { lat: latlng.lat, lng: latlng.lng, km: body.km, fee: body.fee };
@@ -271,6 +295,79 @@
     updateDue();
   });
   form.elements.pickup_address.addEventListener("input", () => clearError("pickup"));
+
+  /* ค้นหาสถานที่: Nominatim ของ OpenStreetMap (ฟรี ไม่ต้องใช้ key) — ค้นเมื่อกดปุ่ม/Enter เท่านั้น ไม่ค้นระหว่างพิมพ์
+     และเว้นอย่างน้อย 1 วินาทีต่อครั้งตามกติกาการใช้งาน · จำกัดผลให้อยู่ในกรอบรอบร้าน (view_km) */
+  const placeInput = document.getElementById("bk-place");
+  const placeBtn = document.getElementById("bk-place-go");
+  const placeList = document.getElementById("bk-place-results");
+  const placeStatus = document.getElementById("bk-place-status");
+  let lastSearchAt = 0;
+
+  function searchBox() {
+    const b = window.L.latLng(pickupCfg.shop.lat, pickupCfg.shop.lng).toBounds(pickupCfg.view_km * 2 * 1000);
+    return [b.getWest(), b.getNorth(), b.getEast(), b.getSouth()].map((n) => n.toFixed(5)).join(",");
+  }
+
+  function showPlaces(items) {
+    placeList.innerHTML = "";
+    const seen = new Set(); // Nominatim คืนสถานที่เดียวกันซ้ำได้ (จุด + พื้นที่) แสดงชื่อละครั้ง
+    items.filter((it) => !seen.has(it.display_name) && seen.add(it.display_name)).forEach((it) => {
+      const [name, ...rest] = it.display_name.split(", ");
+      const li = document.createElement("li");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.innerHTML = "<b></b><small></small>";
+      btn.querySelector("b").textContent = name;
+      btn.querySelector("small").textContent = rest.slice(0, 3).join(" ");
+      btn.addEventListener("click", () => {
+        const ll = window.L.latLng(Number(it.lat), Number(it.lon));
+        map.setView(ll, 16);
+        setPin(ll);
+        placeList.hidden = true;
+        placeStatus.textContent = "ปักหมุดให้แล้ว ลากหมุดให้ตรงหน้าบ้านได้เลยค่ะ";
+        const addr = form.elements.pickup_address;
+        if (!addr.value.trim()) addr.value = [name, ...rest.slice(0, 2)].join(" ").slice(0, 200);
+      });
+      li.appendChild(btn);
+      placeList.appendChild(li);
+    });
+    placeList.hidden = !items.length;
+  }
+
+  async function searchPlace() {
+    const q = placeInput.value.replace(/\s+/g, " ").trim();
+    if (q.length < 2 || !map) { placeStatus.textContent = "พิมพ์ชื่อสถานที่อย่างน้อย 2 ตัวอักษร"; return; }
+    const wait = 1100 - (Date.now() - lastSearchAt);
+    placeBtn.disabled = true;
+    placeList.hidden = true;
+    placeStatus.textContent = "กำลังค้นหา…";
+    try {
+      if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+      lastSearchAt = Date.now();
+      const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&countrycodes=th&accept-language=th" +
+        `&bounded=1&viewbox=${searchBox()}&q=${encodeURIComponent(q)}`;
+      const r = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const items = await r.json();
+      showPlaces(items);
+      placeStatus.textContent = items.length
+        ? "เลือกสถานที่จากรายการ แล้วลากหมุดให้ตรงหน้าบ้าน"
+        : `ไม่พบ "${q}" ในระยะที่ร้านรับ-ส่ง ลองชื่อหมู่บ้าน ซอย หรือสถานที่ใกล้บ้าน หรือแตะแผนที่แทนได้ค่ะ`;
+    } catch (err) {
+      console.error("[booking] ค้นหาสถานที่:", err);
+      placeStatus.textContent = "ค้นหาไม่สำเร็จ ลองใหม่อีกครั้ง หรือแตะแผนที่ตรงบ้านแทนได้ค่ะ";
+    } finally {
+      placeBtn.disabled = false;
+    }
+  }
+
+  placeBtn.addEventListener("click", searchPlace);
+  placeInput.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault(); // Enter ในช่องค้นหา = ค้นหา ไม่ใช่ส่งฟอร์มจอง
+    searchPlace();
+  });
 
   document.getElementById("bk-locate").addEventListener("click", () => {
     if (!navigator.geolocation || !map) {
@@ -558,6 +655,9 @@
     quoteSeq++;
     quoteEl.textContent = "";
     if (pin) { pin.remove(); pin = null; }
+    placeList.hidden = true;
+    placeStatus.textContent = "";
+    if (map) resetView();
     updateDue();
   }
 
