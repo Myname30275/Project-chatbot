@@ -62,11 +62,7 @@
           เริ่มคุย
         </button>
         <p class="avatar__fine">ใช้ได้บน Chrome และ Edge และต้องอนุญาตให้เว็บใช้ไมโครโฟน</p>
-        <div class="avatar__voice-pick">
-          <label for="opt-voice">เสียงของ{{ shop.assistant_name }}</label>
-          <select id="opt-voice"><option value="">เสียงเริ่มต้นของระบบ</option></select>
-          <small id="opt-voice-note"></small>
-        </div>
+        <p id="voice-note" class="avatar__note" role="status"></p>
       </section>
 
       <!-- ระหว่างคุย (voice.js สลับ hidden เอง) -->

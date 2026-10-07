@@ -940,31 +940,13 @@ svg {
   margin: 14px 0 0;
   font-size: 0.86rem;
 }
-.avatar__voice-pick {
-  display: grid;
-  gap: 6px;
-  margin-top: 24px;
-  padding-top: 18px;
-  border-top: 2px dashed var(--ink-line);
+.avatar__note {
+  margin: 12px 0 0 !important;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--brick) !important;
 }
-.avatar__voice-pick label {
-  font-weight: 700;
-}
-.avatar__voice-pick select {
-  width: 100%;
-  min-width: 0;
-  height: 44px;
-  padding: 0 12px;
-  background: var(--paper);
-  color: var(--ink);
-  border: var(--line);
-  border-radius: 14px;
-  font: inherit;
-}
-.avatar__voice-pick small {
-  color: var(--ink-soft);
-}
-.avatar__voice-pick small:empty {
+.avatar__note:empty {
   display: none;
 }
 .voice-open .avatar__intro {

@@ -27,19 +27,11 @@
   const saidEl = document.getElementById("voice-said");
   const replyEl = document.getElementById("voice-reply");
   const errEl = document.getElementById("voice-error");
-  const voiceSelect = document.getElementById("opt-voice");
+  const noteEl = document.getElementById("voice-note");
 
-  // เสียงโคลน Cartesia ที่เลือกได้จากช่อง "เสียงพูด" เดียวกับเสียง browser (ไม่มี UI แยก
-  // ระบบเสียง/provider อีกต่อไป) — เพิ่มเสียงใหม่ได้โดยเติมรายการนี้ ค่า id คือ Cartesia voice ID
-  const CARTESIA_VOICES = [
-    { id: "096614e2-9381-4012-b4f4-1ce70e33e81f", name: "ASN" },
-    { id: "fef31e4e-2299-49e0-a24a-d9f98aa69990", name: "krt" },
-    { id: "28447233-a97c-4c87-9c6a-ec6d60d13fca", name: "Dora" },
-    { id: "a360d15f-279e-4796-bb8b-54896882c956", name: "Hiso" },
-    { id: "cb9de16c-a818-44fc-8e57-91d95ebaf1ee", name: "ASN2" },
-    { id: "3594e019-08ed-4e03-8a4a-0a5eb55acfe9", name: "Khudo" },
-  ];
-  const CARTESIA_PREFIX = "cartesia:";
+  // เสียงของน้องหอม = เสียงโคลน Cartesia "ASN2" ตายตัว (เจ้าของร้านเลือก 7 ต.ค. 2569 — ไม่มีช่องให้ลูกค้าเลือกเสียงแล้ว)
+  // เซิร์ฟเวอร์ไม่มี CARTESIA_API_KEY = ใช้เสียงภาษาไทยของเบราว์เซอร์แทน
+  const CARTESIA_VOICE_ID = "cb9de16c-a818-44fc-8e57-91d95ebaf1ee"; // ASN2
 
   const ls = {
     get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
@@ -53,7 +45,7 @@
     .catch(() => {})
     .finally(() => {
       cartesiaKnown = true;
-      populateVoices(); // เซิร์ฟเวอร์ไม่มี CARTESIA_API_KEY = ไม่แสดงเสียงโคลนเลย ใช้เสียง browser แทน
+      populateVoices(); // เซิร์ฟเวอร์ไม่มี CARTESIA_API_KEY = ใช้เสียง browser แทน (เตือนถ้าไม่มีเสียงไทย)
     });
 
   let state = "off";          // off | listening | thinking | speaking | error
@@ -83,90 +75,27 @@
                                     // ไม่ให้บวกเพิ่มระหว่างท่อน ต่อท่อน
   let ssKeepAlive = 0;             // (speechSynthesis) กัน Chrome หยุดเสียงเองหลัง ~15 วิ
 
-  /* ---------------- ตัวเลือกเสียง (หน้า Settings) ---------------- */
+  /* ---------------- เสียงที่ใช้พูด ---------------- */
 
+  // ไม่มีเสียงโคลนและเบราว์เซอร์ไม่มีเสียงไทย (เช่น Chrome บน Windows ที่ไม่ได้ลงภาษาไทย) — บอกทางแก้ใต้ปุ่มเริ่มคุย
   function populateVoices() {
-    if (!voiceSelect) return;
+    if (!noteEl || !cartesiaKnown || cartesiaReady) return;
     const voices = synth ? synth.getVoices() : [];
-    const saved = ls.get("ts.voice", "");
-    const isThai = (v) => /^th([-_]|$)/i.test(v.lang);
-    const th = voices.filter(isThai);
-    const rest = voices.filter((v) => !isThai(v));
-
-    voiceSelect.innerHTML = "";
-    const def = document.createElement("option");
-    def.value = ""; def.textContent = "เสียงเริ่มต้นของระบบ";
-    voiceSelect.appendChild(def);
-
-    if (cartesiaReady && CARTESIA_VOICES.length) {
-      const g = document.createElement("optgroup");
-      g.label = "เสียงโคลน (Cartesia)";
-      CARTESIA_VOICES.forEach((v) => {
-        const o = document.createElement("option");
-        o.value = CARTESIA_PREFIX + v.id;
-        o.textContent = v.name;
-        g.appendChild(o);
-      });
-      voiceSelect.appendChild(g);
-    }
-
-    const addGroup = (label, list) => {
-      if (!list.length) return;
-      const g = document.createElement("optgroup");
-      g.label = label;
-      list.forEach((v) => {
-        const o = document.createElement("option");
-        o.value = v.voiceURI;
-        o.textContent = v.name + " (" + v.lang + ")";
-        g.appendChild(o);
-      });
-      voiceSelect.appendChild(g);
-    };
-    addGroup("ภาษาไทย", th);
-    addGroup("อื่น ๆ", rest);
-
-    let want = saved;
-    if (saved.startsWith(CARTESIA_PREFIX) && cartesiaKnown && !cartesiaReady) want = ""; // เคยเลือกเสียงโคลนไว้ แต่ตอนนี้ปิดอยู่
-    if (!want) {
-      want = cartesiaReady && CARTESIA_VOICES.length
-        ? CARTESIA_PREFIX + CARTESIA_VOICES[0].id
-        : (th[0] ? th[0].voiceURI : "");
-      if (want && cartesiaKnown) ls.set("ts.voice", want);
-    }
-    // ค่าที่เคยบันทึกไว้อาจเป็นเสียงที่หายไปแล้ว (เช่น browser คนละเครื่อง) — เช็คว่ามีตัวเลือก
-    // นั้นอยู่จริงก่อน ไม่งั้น <select> จะโชว์ตัวแรกเฉยๆ ทั้งที่ localStorage ยังเก็บค่าเดิมไว้
-    const exists = [...voiceSelect.options].some((o) => o.value === want);
-    voiceSelect.value = exists ? want : "";
-
-    // ไม่มีทั้งเสียงโคลนและเสียงไทยในเครื่อง (เช่น Chrome บน Windows ที่ไม่ได้ลงภาษาไทย) — บอกทางแก้
-    const note = document.getElementById("opt-voice-note");
-    if (note && cartesiaKnown && !cartesiaReady) {
-      note.textContent = th.length
-        ? ""
-        : "เบราว์เซอร์นี้ไม่มีเสียงภาษาไทย น้องหอมอาจตอบเป็นเสียงไม่ได้ ลองเปิดหน้านี้ด้วย Microsoft Edge";
-    }
+    const hasThai = voices.some((v) => /^th([-_]|$)/i.test(v.lang));
+    noteEl.textContent = hasThai
+      ? ""
+      : "เบราว์เซอร์นี้ไม่มีเสียงภาษาไทย น้องหอมอาจตอบเป็นเสียงไม่ได้ ลองเปิดหน้านี้ด้วย Microsoft Edge";
   }
 
-  populateVoices();
   if (synth && "onvoiceschanged" in synth) synth.addEventListener("voiceschanged", populateVoices);
-  voiceSelect && voiceSelect.addEventListener("change", () => ls.set("ts.voice", voiceSelect.value));
 
   function selectedCartesiaVoiceId() {
-    if (!cartesiaReady) return null; // ไม่ได้ตั้ง CARTESIA_API_KEY — พูดด้วยเสียง browser แทนการเงียบ
-    const v = ls.get("ts.voice", "");
-    return v.startsWith(CARTESIA_PREFIX) ? v.slice(CARTESIA_PREFIX.length) : null;
+    return cartesiaReady ? CARTESIA_VOICE_ID : null; // ไม่ได้ตั้ง CARTESIA_API_KEY — พูดด้วยเสียง browser แทนการเงียบ
   }
 
   function chosenVoice() {
-    if (!synth) return null;
-    const uri = ls.get("ts.voice", "");
-    if (uri.startsWith(CARTESIA_PREFIX) && cartesiaReady) return null; // เลือกเสียงโคลนไว้ ไม่ใช่เสียง browser
-    const voices = synth.getVoices();
-    return (
-      voices.find((v) => v.voiceURI === uri) ||
-      voices.find((v) => /^th([-_]|$)/i.test(v.lang)) ||
-      null
-    );
+    if (!synth || cartesiaReady) return null;
+    return synth.getVoices().find((v) => /^th([-_]|$)/i.test(v.lang)) || null;
   }
 
   async function ensureAudioCtx() {
@@ -531,8 +460,7 @@
       if (session !== speakSession || state === "off") return;
       serverDownThisTurn = true;
       console.warn("[voice] Cartesia ใช้งานไม่สำเร็จ → ข้ามข้อความนี้ (ไม่สลับไปเสียง browser):", e);
-      const note = document.getElementById("opt-voice-note");
-      if (note) note.textContent = "Cartesia ใช้งานไม่สำเร็จรอบนี้ — บางข้อความอาจไม่มีเสียงพูด";
+      if (noteEl) noteEl.textContent = "ระบบเสียงใช้งานไม่สำเร็จรอบนี้ — บางข้อความอาจไม่มีเสียงพูด";
       // ท่อนนี้ยังไม่เริ่มเล่นเสียงเลย (started=false) — ปล่อยผ่านเงียบๆ ไม่พูดท่อนนี้ (ไม่ใช้เสียง
       // browser แทน ผู้ใช้เลือกเสียงโคลนไว้ชัดเจนแล้ว ไม่ต้องการให้สลับเสียง/เพศกลางบทสนทนา) —
       // ท่อนถัดไปจะถูก kickoffChunk() ส่งมาเป็น skip ต่อเนื่องอัตโนมัติเพราะ serverDownThisTurn
