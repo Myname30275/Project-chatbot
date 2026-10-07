@@ -477,6 +477,20 @@
     }
   }
 
+  // สีหน้าของน้องหอมตามเนื้อหาคำตอบ — กฎคำสำคัญล้วน ไม่เรียก LLM เพิ่ม (voice-avatar.js ไล่สีหน้าตอนพูด)
+  function moodOf(text) {
+    if (/ขออภัย|เสียใจ|ไม่สามารถ|ไม่มีบริการ|งดรับ|ไม่รับ|ไม่พบ|ให้บริการ.{0,12}ไม่ได้/.test(text)) return "sad";
+    if (/จริงไหม|จริงหรือ/.test(text)) return "surprised";
+    if (/สวัสดี|ยินดี|ขอบคุณ|ได้เลย|พร้อม/.test(text)) return "happy";
+    return "relaxed";
+  }
+  function avatarMood(name) {
+    if (window.voiceAvatar && window.voiceAvatar.setMood) window.voiceAvatar.setMood(name);
+  }
+  function avatarGesture(name) {
+    if (window.voiceAvatar && window.voiceAvatar.gesture) window.voiceAvatar.gesture(name);
+  }
+
   async function ask(text) {
     setState("thinking");
     saidEl.textContent = text;
@@ -520,6 +534,7 @@
             reply += pl.delta;
             pendingBuf += pl.delta;
             replyEl.textContent = reply;
+            avatarMood(moodOf(reply));
             ccBox && (ccBox.scrollTop = ccBox.scrollHeight);
             // ตัดท่อนที่พร้อมพูดได้ออกจาก buffer แล้วยิงเข้าคิวทันที ไม่รอคำตอบจบทั้งก้อน
             const chunked = popReadyChunks(pendingBuf, haveSpokenFirst);
@@ -531,6 +546,7 @@
             reply = pl.replace;
             pendingBuf = pl.replace;
             replyEl.textContent = reply;
+            avatarMood(moodOf(reply));
           } else if (pl.error) {
             throw new Error(pl.message || "stream error");
           }
@@ -549,29 +565,40 @@
     abortCtrl = null;
     if (pendingBuf.trim()) enqueueSpeech(pendingBuf.trim(), session);
     finishSpeechQueue(session);
-    if (actions && (actions.includes("check") || actions.includes("cancel"))) offerCheck();
-    else offerBooking(text, reply);
+    showCardFor(actions);
   }
 
-  /* ---------------- ปุ่มจองคิว (หน้า /avatar) ---------------- */
+  /* ---------------- การ์ดจองคิว / เช็คคิว / ยกเลิกคิว (หน้า /avatar) ---------------- */
 
-  // คุยเรื่องจองแล้ว (ลูกค้าพูดถึงการจอง/นัด/คิว หรือบอทบอกให้กดจองคิว) → เด้งปุ่มจองขึ้นบนหน้าจอ
-  // ตัดสินด้วยคำในข้อความ ไม่ใช้ LLM · ปุ่มพาไปหน้าแรกพร้อมเปิดป๊อปอัปจอง (ใช้ session เดียวกัน)
-  const BOOK_WORDS = /จอง|นัด|คิว/;
+  // เด้งขึ้นเฉพาะตอนคุยเรื่องนั้นอยู่: ลูกค้าพูดถึงการจอง/เช็คคิว/ยกเลิก หรือคำตอบพาไปปุ่มเหล่านั้น —
+  // ใช้รายการปุ่มที่เซิร์ฟเวอร์เลือกให้ (chatbot/actions.py ชุดเดียวกับปุ่มใต้คำตอบในแชทบนเว็บ ไม่ใช้ LLM)
+  // คุยเรื่องอื่นต่อ (คำตอบไม่มีปุ่มเหล่านี้) = ซ่อนการ์ด ไม่ค้างจากเรื่องก่อนหน้า
   const CARDS = {
     book: { title: "พร้อมจองคิวแล้ว", link: "/?book=1", label: "จองคิว", text: null },
     check: {
-      title: "เช็คคิว / ยกเลิกคิว",
+      title: "เช็คคิว",
       link: "/check",
       label: "เช็คคิว",
-      text: "กรอกเบอร์โทรที่ใช้จอง ดูสถานะคิว การคืนเงิน หรือกดยกเลิกคิวได้ในหน้านั้น",
+      text: "กรอกเบอร์โทรที่ใช้จอง ดูวันเวลานัด สถานะคิว และการคืนเงิน",
+    },
+    cancel: {
+      title: "ยกเลิกคิว",
+      link: "/?cancel=1",
+      label: "ยกเลิกคิว",
+      text: "ยืนยันตัวตนด้วยเลขจอง เบอร์โทร และชื่อเจ้าของ ยกเลิกได้ก่อนนัด 3 ชั่วโมง ร้านโอนมัดจำคืนให้",
     },
   };
+  const CARD_ORDER = ["cancel", "check", "book"]; // เรื่องเฉพาะเจาะจงกว่ามาก่อน
   let bookText = null; // ข้อความเดิมของการ์ดจองคิว (มีค่ามัดจำจาก template)
 
-  function showCard(kind) {
+  function showCardFor(actions) {
     const card = document.getElementById("voice-book");
     if (!card) return;
+    const kind = CARD_ORDER.find((k) => (actions || []).includes(k));
+    if (!kind) {
+      card.hidden = true;
+      return;
+    }
     const c = CARDS[kind];
     const textEl = card.querySelector("[data-card-text]");
     if (bookText === null) bookText = textEl.textContent;
@@ -580,16 +607,8 @@
     const link = card.querySelector("[data-card-link]");
     link.href = c.link;
     link.textContent = c.label;
+    card.dataset.kind = kind;
     card.hidden = false;
-  }
-
-  function offerBooking(userText, reply) {
-    if (!BOOK_WORDS.test(userText || "") && !/จองคิว/.test(reply || "")) return;
-    showCard("book");
-  }
-
-  function offerCheck() {
-    showCard("check");
   }
 
   /* ---------------- พูดแทรก (barge-in) ---------------- */
@@ -750,6 +769,8 @@
 
     startLoop();
     if (window.voiceAvatar) window.voiceAvatar.onOpen();
+    // ครั้งแรก: น้องหอมเดินเข้ามาที่เคาน์เตอร์ระหว่างที่เบราว์เซอร์ขอสิทธิ์ไมค์ แล้วจึงทักทาย
+    const entered = window.voiceAvatar && window.voiceAvatar.enter ? window.voiceAvatar.enter() : Promise.resolve();
 
     if (!SR) {
       showError("โหมดเสียงรองรับเฉพาะ Chrome, Edge และ Chrome บน Android");
@@ -759,6 +780,7 @@
     setState("listening");
     await startMeter();
     await cartesiaConfig;
+    await entered;
     if (state !== "off" && !greet()) startListening();
   }
 
@@ -772,6 +794,8 @@
     greeted = true;
     saidEl.textContent = "";
     replyEl.textContent = text;
+    avatarMood("happy");
+    avatarGesture("bow");
     const session = ++speakSession;
     resetSpeakQueue();
     setState("speaking");
@@ -793,6 +817,7 @@
     if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null; }
     analyser = null;
     stopLoop();
+    if (wasOpen) avatarGesture("bow"); // โค้งลาตอนจบการคุย (ตัวละครยังยืนอยู่บนหน้า /avatar)
     if (window.voiceAvatar) window.voiceAvatar.onClose();
     overlay.classList.add("hidden");
     overlay.setAttribute("aria-hidden", "true");

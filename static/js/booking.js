@@ -26,7 +26,8 @@
 
   const DRAFT_KEY = "hh.bookingDraft";
   const PHONE_RE = /^0\d{9}$/;
-  const BOOK_WORDS = /จอง|นัด|คิว/;
+  // เกณฑ์เดียวกับ chatbot/actions.py: "คิว" คำเดียวไม่นับ (เช่น "รับคิวสุดท้ายกี่โมง")
+  const BOOK_WORDS = /จอง|นัด|คิวว่าง|มีคิว|ว่าง\s*(ไหม|มั้ย|หรือเปล่า|รึเปล่า)/;
   const CANCEL_WORDS = /ยกเลิก|cancel/i;
 
   let step = 1;

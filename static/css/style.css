@@ -894,11 +894,11 @@ svg {
 .avatar {
   flex: 1;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(24px, 5vw, 56px);
+  gap: clamp(24px, 4vw, 48px);
   width: 100%;
-  max-width: 1140px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 32px var(--gutter) 48px;
 }
@@ -928,9 +928,14 @@ svg {
   border-radius: var(--hand);
   box-shadow: var(--shadow-lg);
 }
+/* หัวข้ออยู่บรรทัดเดียวเสมอ: ขนาดตัวอักษรย่อตามความกว้างกล่อง (cqi) ไม่ให้คำท้ายตกบรรทัด */
+.avatar__intro {
+  container-type: inline-size;
+}
 .avatar__intro h1 {
   margin: 0 0 12px;
-  font-size: clamp(1.7rem, 4vw, 2.3rem);
+  font-size: min(2.3rem, 7.4cqi);
+  white-space: nowrap;
 }
 .avatar__intro p {
   margin: 0 0 20px;
@@ -966,9 +971,9 @@ svg {
 /* เวทีอวตาร: พนักงานยืนหลังเคาน์เตอร์ร้าน */
 .voice__stage {
   position: relative;
-  width: min(500px, 100%);
-  aspect-ratio: 1;
-  background: var(--cream);
+  width: min(720px, 100%);
+  aspect-ratio: 5 / 4;
+  background: #fffaf1;
   border: var(--line);
   border-radius: 36px;
   overflow: hidden;
@@ -976,23 +981,44 @@ svg {
   touch-action: manipulation;
   transition: box-shadow 250ms;
 }
-.voice__stage::after {
-  content: "";
+/* ฉากเคาน์เตอร์ต้อนรับ: ผนังร้านอยู่หลังตัวละคร เคาน์เตอร์อยู่หน้าตัวละคร (บังช่วงเอว) */
+.voice__stage .counter-scene {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 2;
-  height: 16%;
-  background: var(--honey-soft);
-  border-top: var(--line);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: none;
   pointer-events: none;
+}
+.counter-scene--back {
+  z-index: 0;
+}
+.counter-scene--front {
+  z-index: 2;
+}
+.counter-scene__title {
+  font-family: "Mali", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  fill: #5c3d2e;
+}
+.counter-scene__menu text {
+  font-family: "Nunito", "IBM Plex Sans Thai Looped", sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+}
+.counter-scene__brand {
+  font-family: "Mali", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  fill: #5c3d2e;
 }
 /* ข้อความระหว่างโหลดโมเดล — ซ่อนเมื่อ canvas ของ VRM แสดงแล้ว */
 .voice__loading,
 .voice__failed {
   position: absolute;
-  inset: 0 0 16%;
+  inset: 0 0 24%;
   z-index: 1;
   display: grid;
   place-items: center;
@@ -1001,6 +1027,33 @@ svg {
   text-align: center;
   color: var(--ink-soft);
   font-weight: 600;
+}
+/* เคาน์เตอร์ว่างก่อนกดเริ่มคุย (น้องหอมจะเดินเข้ามา) */
+.voice__waiting {
+  position: absolute;
+  inset: 0 0 24%;
+  z-index: 1;
+  display: none;
+  place-items: center;
+  margin: 0;
+  padding: 24px;
+  text-align: center;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.voice__stage.is-waiting .voice__waiting {
+  display: grid;
+}
+.voice-open .voice__waiting {
+  display: none !important;
+}
+.voice__waiting span,
+.voice__loading span,
+.voice__failed span {
+  padding: 8px 16px;
+  background: var(--paper);
+  border: var(--line);
+  border-radius: 999px;
 }
 .voice__failed,
 .voice__stage:has(#vrm-canvas:not(.hidden)) .voice__loading,
@@ -2537,7 +2590,8 @@ svg {
     padding-top: 20px;
   }
   .voice__stage {
-    width: min(420px, 100%);
+    width: min(560px, 100%);
+    aspect-ratio: 1;
   }
   .hero {
     grid-template-columns: 1fr;

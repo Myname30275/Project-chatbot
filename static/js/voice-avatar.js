@@ -12,11 +12,21 @@ import { VRMLoaderPlugin, VRMUtils } from "@pixiv/three-vrm";
 
 // ไฟล์ .vrm ที่ export จาก VRoid Studio (ไฟล์ .vroid เป็นไฟล์โปรเจกต์ เว็บโหลดตรงไม่ได้)
 const VRM_URL = "/static/avatar/Avatar%20grooming.vrm";
-// ใช้ท่า Standing Idle (Mixamo) ท่าเดียววนตลอดทุกสถานะ (ยืนรอ / ฟัง / คิด / พูด) — ปาก ตา กระพริบตา
-// ยังขยับตามเสียงจริงด้วยโค้ดเหมือนเดิม ไม่ได้มาจากไฟล์ท่าทาง
+// ท่าหลัก: Standing Idle (Mixamo) วนตลอดทุกสถานะ (ยืนรอ / ฟัง / คิด / พูด) — ปาก ตา กระพริบตา สีหน้า
+// และท่าหัวตามบทสนทนายังทำด้วยโค้ดทับบนท่านี้
 const ANIM_TALK_URL = "/static/avatar/anim/Standing%20Idle.fbx";
-const ANIM_THINKING_URL = null;
-const ANIM_ROAM_URLS = [];
+// ท่าเล่นแก้เบื่อ: สุ่มเล่น 1 ท่า "ครั้งเดียว" แล้วกลับไปยืนรอ — เฉพาะตอนลูกค้าเงียบไปนาน และนาน ๆ ครั้ง
+const ANIM_FIDGET_URLS = [
+  { name: "bashful", url: "/static/avatar/anim/Bashful.fbx" },
+  { name: "yawn", url: "/static/avatar/anim/Yawn.fbx" },
+];
+// เดินเข้าฉาก: ครั้งแรกที่กด "เริ่มคุย" น้องหอมเดินมาจากซ้ายของกรอบ หยุดกลางเคาน์เตอร์ หันมาหาลูกค้า
+// แล้วจึงโค้งทักทาย (voice.js รอ enter() ก่อนพูดคำทักทาย) — ไฟล์นี้มีการเคลื่อนที่จริง (ราว 1.5 ม. ใน 1.5 วิ)
+const ANIM_ENTER_URL = "/static/avatar/anim/Female%20Stop%20Walking.fbx";
+const ENTER_TURN_SEC = 0.6;     // หมุนตัวจากหันข้างมาหน้าตรงหลังหยุดเดิน
+const ENTER_WAIT_MS = 4000;     // กดเริ่มคุยตอนไฟล์ท่ายังโหลดไม่เสร็จ: รอได้เท่านี้ แล้วให้ยืนประจำที่เลย
+const FIDGET_AFTER_MS = 15000;               // ลูกค้าเงียบ (ไม่พูด ไม่มีคำตอบค้าง) นานเท่านี้ก่อนจะเริ่มมีท่าแก้เบื่อครั้งแรก
+const FIDGET_GAP_MS = 20000;                 // ยังเงียบต่อ: ท่าถัดไปห่างจากท่าก่อนหน้า (นับจากเล่นจบ) เท่านี้
 
 // Mixamo rig → VRM Humanoid bone names (มาตรฐานที่โปรเจกต์ VRM+Mixamo ทั่วไปใช้กัน)
 const MIXAMO_VRM_RIG_MAP = {
@@ -118,19 +128,29 @@ if (stageEl && fallbackCanvas) {
   let chestBone = null;
   let rightUpperArmBone = null;
   let rightLowerArmBone = null;
+  let neckBone = null;
   let lookAtTarget = null;
   let mixer = null; // ไม่เป็น null เมื่อโหลด animation clip จริงสำเร็จ — ตอนนั้นให้ mixer คุมท่าทาง
                      // ลำตัว/แขน/หัวแทนระบบ procedural ด้านล่าง (ปาก/ตา/กระพริบตายังใช้ระบบเดิม)
-  // เครื่องสถานะท่าทาง 3 โหมด: "roam" (วนท่าสุ่มตอนไม่มีการสนทนา) / "thinking" (กำลังรอคำตอบ AI) /
-  // "talk" (ผู้ใช้เริ่มพูดแล้ว หรือ AI กำลังตอบ) — ดู enterMode()/tick() สำหรับตรรกะเปลี่ยนสถานะ
+  // ท่าทาง: ยืนรอ (Standing Idle วนซ้ำ) เป็นหลัก + ท่าแก้เบื่อเล่นครั้งเดียวเป็นครั้งคราวตอนลูกค้าเงียบนาน
   let talkAction = null;
-  let thinkingAction = null;
-  let roamActions = []; // [{ name, action }]
-  let currentRoamIndex = -1;
-  let mode = "roam";
-  let pendingTarget = null; // "talk" | "thinking" | null — รอท่า roam ปัจจุบันเล่นจบก่อนค่อยสลับ
-  let lastEngagedAt = 0;
-  const ROAM_RESUME_DELAY_MS = 5000; // นิ่งไม่มีการโต้ตอบนานเท่านี้ค่อยกลับไปวนท่าสุ่ม
+  let fidgetActions = []; // [{ name, action }]
+  let fidget = null;      // ท่าแก้เบื่อที่กำลังเล่นอยู่ { name, action } หรือ null
+  let lastFidget = "";
+  let lastEngagedAt = performance.now();
+  let nextFidgetAt = 0;   // เวลาเร็วสุดที่เล่นท่าแก้เบื่อครั้งถัดไปได้ (นับจากการเล่นครั้งก่อน)
+
+  // เดินเข้าฉาก: ก่อนกดเริ่มคุย เคาน์เตอร์ว่าง (ซ่อนตัวละคร) · ผู้ใช้ตั้งค่าลดการเคลื่อนไหว = ไม่เดิน ยืนรอเลย
+  const entranceWanted = stageEl.hasAttribute("data-always-on") &&
+    !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  let walkAction = null;
+  let walkPath = null;          // { times, dist } ระยะที่เดินไปข้างหน้าตามเวลาในท่า (ดึงออกจากท่าแล้วให้โค้ดเลื่อนตัวแทน)
+  let walkTotal = 0;
+  let entranceReady = false;    // ไฟล์ท่าเดินพร้อมแล้ว
+  let entranceDone = !entranceWanted;
+  let enterRequested = false;
+  let entering = null;          // { phase: "walk" | "turn", t }
+  const entranceWaiters = [];
   const clock = new THREE.Clock();
 
   let latestLevel = 0;
@@ -153,6 +173,19 @@ if (stageEl && fallbackCanvas) {
 
   // "เหลียวมอง" เป็นช่วงๆ (หันหัว/ส่ายตา) — ไม่ใช่แค่สั่นค้างนิ่งๆ แบบเดิม
   let gazeYaw = 0, gazePitch = 0, gazeTimer = 1 + Math.random() * 2;
+
+  // ---- ชั้น "ปฏิกิริยา" ตามบทสนทนา: สีหน้า + ท่าหัว/ลำตัว บวกทับท่าจาก animation clip ทุกเฟรม ----
+  // สีหน้า: voice.js บอกอารมณ์ของคำตอบผ่าน setMood() แล้วไล่น้ำหนัก expression ของ VRM เข้าหาทีละเฟรม
+  const MOOD_LEVEL = { happy: 0.55, relaxed: 0.32, sad: 0.65, surprised: 0.5 };
+  const moodWeight = { happy: 0, relaxed: 0, sad: 0, surprised: 0 };
+  let mood = "relaxed";
+  // ท่าหัว: ค่าชดเชยที่ไล่เข้าหาเป้าหมายช้า ๆ (เอียงหัวตอนฟัง เงยมองตอนคิด) + พยักหน้า/โค้งเป็นครั้ง ๆ
+  // HEAD_DOWN = ทิศของ rotation.x ที่ทำให้ก้มหน้าในโครงกระดูก normalized ของ VRM โมเดลนี้
+  const HEAD_DOWN = 1;
+  const pose = { hx: 0, hy: 0, hz: 0, eyeX: 0, eyeY: 0 };
+  let nodT = -1, lastNodAt = 0, wasLoud = false;
+  let bowT = -1;
+  const NOD_DUR = 0.55, BOW_DUR = 1.5;
 
   // ท่าทางมือเล็กๆ ตอนพูดเน้นคำ (ยกแขนขวาขึ้นนิดหน่อยแล้ววาง)
   let gestureActive = false, gestureT = 0;
@@ -265,89 +298,165 @@ if (stageEl && fallbackCanvas) {
     });
   }
 
-  // เล่นท่า roam ตัวถัดไปแบบสุ่ม (ไม่ซ้ำตัวก่อนหน้าถ้ามีให้เลือกมากกว่า 1) — เรียกตอนเริ่ม, ตอนท่า
-  // roam ตัวเดิมเล่นจบรอบ (ยังไม่ถึงคิวสลับโหมด), หรือตอนกลับจาก talk/thinking เข้าสู่ roam อีกครั้ง
-  function playNextRoam() {
-    if (!roamActions.length) return;
-    let idx = Math.floor(Math.random() * roamActions.length);
-    if (roamActions.length > 1 && idx === currentRoamIndex) idx = (idx + 1) % roamActions.length;
-    currentRoamIndex = idx;
-    mode = "roam";
-    roamActions.forEach((r, i) => {
-      if (i === idx) r.action.reset().fadeIn(0.4).play();
-      else r.action.fadeOut(0.4);
-    });
-    if (talkAction) talkAction.fadeOut(0.4);
-    if (thinkingAction) thinkingAction.fadeOut(0.4);
+  // เล่นท่าแก้เบื่อ 1 ท่าแบบสุ่ม (ไม่ซ้ำท่าก่อนหน้า) ครั้งเดียว แล้ว "finished" จะพากลับไปท่ายืนรอ
+  function playFidget(name) {
+    if (!fidgetActions.length || fidget) return;
+    const pool = name ? fidgetActions.filter((f) => f.name === name)
+      : fidgetActions.length > 1 ? fidgetActions.filter((f) => f.name !== lastFidget) : fidgetActions;
+    if (!pool.length) return;
+    fidget = pool[Math.floor(Math.random() * pool.length)];
+    lastFidget = fidget.name;
+    fidget.action.reset().setEffectiveWeight(1).fadeIn(0.6).play();
+    talkAction.fadeOut(0.6);
   }
 
-  function actionForMode(m) {
-    if (m === "talk") return talkAction;
-    if (m === "thinking") return thinkingAction || talkAction; // ไม่มีท่าคิดก็ใช้ท่าคุยแทนไปก่อน
-    return null;
+  // กลับไปท่ายืนรอ — ทั้งตอนท่าแก้เบื่อเล่นจบเอง และตอนลูกค้าเริ่มพูดกลางท่า (ตัดกลับเร็วกว่า)
+  function endFidget(fade = 0.6) {
+    if (!fidget) return;
+    fidget.action.fadeOut(fade);
+    talkAction.reset().setEffectiveWeight(1).fadeIn(fade).play();
+    fidget = null;
+    nextFidgetAt = performance.now() + FIDGET_GAP_MS;
   }
 
-  // เปลี่ยน mode จริงๆ (fade action เก่าออก/ใหม่เข้า) — ใช้ภายในเท่านั้น ไม่เช็คว่ามาจาก roam หรือไม่
-  // (ผู้เรียกต้องแน่ใจแล้วว่าถึงจังหวะสลับจริง — ดู enterMode() สำหรับตอนเรียกจากภายนอก)
-  function applyMode(targetMode) {
-    if (mode === targetMode) return;
-    const from = actionForMode(mode);
-    const to = actionForMode(targetMode);
-    mode = targetMode;
-    if (from && from !== to) from.fadeOut(0.4);
-    // ท่าเดียวกันอยู่แล้ว (มีแค่ Idle) — เล่นต่อไม่ต้อง reset กันท่าสะดุดกลับไปเฟรมแรก
-    if (to && to !== from) { to.reset(); to.fadeIn(0.4).play(); }
-    frameOnHead(); // กลับไปใช้เฟรมกล้องนิ่งแบบเดิม (ไม่ต้องตามหัวทุกเฟรมแบบตอน roam)
-  }
-
-  // สลับเข้าโหมด "thinking"/"talk" — ถ้ากำลัง roam อยู่ แค่ตั้งคิวรอ (pendingTarget) ให้ท่า roam
-  // ปัจจุบันเล่นจบก่อนค่อยสลับ ไม่ตัดกลางคัน แต่ถ้าอยู่ในโหมด thinking/talk อยู่แล้วสลับกันเองได้ทันที
-  // (ทั้งคู่ถือว่า "กำลังอยู่ในบทสนทนา" อยู่แล้ว ไม่ใช่จังหวะที่ต้องรอ)
-  function enterMode(targetMode) {
-    if (mode === "roam") pendingTarget = targetMode;
-    else applyMode(targetMode);
-  }
-
-  // ท่ายืนคุยหลักเป็นค่าบังคับต้องมี ส่วนท่าอื่นๆ (thinking, roam ทุกแบบ) เป็น optional ทีละท่า —
-  // ท่าไหนโหลดไม่สำเร็จก็แค่ไม่อยู่ในตัวเลือก ไม่ทำให้ฟีเจอร์อื่นพัง
+  // ท่ายืนหลักต้องมี ส่วนท่าแก้เบื่อเป็น optional ทีละท่า — ท่าไหนโหลดไม่สำเร็จก็แค่ไม่อยู่ในตัวเลือก
   async function setupAnimations() {
     const talkClip = await loadMixamoClip(ANIM_TALK_URL);
-    if (!talkClip) return; // ไม่มีท่ายืนหลัก ใช้ระบบท่าทาง procedural แทนทั้งหมด
+    if (!talkClip) { showStanding(); return; } // ไม่มีท่ายืนหลัก ใช้ระบบท่าทาง procedural แทนทั้งหมด
     mixer = new THREE.AnimationMixer(vrm.scene);
     talkAction = mixer.clipAction(talkClip);
     talkAction.setLoop(THREE.LoopRepeat);
+    talkAction.play();
+    // จัดกล้องใหม่ตามท่าแรกของ animation (ท่า Idle ขยับตัวออกจากจุดเดิมของ T-pose ทำให้ตัวละครเยื้องข้าง)
+    mixer.update(0);
+    frameOnHead();
 
-    const thinkingClip = ANIM_THINKING_URL ? await loadMixamoClip(ANIM_THINKING_URL) : null;
-    if (thinkingClip) {
-      thinkingAction = mixer.clipAction(thinkingClip);
-      thinkingAction.setLoop(THREE.LoopRepeat);
+    if (!entranceDone) {
+      const walkClip = await loadMixamoClip(ANIM_ENTER_URL);
+      if (walkClip && prepareEntrance(walkClip)) {
+        entranceReady = true;
+        if (enterRequested && !entering) startEntrance();
+      } else {
+        showStanding(); // โหลดท่าเดินไม่ได้ — ยืนรอที่เคาน์เตอร์เหมือนก่อนมีฟีเจอร์นี้
+      }
     }
 
-    for (const { name, url } of ANIM_ROAM_URLS) {
+    for (const { name, url } of ANIM_FIDGET_URLS) {
       const clip = await loadMixamoClip(url);
       if (!clip) continue;
       const action = mixer.clipAction(clip);
       action.setLoop(THREE.LoopOnce, 1);
       action.clampWhenFinished = true;
-      roamActions.push({ name, action });
+      fidgetActions.push({ name, action, duration: clip.duration });
     }
-
     mixer.addEventListener("finished", (e) => {
-      if (!roamActions.some((r) => r.action === e.action)) return; // talk/thinking เป็น LoopRepeat ไม่มี finished
-      if (pendingTarget) {
-        const target = pendingTarget;
-        pendingTarget = null;
-        applyMode(target); // mode ยังเป็น "roam" อยู่ตอนนี้จริงๆ (ท่า roam เพิ่งเล่นจบ) เลข fade ตรงนี้ได้เลย
-      } else {
-        playNextRoam();
-      }
+      if (fidget && e.action === fidget.action) endFidget();
     });
+  }
 
-    if (roamActions.length) playNextRoam();
-    else applyMode("talk"); // ไม่มีท่า roam เลย ก็ใช้ท่าคุยเป็นค่าเริ่มต้นไปเลยเหมือนก่อนมีฟีเจอร์นี้
-    // จัดกล้องใหม่ตามท่าแรกของ animation (ท่า Idle ขยับตัวออกจากจุดเดิมของ T-pose ทำให้ตัวละครเยื้องข้าง)
-    mixer.update(0);
-    frameOnHead();
+  // แยก "การเดินไปข้างหน้า" ออกจากท่า: ท่าเหลือเป็นเดินอยู่กับที่ ส่วนระยะทางเก็บไว้ให้โค้ดเลื่อนตัวละครเอง
+  // (ถ้าปล่อยไว้ในท่า พอเปลี่ยนเป็นท่ายืนตัวจะวาร์ปกลับจุดเดิม และหมุนตัวหันหน้าไม่ได้)
+  function prepareEntrance(clip) {
+    const hips = vrm.humanoid && vrm.humanoid.getNormalizedBoneNode("hips");
+    const track = hips && clip.tracks.find((t) => t.name === `${hips.name}.position`);
+    if (!track) return false;
+    const v = track.values;
+    const n = track.times.length;
+    const x0 = v[0], z0 = v[2];
+    walkPath = { times: track.times, dist: new Float32Array(n) };
+    for (let i = 0; i < n; i++) {
+      walkPath.dist[i] = v[i * 3 + 2] - z0; // Mixamo เดินไปทาง +Z ของตัวเอง
+      v[i * 3] = x0;
+      v[i * 3 + 2] = z0;
+    }
+    walkTotal = walkPath.dist[n - 1];
+    if (!(walkTotal > 0.2)) return false;   // ไม่ใช่ท่าเดินไปข้างหน้า (เช่น ดาวน์โหลดแบบ In Place มา)
+    walkAction = mixer.clipAction(clip);
+    walkAction.setLoop(THREE.LoopOnce, 1);
+    walkAction.clampWhenFinished = true;
+    return true;
+  }
+
+  function walkDistanceAt(t) {
+    const { times, dist } = walkPath;
+    if (t <= times[0]) return dist[0];
+    for (let i = 1; i < times.length; i++) {
+      if (t <= times[i]) {
+        const k = (t - times[i - 1]) / (times[i] - times[i - 1]);
+        return dist[i - 1] + (dist[i] - dist[i - 1]) * k;
+      }
+    }
+    return walkTotal;
+  }
+
+  // เริ่มเดิน: หันขวา (เดินไปทาง +X) เริ่มนอกกรอบด้านซ้าย แล้วหยุดพอดีจุดยืนประจำ (x = 0)
+  function startEntrance() {
+    stageEl.classList.remove("is-waiting");
+    vrm.scene.rotation.y = Math.PI / 2;
+    vrm.scene.position.x = -walkTotal;
+    vrm.scene.visible = true;
+    canvas.style.visibility = "";
+    talkAction.stop();
+    walkAction.reset().setEffectiveWeight(1).play();
+    entering = { phase: "walk", t: 0 };
+  }
+
+  function updateEntrance(dt) {
+    if (entering.phase === "walk") {
+      const dur = walkAction.getClip().duration;
+      vrm.scene.position.x = -walkTotal + walkDistanceAt(Math.min(walkAction.time, dur));
+      if (walkAction.time >= dur - 1e-3 || !walkAction.isRunning()) {
+        vrm.scene.position.x = 0;
+        walkAction.fadeOut(ENTER_TURN_SEC);
+        talkAction.reset().setEffectiveWeight(1).fadeIn(ENTER_TURN_SEC).play();
+        entering = { phase: "turn", t: 0 };
+      }
+    } else {
+      entering.t += dt;
+      const p = Math.min(1, entering.t / ENTER_TURN_SEC);
+      vrm.scene.rotation.y = (Math.PI / 2) * (1 - p * p * (3 - 2 * p));
+      if (p >= 1) finishEntrance();
+    }
+  }
+
+  // ยืนประจำที่ทันที — ใช้ตอนแตะข้าม, โหลดท่าเดินไม่ได้, หรือรอไฟล์นานเกินไป
+  function showStanding() {
+    if (vrm) {
+      vrm.scene.visible = true;
+      vrm.scene.rotation.y = 0;
+      vrm.scene.position.x = 0;
+    }
+    canvas.style.visibility = "";
+    if (walkAction) walkAction.stop();
+    if (talkAction && !talkAction.isRunning()) talkAction.reset().setEffectiveWeight(1).play();
+    finishEntrance();
+  }
+
+  function finishEntrance() {
+    stageEl.classList.remove("is-waiting");
+    canvas.style.visibility = "";
+    if (vrm) {
+      vrm.scene.rotation.y = 0;
+      vrm.scene.position.x = 0;
+    }
+    entering = null;
+    entranceDone = true;
+    lastEngagedAt = performance.now();
+    entranceWaiters.splice(0).forEach((resolve) => resolve());
+  }
+
+  // แตะที่ตัวละคร/เวทีระหว่างเดิน = ข้ามไปยืนประจำที่ (เหมือนพูดแทรก)
+  stageEl.addEventListener("pointerdown", () => {
+    if (entering) {
+      walkAction.stop();
+      talkAction.reset().setEffectiveWeight(1).play();
+      finishEntrance();
+    }
+  });
+
+  // ความคืบหน้าของท่าแก้เบื่อ 0..1 (ใช้ทำสีหน้าให้เข้ากับท่า เช่น อ้าปากหาว ยิ้มเขิน)
+  function fidgetProgress() {
+    return fidget ? Math.min(1, fidget.action.time / fidget.duration) : 0;
   }
 
   const loader = new GLTFLoader();
@@ -368,6 +477,7 @@ if (stageEl && fallbackCanvas) {
       expr = vrm.expressionManager;
       const bone = (name) => vrm.humanoid && vrm.humanoid.getNormalizedBoneNode(name);
       headBone = bone("head");
+      neckBone = bone("neck");
       spineBone = bone("spine");
       chestBone = bone("chest");
       rightUpperArmBone = bone("rightUpperArm");
@@ -381,6 +491,11 @@ if (stageEl && fallbackCanvas) {
 
       resize();
       frameOnHead();
+      if (!entranceDone) {
+        vrm.scene.visible = false;           // เคาน์เตอร์ว่าง รอลูกค้ากดเริ่มคุย
+        canvas.style.visibility = "hidden";  // ซ่อนทั้งชั้น 3D ด้วย — ชั้น WebGL ที่ว่างทั้งผืนบางเบราว์เซอร์วาดภาพค้างทับฉาก
+        stageEl.classList.add("is-waiting");
+      }
       fallbackCanvas.classList.add("hidden");
       canvas.classList.remove("hidden");
       if (running) startRenderLoop();
@@ -391,6 +506,7 @@ if (stageEl && fallbackCanvas) {
     (err) => {
       console.warn("[voice-avatar] โหลดโมเดล VRM ไม่สำเร็จ:", err);
       stageEl.classList.add("is-failed");
+      finishEntrance(); // ไม่มีตัวละคร — ให้ voice.js ทักทายต่อได้ ไม่ค้างรอ
     }
   );
 
@@ -430,31 +546,38 @@ if (stageEl && fallbackCanvas) {
     if (expr) expr.setValue("blink", blinkValue);
 
     const now = performance.now();
+    updateMood(dt);
 
     if (mixer) {
       // "ผู้ใช้เริ่มพูด" เดาจากสัญญาณ level เดิม (voice.js ตั้ง level พุ่งขึ้นจริงตอน onspeechstart/
       // มีเสียงพูดเข้าไมค์ ไม่ใช่แค่ silence floor ~0.16-0.2 ตอนฟังเฉยๆ) — ไม่ต้องเพิ่มสัญญาณใหม่
       const userSpeaking = latestState === "listening" && latestLevel > 0.35;
-      const targetMode =
-        latestState === "speaking" || userSpeaking ? "talk" :
-        latestState === "thinking" ? "thinking" : null;
-      if (targetMode) lastEngagedAt = now;
-
-      if (targetMode && mode !== targetMode) {
-        enterMode(targetMode); // roam: ตั้งคิวรอท่าปัจจุบันเล่นจบ / thinking<->talk: สลับได้ทันที
-      } else if (!targetMode && mode !== "roam" && now - lastEngagedAt > ROAM_RESUME_DELAY_MS) {
-        playNextRoam(); // เงียบไปสักพักแล้ว ไม่มีการโต้ตอบ กลับไปวนท่าสุ่มต่อ
+      const engaged = userSpeaking || latestState === "speaking" || latestState === "thinking";
+      if (engaged) {
+        lastEngagedAt = now;
+        if (fidget) endFidget(0.3); // ลูกค้าเริ่มพูด/บอทเริ่มตอบกลางท่า — กลับมายืนพร้อมคุยทันที
+      } else if (entranceDone && !fidget && fidgetActions.length && now - lastEngagedAt > FIDGET_AFTER_MS && now >= nextFidgetAt) {
+        playFidget();
       }
 
       // มี animation clip จริงแล้ว — ให้มันคุมลำตัว/แขน/หัวแทน ระบบ procedural ด้านล่างข้ามไปเลย
       // (ทั้งสองระบบตั้งค่า rotation ทับกันตรงๆ ถ้าปล่อยให้ทำงานพร้อมกันจะแย่งกันสั่นตี)
       mixer.update(dt);
-      // ท่า roam (โดยเฉพาะท่าเต้น) เคลื่อนตัว/ก้มเงยแรงกว่าท่ายืนคุยเยอะ — กล้องที่จัดไว้ครั้งเดียว
-      // ตอนเข้าโหมด talk จะตามไม่ทัน (หัวโผล่จนจอเต็มตอนก้ม) เลยต้องรีเฟรมทุกเฟรมระหว่าง roam
-      // ท่า Idle ถ่ายน้ำหนักซ้าย-ขวา — ให้กล้องเลื่อนตามช้า ๆ ตัวละครจะอยู่กลางเฟรมเสมอ
-      frameOnHead(Math.min(1, dt * 2));
-      // ตายังต้องคอยเล็งกล้องเองเสมอ เพราะ animation clip ไม่ได้ควบคุมกระดูกตา
-      if (lookAtTarget) lookAtTarget.position.copy(camera.position);
+      if (entering) {
+        // กำลังเดินเข้าฉาก: กล้องอยู่นิ่งที่จุดยืนประจำ (ไม่ตามตัว) · ตามองไปทางที่เดิน จนหันมาหาลูกค้า
+        updateEntrance(dt);
+        if (lookAtTarget && headBone) {
+          headBone.getWorldPosition(lookAtTarget.position);
+          if (entering && entering.phase === "walk") lookAtTarget.position.x += 2;
+          else lookAtTarget.position.copy(camera.position);
+        }
+      } else {
+        // ท่า Idle ถ่ายน้ำหนักซ้าย-ขวา และท่าแก้เบื่อขยับตัวมากกว่า — ให้กล้องเลื่อนตามช้า ๆ ตัวละครอยู่กลางเฟรมเสมอ
+        frameOnHead(Math.min(1, dt * 2));
+        // ตายังต้องคอยเล็งกล้องเองเสมอ เพราะ animation clip ไม่ได้ควบคุมกระดูกตา
+        if (lookAtTarget) lookAtTarget.position.copy(camera.position);
+        applyConversationPose(dt, now); // ปฏิกิริยาตามบทสนทนา บวกทับท่าที่ clip ตั้งไว้เฟรมนี้
+      }
     } else {
       const damp = Math.min(1, dt * 3);
 
@@ -523,6 +646,90 @@ if (stageEl && fallbackCanvas) {
     renderer.render(scene, camera);
   }
 
+  // สีหน้าตามสถานะ: ฟัง = ยิ้มบาง ๆ ตั้งใจฟัง · คิด = หน้าปกติ · พูด = ตามอารมณ์ของคำตอบ
+  function updateMood(dt) {
+    if (!expr) return;
+    const st = latestState;
+    let name = st === "speaking" ? mood : "relaxed";
+    let level = st === "speaking" ? MOOD_LEVEL[mood] : st === "thinking" ? 0.1 : 0.22;
+    if (fidget && fidget.name === "bashful") {
+      name = "happy";
+      level = 0.6;
+    } else if (fidget && fidget.name === "yawn") {
+      // หาว: อ้าปากช่วงกลางท่า หรี่ตาตาม (ทับค่าที่ระบบปาก/กะพริบตาตั้งไว้เฟรมนี้)
+      const open = Math.sin(Math.min(1, Math.max(0, (fidgetProgress() - 0.15) / 0.55)) * Math.PI);
+      expr.setValue("aa", Math.max(visemeValue.aa, open * 0.85));
+      expr.setValue("blink", Math.max(blinkValue, open * 0.7));
+      name = "relaxed";
+      level = 0;
+    }
+    const k = Math.min(1, dt * 4);
+    for (const m of Object.keys(moodWeight)) {
+      const target = m === name ? level : 0;
+      moodWeight[m] += (target - moodWeight[m]) * k;
+      expr.setValue(m, moodWeight[m]);
+    }
+  }
+
+  // ท่าตามบทสนทนา (โหมดที่มี animation clip): ค่าทั้งหมดบวกทับหลัง mixer.update เพราะ clip ตั้งท่าใหม่ทุกเฟรม
+  function applyConversationPose(dt, now) {
+    if (!headBone) return;
+    const st = latestState;
+    // ลูกค้าเริ่มพูด (เสียงเข้าไมค์ดังขึ้นหลังเงียบ) → พยักหน้ารับ 1 ครั้ง ไม่ถี่เกิน 1.8 วินาที
+    const loud = st === "listening" && latestLevel > 0.35;
+    if (loud && !wasLoud && now - lastNodAt > 1800) {
+      nodT = 0;
+      lastNodAt = now;
+    }
+    wasLoud = loud;
+
+    let tx = 0, ty = 0, tz = 0, ex = 0, ey = 0;
+    if (fidget) {
+      // ท่าแก้เบื่อคุมหัวเอง
+    } else if (st === "listening") {
+      tx = HEAD_DOWN * 0.05; // โน้มหน้าเข้าหาลูกค้านิดหนึ่ง
+      tz = 0.1;              // เอียงหัวเหมือนตั้งใจฟัง
+    } else if (st === "thinking") {
+      tx = -HEAD_DOWN * 0.12; // เงยหน้าเหมือนกำลังนึก
+      ty = 0.2;
+      tz = -0.06;
+      ex = -0.45;             // เหลือบตาขึ้นไปด้านข้าง
+      ey = 0.35;
+    } else if (st === "speaking") {
+      tx = HEAD_DOWN * Math.sin(now * 0.012) * latestLevel * 0.05; // พยักเบา ๆ ตามจังหวะคำพูด
+    }
+    const k = Math.min(1, dt * 4);
+    pose.hx += (tx - pose.hx) * k;
+    pose.hy += (ty - pose.hy) * k;
+    pose.hz += (tz - pose.hz) * k;
+    pose.eyeX += (ex - pose.eyeX) * k;
+    pose.eyeY += (ey - pose.eyeY) * k;
+
+    let nod = 0;
+    if (nodT >= 0) {
+      nodT += dt;
+      nod = HEAD_DOWN * 0.16 * Math.sin(Math.min(1, nodT / NOD_DUR) * Math.PI);
+      if (nodT >= NOD_DUR) nodT = -1;
+    }
+    let bow = 0;
+    if (bowT >= 0) {
+      bowT += dt;
+      bow = Math.sin(Math.min(1, bowT / BOW_DUR) * Math.PI);
+      if (bowT >= BOW_DUR) bowT = -1;
+    }
+
+    headBone.rotation.x += pose.hx + nod + HEAD_DOWN * 0.12 * bow;
+    headBone.rotation.y += pose.hy;
+    headBone.rotation.z += pose.hz;
+    if (neckBone) neckBone.rotation.z += pose.hz * 0.4;
+    if (spineBone) spineBone.rotation.x += HEAD_DOWN * 0.2 * bow;
+    if (chestBone) chestBone.rotation.x += HEAD_DOWN * 0.1 * bow;
+    if (lookAtTarget) {
+      lookAtTarget.position.x += pose.eyeX;
+      lookAtTarget.position.y += pose.eyeY;
+    }
+  }
+
   function startRenderLoop() {
     if (rafId) return;
     clock.start();
@@ -534,6 +741,17 @@ if (stageEl && fallbackCanvas) {
   }
 
   window.voiceAvatar = {
+    // เดินเข้าฉาก (ครั้งแรกเท่านั้น) — resolve เมื่อหันหน้ามาหาลูกค้าแล้ว voice.js จึงเริ่มทักทาย
+    enter() {
+      if (entranceDone) return Promise.resolve();
+      return new Promise((resolve) => {
+        entranceWaiters.push(resolve);
+        if (enterRequested) return;
+        enterRequested = true;
+        if (entranceReady) startEntrance();
+        else setTimeout(() => { if (!entering && !entranceDone) showStanding(); }, ENTER_WAIT_MS);
+      });
+    },
     onOpen() {
       running = true;
       resize();
@@ -552,6 +770,15 @@ if (stageEl && fallbackCanvas) {
     onFrame(level, state) {
       latestLevel = level;
       latestState = state;
+    },
+    // อารมณ์ของคำตอบ: "happy" | "relaxed" | "sad" | "surprised" (voice.js เดาจากเนื้อหาคำตอบ)
+    setMood(name) {
+      if (MOOD_LEVEL[name] !== undefined) mood = name;
+    },
+    // ท่าครั้งเดียว: "bow" = โค้งทักทาย/ขอบคุณ ตอนเริ่มและจบการคุย
+    gesture(name) {
+      if (name === "bow") bowT = 0;
+      else playFidget(name); // "bashful" | "yawn" — สั่งเล่นทันที (ใช้ตอนสาธิต/ทดสอบ)
     },
     onAudioSpectrum(freqData, sampleRate) {
       visemeTarget = classifyViseme(freqData, sampleRate);

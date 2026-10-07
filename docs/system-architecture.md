@@ -174,7 +174,7 @@ flowchart TB
 | ⑦ | `static/js/booking.js` | ป๊อปอัปจองคิว 3 ขั้น (ข้อมูลน้อง → วันเวลาที่ว่าง → สลิป) · ย่อรูปในเบราว์เซอร์ · ติ๊กรับ-ส่งน้อง + แผนที่ปักหมุด (Leaflet + OpenStreetMap) · การ์ดใบจอง (ไม่มีราคา) + บันทึกเป็น PNG · ใบจองของฉัน · ปุ่มทางลัดใต้คำตอบ (เช็คคิว/ยกเลิกคิว/จองคิว) ตาม event `actions` | ✅ |
 | ⑦ | `templates/avatar.html` | หน้าอวตาร: เวทีพนักงานหลังเคาน์เตอร์ (แสดงตั้งแต่เปิดหน้า) + การ์ดเริ่มคุย/เลือกเสียง + คำบรรยาย | ✅ |
 | ⑦ | `static/js/voice.js` | โหมดเสียง: STT (Web Speech API `th-TH`) → `/chat/stream` → TTS (Cartesia; ไม่ได้ตั้ง key = เสียงไทยของเบราว์เซอร์) · วัดระดับเสียงส่งให้อวตาร | ✅ |
-| ⑦ | `static/js/voice-avatar.js`, `static/avatar/` | อวตาร VRM `Avatar grooming.vrm` (VRoid, พนักงานหูแมว) · ท่า `Idle.fbx` ท่าเดียว · ปาก/ตาขยับตามเสียงด้วยโค้ด · กล้องตามตัวละคร · แสงโทนอุ่น | ✅ |
+| ⑦ | `static/js/voice-avatar.js`, `static/avatar/` | อวตาร VRM `Avatar grooming.vrm` (VRoid, พนักงานหูแมว) · ท่าหลัก `Standing Idle.fbx` + ท่าแก้เบื่อ `Bashful.fbx` / `Yawn.fbx` (สุ่มครั้งเดียว ครั้งแรกเมื่อลูกค้าเงียบ 15 วินาที ครั้งถัดไปห่าง 20 วินาที) · สีหน้าและท่าหัวตามบทสนทนา · ปาก/ตาขยับตามเสียงด้วยโค้ด · กล้องตามตัวละคร · แสงโทนอุ่น | ✅ |
 | ⑦ | `static/css/style.css`, `static/img/` | ธีม "Anthropomorphic": น้ำผึ้ง `#E8A840` / ครีม / หมึกน้ำตาล `#5C3D2E`, ฟอนต์ Mali + Nunito + IBM Plex Sans Thai Looped · โลโก้ SVG, ภาพ hero, หน้าน้องหอม | ✅ |
 
 ---
