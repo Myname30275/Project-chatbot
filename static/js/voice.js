@@ -109,29 +109,57 @@
 
   const TTS_CHUNK_EAGER_LEN = 40;  // ท่อนแรกของคำตอบ: ตัดเร็ว (ไม่ต้องรอจบประโยค) ให้เสียงเริ่มไวสุด
   const TTS_CHUNK_LEN = 160;       // ท่อนถัดไป: ตัดที่ท้ายประโยค หรือถ้ายาวเกินนี้ยังไม่เจอที่ตัดก็ตัดเลย
-  const CHUNK_END_RE = /[\n]|[.!?](?=\s|$)/;
+  // จุดจบท่อน: ขึ้นบรรทัดใหม่ · . ! ? · คำลงท้ายไทยที่ตามด้วยเว้นวรรค (ภาษาไทยแทบไม่ใช้จุดจบประโยค —
+  // ชุดเดียวกับที่ output guard ใช้ตัดประโยค guardrails/output_guard.py::_BOUNDARY_RE)
+  const CHUNK_END_RE = /\n|[.!?](?=\s)|(?:ค่ะ|คะ|ครับ|จ้า|จ้ะ)(?=\s)/g;
+  const THAI_WORDS = typeof Intl !== "undefined" && Intl.Segmenter
+    ? new Intl.Segmenter("th", { granularity: "word" }) : null;
+
+  // ตำแหน่งหลังจุดจบท่อนแรกใน s (-1 = ยังไม่มี) — จุดหลังตัวย่อไทย/ตัวเลข ("ต.ค." "กก." "1.") ไม่นับ
+  function chunkBoundary(s) {
+    CHUNK_END_RE.lastIndex = 0;
+    let m;
+    while ((m = CHUNK_END_RE.exec(s))) {
+      if (m[0] === "." && /[ก-๙0-9]/.test(s[m.index - 1] || "")) continue;
+      return m.index + m[0].length;
+    }
+    return -1;
+  }
+
+  // ข้อความยาวถึงเพดานแล้วยังไม่จบท่อน → หาจุดตัดที่ไม่ผ่ากลางคำ ไม่เกิน cap ตัวอักษร
+  // เดิมตัดที่ตัวอักษรที่ cap ตรงๆ ทำให้ได้ "สามาร|ถ" "สุน|ัข" — แต่ละท่อนสังเคราะห์เสียงแยกกัน จึงฟังเหมือนอ่านไม่ครบคำ
+  function safeCut(s, cap) {
+    const space = s.slice(0, cap + 1).search(/\s(?=\S*$)/); // เว้นวรรคตัวสุดท้ายในช่วง cap
+    if (space >= cap * 0.4) return space;
+    if (THAI_WORDS) {
+      let cut = 0;
+      for (const w of THAI_WORDS.segment(s.slice(0, cap + 30))) { // +30 ให้ตัวตัดคำเห็นคำสุดท้ายเต็มคำ
+        if (w.index > cap) break;
+        cut = w.index;
+      }
+      if (cut > 0) return cut;
+    }
+    // เบราว์เซอร์ไม่มีตัวตัดคำ: อย่างน้อยไม่แยกสระ/วรรณยุกต์ออกจากพยัญชนะ
+    let cut = cap;
+    while (cut > 1 && /[ะ-ฺๅ-๎]/.test(s[cut])) cut--;
+    while (cut > 1 && /[เ-ไ]/.test(s[cut - 1])) cut--;
+    return cut;
+  }
 
   // ดึงท่อนที่ "พร้อมพูด" ออกจาก buffer ข้อความที่สะสมไว้ — คืนท่อนที่ตัดได้ + ส่วนที่เหลือรอท่อนถัดไป
   function popReadyChunks(buf, haveSpokenFirst) {
     const out = [];
     let rest = buf;
     for (;;) {
-      const m = CHUNK_END_RE.exec(rest);
-      if (m) {
-        const idx = m.index + m[0].length;
-        const piece = rest.slice(0, idx).trim();
-        rest = rest.slice(idx);
-        if (piece) { out.push(piece); haveSpokenFirst = true; }
-        continue;
-      }
       const cap = !haveSpokenFirst && out.length === 0 ? TTS_CHUNK_EAGER_LEN : TTS_CHUNK_LEN;
-      if (rest.length >= cap) {
-        const piece = rest.slice(0, cap).trim();
-        rest = rest.slice(cap);
-        if (piece) { out.push(piece); haveSpokenFirst = true; }
-        continue;
+      let idx = chunkBoundary(rest);
+      if (idx < 0 || idx > cap) {
+        if (rest.length < cap) break;
+        if (idx < 0 || idx > TTS_CHUNK_LEN) idx = safeCut(rest, cap);
       }
-      break;
+      const piece = rest.slice(0, idx).trim();
+      rest = rest.slice(idx);
+      if (piece) { out.push(piece); haveSpokenFirst = true; }
     }
     return { out, rest, haveSpokenFirst };
   }

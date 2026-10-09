@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
 from config import settings
-from chatbot import assistant, llm_client, prompt_builder, search
+from chatbot import assistant, availability, llm_client, prompt_builder, search
 from chatbot.conversation_store import get_store
 from chatbot.llm_client import LLMConnectionError
 from chatbot.search import SearchError
@@ -100,6 +100,8 @@ def _search_should_try(message: str, want_search: bool, has_attachments: bool) -
         settings.search_enabled
         and want_search
         and search.maybe_needs_search(message, has_attachments)
+        # ถามคิวว่างของวันที่ระบุ ("วันนี้ว่างไหม") ตอบจากระบบจอง ไม่ต้องค้นเว็บ
+        and not availability.is_day_question(message)
     )
 
 

@@ -6,6 +6,7 @@
     โหลดประวัติ + ไฟล์แนบของ session
     ด่าน 2 guardrails (LLM ตรวจเจตนา) ┐
     RAG ค้นข้อมูลร้าน                 ┘ รันพร้อมกัน    ไม่ผ่าน → ปฏิเสธ จบ
+    คำตอบสำเร็จรูปจากโค้ด (ถามคิวว่างของวันที่ระบุ — chatbot/availability.py / ไม่รู้น้ำหนักน้อง) → ตอบ จบ
     LLM ตอบ (สตรีม)
     ด่าน 3 guardrails ตรวจทีละประโยค    ไม่ผ่าน → แทนทั้งคำตอบด้วย fallback
     บันทึกประวัติ (เฉพาะคำตอบที่จบสมบูรณ์ และเป็นข้อความที่ลูกค้าเห็นจริง)
@@ -28,7 +29,7 @@ import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 
-from chatbot import actions, llm_client
+from chatbot import actions, availability, llm_client
 from chatbot.conversation_store import get_store
 from guardrails import pipeline as guard
 from rag import retriever
@@ -232,8 +233,11 @@ async def respond_stream(
             yield event
         return
 
-    # ลูกค้าไม่รู้น้ำหนัก/ไม่มีรูป (และยังไม่เคยส่งรูปน้อง) → รายการราคาตามช่วงน้ำหนักจากโค้ด ไม่เรียก LLM
-    fixed = None if has_pet_photo else no_size_info_reply(history, message)
+    # ลูกค้าถามคิวว่างของวันใดวันหนึ่ง ("วันนี้ว่างไหม" "เสาร์นี้มีคิวไหม") → ดึงคิวจริงจากระบบจองมาตอบด้วยโค้ด
+    # ลูกค้าไม่รู้น้ำหนัก/ไม่มีรูป (และยังไม่เคยส่งรูปน้อง) → รายการราคาตามช่วงน้ำหนักจากโค้ด — ทั้งคู่ไม่เรียก LLM
+    fixed = await availability.reply(message, channel)
+    if not fixed and not has_pet_photo:
+        fixed = no_size_info_reply(history, message)
     if fixed:
         yield {"knowledge": []}
         yield {"delta": fixed}
@@ -241,6 +245,9 @@ async def respond_stream(
             session_id,
             history + [{"role": "user", "content": message}, {"role": "assistant", "content": fixed}],
         )
+        suggested = actions.suggest(message, fixed)
+        if suggested:
+            yield {"actions": suggested}
         yield {"done": True}
         return
 
