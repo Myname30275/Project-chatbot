@@ -2,7 +2,7 @@
  *
  * ข้อตกลงของร้าน (docs/booking-plan.md): ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + เลือกช่องเวลา + สลิป
  * ใบจองในแชทมีปุ่ม "ยกเลิกคิว" (ก่อนนัด 3 ชม.) → เปิดป๊อปอัปยืนยันตัวตนใน cancel.js
- * ติ๊ก "รับ-ส่งน้อง" ได้ (ขั้น 2): ปักหมุดบนแผนที่ → ค่ารับส่งตามระยะ → ยอดโอน = มัดจำ + ค่ารับส่ง
+ * ติ๊ก "รับ-ส่งน้อง" ได้ (ขั้น 2 ข้อมูลน้อง): ปักหมุดบนแผนที่ → ค่ารับส่งตามระยะ → ยอดโอน = มัดจำ + ค่ารับส่ง
  * ใบจองไม่มีราคา (ร้านชั่งน้ำหนักจริงหน้าร้าน) และสถานะเริ่มที่ "รอร้านยืนยัน" เสมอ
  * รูปถูกย่อในเบราว์เซอร์ก่อนส่ง (เซิร์ฟเวอร์ไม่ต้องมี Pillow และเก็บใน Redis ได้พอดี)
  */
@@ -107,14 +107,14 @@
 
   function validateStep(n) {
     let ok = true;
+    // ขั้น 1 = บริการ + วันเวลา · ขั้น 2 = ข้อมูลน้อง/เจ้าของ (+ รับ-ส่ง) · ขั้น 3 = มัดจำ
     if (n === 1) {
-      if (!pick.pet.blob) { showError("pet_photo", "กรุณาเลือกรูปน้อง"); ok = false; }
-      if (!value("pet_name")) { showError("pet_name", "กรุณากรอกชื่อน้อง"); ok = false; }
       if (!form.elements.service.value) { showError("service", "กรุณาเลือกบริการที่ต้องการ"); ok = false; }
+      if (!chosenSlot) { showError("slot", "กรุณาเลือกวันและเวลา"); ok = false; }
+    } else if (n === 2) {
+      if (!value("pet_name")) { showError("pet_name", "กรุณากรอกชื่อน้อง"); ok = false; }
       if (!value("owner_name")) { showError("owner_name", "กรุณากรอกชื่อเจ้าของ"); ok = false; }
       if (!PHONE_RE.test(phoneDigits())) { showError("phone", "เบอร์โทรต้องเป็นตัวเลข 10 หลัก ขึ้นต้นด้วย 0"); ok = false; }
-    } else if (n === 2) {
-      if (!chosenSlot) { showError("slot", "กรุณาเลือกวันและเวลา"); ok = false; }
       if (wantPickup()) {
         if (!ride) { showError("pickup", "กรุณาปักหมุดจุดรับน้องในระยะที่ร้านให้บริการ"); ok = false; }
         else if (!value("pickup_address")) { showError("pickup", "กรุณากรอกที่อยู่หรือจุดสังเกตให้คนขับ"); ok = false; }
@@ -426,7 +426,7 @@
     backBtn.hidden = n === 1;
     nextBtn.hidden = n === 3;
     submitBtn.hidden = n !== 3;
-    if (n === 2 && !days.length) loadSlots();
+    if (n === 1 && !days.length) loadSlots();
     if (n === 2 && map) requestAnimationFrame(() => map.invalidateSize());
     if (n === 3) {
       summaryEl.textContent =
@@ -435,7 +435,7 @@
         (wantPickup() && ride ? ` · ร้านไปรับน้อง ${pickupTime()} น.` : "");
       updateDue();
     }
-    const first = form.querySelector(`[data-step="${n}"] input:not([type=file]), [data-step="${n}"] button`);
+    const first = form.querySelector(`[data-step="${n}"] :is(input:not([type=file]):not([type=checkbox]), select, button)`);
     if (first) first.focus({ preventScroll: true });
   }
 
@@ -459,7 +459,7 @@
       console.error("[booking] loadSlots:", err);
       days = [];
       daysEl.innerHTML = "";
-      showError("slot", "โหลดวันว่างไม่สำเร็จ กดย้อนกลับแล้วลองใหม่อีกครั้ง");
+      showError("slot", "โหลดวันว่างไม่สำเร็จ ปิดหน้าต่างนี้แล้วกดจองคิวใหม่อีกครั้ง");
       return;
     }
     renderDays();
@@ -548,6 +548,11 @@
       timesEl.innerHTML = '<p class="sheet__muted">ช่วง 14 วันนี้คิวเต็มแล้ว ติดต่อร้านทาง LINE ได้เลยค่ะ</p>';
       return;
     }
+    if (!form.elements.service.value) {
+      // เวลาที่ว่างขึ้นกับจำนวนชั่วโมงของบริการ ยังไม่เลือกบริการจึงยังไม่ให้เลือกเวลา
+      timesEl.innerHTML = '<p class="sheet__muted">เลือกบริการด้านบนก่อนนะคะ แล้วเวลาที่ว่างจะขึ้นให้เลือกค่ะ</p>';
+      return;
+    }
     const many = petCount() > 1;
     day.slots.forEach((s, i) => {
       if (s.start === false) return; // ชั่วโมงทำงานช่วงท้ายวัน เริ่มคิวใหม่ไม่ได้
@@ -575,7 +580,7 @@
 
   /* ---------------- ส่งจอง ---------------- */
 
-  const STEP_OF_FIELD = { pet_photo: 1, pet_name: 1, service: 1, pets: 1, owner_name: 1, phone: 1, slot: 2, pickup: 2, slip: 3 };
+  const STEP_OF_FIELD = { service: 1, pets: 1, slot: 1, pet_photo: 2, pet_name: 2, owner_name: 2, phone: 2, pickup: 2, slip: 3 };
 
   function setBusy(on) {
     busy = on;
@@ -597,7 +602,7 @@
     data.append("slot", chosenSlot.key);
     data.append("pets", String(petCount()));
     data.append("service", form.elements.service.value);
-    data.append("pet_photo", pick.pet.blob, "pet.jpg");
+    if (pick.pet.blob) data.append("pet_photo", pick.pet.blob, "pet.jpg"); // รูปน้องไม่บังคับ
     data.append("slip", pick.slip.blob, "slip.jpg");
     if (wantPickup() && ride) {
       data.append("want_pickup", "1");
@@ -807,7 +812,10 @@
       dd.textContent = `ร้านไปรับ ${b.pickup_time} น.`;
       card.querySelector('[data-f="id"]').previousElementSibling.before(dt, dd);
     }
-    card.querySelector(".ticket__pet").src = b.pet_image;
+    // ไม่ได้แนบรูปน้องตอนจอง → ใช้โลโก้ร้านแทนในช่องรูปของใบจอง
+    const petImg = card.querySelector(".ticket__pet");
+    petImg.src = b.pet_image || "/static/img/logo-badge.png";
+    if (!b.pet_image) { petImg.alt = ""; petImg.classList.add("ticket__pet--none"); }
     const actions = card.querySelector(".ticket__actions");
     const btn = actions.querySelector("button");
     btn.addEventListener("click", () => saveAsImage(card, b.id, btn));

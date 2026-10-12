@@ -146,6 +146,7 @@ if (stageEl && fallbackCanvas) {
   let walkAction = null;
   let walkPath = null;          // { times, dist } ระยะที่เดินไปข้างหน้าตามเวลาในท่า (ดึงออกจากท่าแล้วให้โค้ดเลื่อนตัวแทน)
   let walkTotal = 0;
+  let walkStart = 0;            // ระยะจากจุดเริ่มเดิน (นอกจอ) ถึงจุดยืนประจำ
   let entranceReady = false;    // ไฟล์ท่าเดินพร้อมแล้ว
   let entranceDone = !entranceWanted;
   let enterRequested = false;
@@ -225,7 +226,9 @@ if (stageEl && fallbackCanvas) {
     const extentY = Math.max(0.4, topY - bottomY);
 
     const fovRad = (camera.fov * Math.PI) / 180;
-    const margin = 1.18; // เผื่อขอบเฟรม ไม่ให้หัว/เอวชิดขอบจอเกินไป
+    // เผื่อขอบเฟรม ไม่ให้หัว/เอวชิดขอบจอ · ฉากเต็มจอตั้ง data-frame-margin ให้กว้างขึ้น
+    // (1.8 = หัวอยู่ราว 22% จากบน เอวอยู่ที่ขอบบนของเคาน์เตอร์พอดี)
+    const margin = Number(stageEl.dataset.frameMargin) || 1.18;
     const distance = (extentY * margin) / (2 * Math.tan(fovRad / 2));
 
     _frameTarget.set(headPos.x, centerY, headPos.z + distance);
@@ -393,7 +396,13 @@ if (stageEl && fallbackCanvas) {
   function startEntrance() {
     stageEl.classList.remove("is-waiting");
     vrm.scene.rotation.y = Math.PI / 2;
-    vrm.scene.position.x = -walkTotal;
+    // จุดเริ่ม: นอกขอบซ้ายของจอจริง — ฉากกว้าง (เต็มจอ) ขอบจออยู่ไกลกว่าระยะที่ท่าเดินไปได้
+    // จึงยืดระยะตามสัดส่วน (ขาอยู่หลังเคาน์เตอร์ มองไม่เห็นว่าก้าวไม่พอดีพื้น)
+    const headPos = new THREE.Vector3();
+    if (headBone) headBone.getWorldPosition(headPos);
+    const halfWidth = Math.abs(camera.position.z - headPos.z) * Math.tan((camera.fov * Math.PI) / 360) * camera.aspect;
+    walkStart = Math.max(walkTotal, halfWidth + 0.35);
+    vrm.scene.position.x = -walkStart;
     vrm.scene.visible = true;
     canvas.style.visibility = "";
     talkAction.stop();
@@ -404,7 +413,7 @@ if (stageEl && fallbackCanvas) {
   function updateEntrance(dt) {
     if (entering.phase === "walk") {
       const dur = walkAction.getClip().duration;
-      vrm.scene.position.x = -walkTotal + walkDistanceAt(Math.min(walkAction.time, dur));
+      vrm.scene.position.x = -walkStart * (1 - walkDistanceAt(Math.min(walkAction.time, dur)) / walkTotal);
       if (walkAction.time >= dur - 1e-3 || !walkAction.isRunning()) {
         vrm.scene.position.x = 0;
         walkAction.fadeOut(ENTER_TURN_SEC);

@@ -165,13 +165,25 @@ class ServiceTests(unittest.TestCase):
         self.analysis = good_slip(amount=None, receiver_name=None)
         self.assertFalse(self.book()["slip"]["auto_ok"])
 
+    def test_pet_photo_is_optional(self):
+        b = self.book(pet_photo=None)
+        self.assertFalse(b["has_pet_photo"])
+        self.assertIsNone(service.public_view(b)["pet_image"])
+        self.assertIsNone(run(self.store.get_image(b["id"], "pet")))
+        self.assertIsNotNone(run(self.store.get_image(b["id"], "slip")))   # สลิปยังบังคับและถูกเก็บ
+        self.analysis = good_slip(reference="REF002")                      # สลิปคนละใบกับการจองแรก
+        with_photo = self.book(slot=slot_at(hour=11))
+        self.assertTrue(service.public_view(with_photo)["pet_image"].endswith("/image/pet"))
+        # การจองรุ่นก่อนมีตัวเลือกนี้ (ไม่มีฟิลด์ has_pet_photo) มีรูปทุกใบ
+        old = {k: v for k, v in with_photo.items() if k != "has_pet_photo"}
+        self.assertTrue(service.public_view(old)["pet_image"])
+
     def test_form_validation(self):
         for kw, field in [
             ({"phone": "12345"}, "phone"),
             ({"phone": "1812345678"}, "phone"),
             ({"pet_name": "   "}, "pet_name"),
             ({"owner_name": "ก" * 41}, "owner_name"),
-            ({"pet_photo": None}, "pet_photo"),
             ({"pet_photo": b"GIF89a" + b"0" * 50}, "pet_photo"),
             ({"slip": JPEG + b"0" * service.MAX_IMAGE_BYTES}, "slip"),
             ({"slot": "2026-10-01T10:00"}, "slot"),
@@ -423,6 +435,15 @@ class ApiTests(unittest.TestCase):
         data.update(fields)
         files = {"pet_photo": ("pet.jpg", JPEG, "image/jpeg"), "slip": ("slip.png", PNG, "image/png")}
         return (client or self.client).post("/api/v1/booking", data=data, files=files)
+
+    def test_book_without_pet_photo(self):
+        data = {"pet_name": "ถั่วแดง", "owner_name": "สมใจ", "phone": "0812345678", "slot": slot_at(), "service": "other"}
+        r = self.client.post("/api/v1/booking", data=data, files={"slip": ("slip.png", PNG, "image/png")})
+        self.assertEqual(r.status_code, 201)
+        ticket = r.json()["booking"]
+        self.assertIsNone(ticket["pet_image"])
+        self.assertEqual(self.client.get(f"/api/v1/booking/{ticket['id']}/image/pet").status_code, 404)
+        self.assertIsNone(self.client.get("/api/v1/booking/mine").json()["bookings"][0]["pet_image"])
 
     def test_slots_endpoint(self):
         body = self.client.get("/api/v1/booking/slots").json()

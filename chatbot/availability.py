@@ -1,11 +1,11 @@
-"""ตอบคิวว่างของวันที่ลูกค้าถามในแชท — "วันนี้ว่างไหม" "เสาร์นี้มีคิวไหม" "15 ต.ค. ว่างช่วงไหนบ้าง"
+"""ลูกค้าถามคิวว่างในแชท — "มีคิวว่างวันไหนบ้าง" "พรุ่งนี้ว่างไหม" "เสาร์นี้มีคิวไหม"
 
-ลูกค้าไม่ต้องกดเข้าไปในฟอร์มจองเพื่อดูว่าวันไหนว่าง: ระบบอ่านวันที่จากข้อความ ดึงจำนวนคิวจริงของ
-วันนั้นจากระบบจอง (booking/) แล้วสร้างคำตอบด้วยโค้ด ไม่ผ่าน LLM — เวลาว่างเป็นข้อมูลที่ต้องตรงกับ
-ระบบจองทุกครั้ง (LLM ไม่มีข้อมูลนี้ ถ้าปล่อยให้ตอบเองจะเดาหรือตอบว่าไม่มีข้อมูล)
+เจ้าของร้านกำหนด (12 ต.ค. 2569): แชทไม่ไล่รายการเวลาว่างให้ ให้แจ้งลูกค้าว่า "ตรวจสอบคิวได้จากปุ่มจองคิว"
+(ปุ่มจองคิวแสดงวันและเวลาที่ว่างจริงตามบริการและจำนวนน้องที่เลือก — รายการเวลาในแชทยาวและไม่ครอบคลุมเท่า)
+คำตอบสร้างด้วยโค้ด ไม่ผ่าน LLM (LLM ไม่มีข้อมูลคิว ถ้าปล่อยให้ตอบเองจะเดาหรือคัดลอกเวลาจากคำตอบเก่า)
 
-ตอบเฉพาะเมื่อข้อความ "ถามคิวว่าง" และ "ระบุวันได้" ทั้งสองอย่าง — ไม่งั้นคืน None ให้ LLM ตอบตามปกติ
-แสดงเฉพาะเวลาที่ว่าง ไม่มีข้อมูลการจองของลูกค้าคนอื่น
+ยังอ่านวันที่จากข้อความอยู่ เพื่อบอกเรื่องที่ปุ่มจองช่วยไม่ได้: วันที่ผ่านมาแล้ว · เกินช่วงที่เปิดจอง · วันที่ร้านหยุด ·
+วันนี้ (จองผ่านเว็บต้องล่วงหน้า) — ไม่ใช่คำถามคิวว่าง = คืน None ให้ LLM ตอบตามปกติ
 """
 
 import logging
@@ -13,7 +13,6 @@ import re
 from datetime import date, datetime, timedelta
 
 from booking import slots
-from booking.store import StoreError, get_store
 from chatbot import actions
 from shop import pricing
 
@@ -137,9 +136,9 @@ def requested_day(message: str, today: date) -> date | None:
 
 
 def is_day_question(message: str) -> bool:
-    """ข้อความนี้จะถูกตอบด้วยคิวว่างจากระบบจอง (ถามคิวว่าง + ระบุวัน) — ช่องทางเว็บใช้ข้ามการค้นเว็บ
+    """ข้อความนี้จะถูกตอบด้วยคำตอบสำเร็จรูปเรื่องคิวว่าง — ช่องทางเว็บใช้ข้ามการค้นเว็บ
     เพราะคำว่า "วันนี้/พรุ่งนี้" ไปตรงกับสัญญาณ "ข้อมูลสด" ของ chatbot/search.py"""
-    return asks_availability(message) and requested_day(message, slots.now().date()) is not None
+    return asks_availability(message)
 
 
 # ---------- สร้างคำตอบ ----------
@@ -150,64 +149,28 @@ def full_label(d: date) -> str:
     return f"วัน{_WEEKDAYS[d.weekday()]}ที่ {d.day} {_MONTHS[d.month - 1]} {d.year + 543}"
 
 
-def free_starts(d: date, hours: int, counts: dict[str, int], after: datetime | None = None) -> list[str]:
-    """เวลาเริ่ม ("09:00") ที่ยังรับน้อง 1 ตัวได้สำหรับบริการที่ใช้ hours ชั่วโมง — ต้องมีช่างว่างต่อเนื่อง
-    ครบทุกชั่วโมงของบริการ (กติกาเดียวกับตอนจองจริง booking/slots.py::plan) · after = ตัดเวลาที่ผ่านไปแล้ว"""
-    cap = slots.config()["capacity_per_slot"]
-    out = []
-    for start in slots.day_slots(d):
-        if after and start <= after:
-            continue
-        wanted = slots.plan(start, 1, hours)
-        if wanted and all(counts.get(key, 0) + units <= cap for key, units in wanted):
-            out.append(start.strftime("%H:%M"))
-    return out
-
-
-def _how_to_book(channel: str) -> str:
+def _see_booking_button(channel: str) -> str:
+    """ประโยคหลัก: ให้ดูคิวว่างจากปุ่มจองคิว (หน้าเว็บมีปุ่มใต้คำตอบ · LINE ไม่มีปุ่ม ส่งลิงก์แทน)"""
     if channel == "line":
         from config import settings
 
-        return f"สะดวกเวลาไหน เปิดลิงก์นี้ {settings.PUBLIC_SITE_URL.rstrip('/')} แล้วกดปุ่มจองคิวได้เลยค่ะ"
+        return (f"ตรวจสอบคิวว่างได้ที่ {settings.PUBLIC_SITE_URL.rstrip('/')} ค่ะ "
+                "กดปุ่มจองคิว เลือกบริการ แล้วจะเห็นวันและเวลาที่ว่างทั้งหมดค่ะ")
     if channel == "voice":
-        return "สะดวกเวลาไหน กดปุ่มจองคิวที่ขึ้นบนหน้าจอได้เลยค่ะ"
-    return 'สะดวกเวลาไหน กดปุ่ม "จองคิว" ด้านล่างได้เลยค่ะ'
-
-
-def _service_lines(d: date, counts: dict[str, int], after: datetime | None, channel: str) -> list[str]:
-    """บรรทัดเวลาว่างแยกตามบริการ (บริการที่ไม่มีเวลาว่างเลยไม่แสดง) — ว่างเปล่า = วันนั้นเต็ม"""
-    lines = []
-    for s in slots.services():
-        times = free_starts(d, s["hours"], counts, after)
-        if not times:
-            continue
-        name = s["label"].split(" เช่น")[0]
-        if channel == "voice":
-            # ฟังเป็นเสียง: ไม่ใช้ลิสต์/สัญลักษณ์ และพูดเป็นประโยค
-            spoken = " ".join(times[:-1]) + (" และ " if len(times) > 1 else "") + times[-1]
-            lines.append(f"{name.replace(' + ', '')} เริ่มได้ {spoken} น. ค่ะ")
-        else:
-            lines.append(f"- {name} (ใช้เวลา {s['hours']} ชม.): {', '.join(times)} น.")
-    return lines
-
-
-def _next_free_day(after_day: date, counts: dict[str, int], at: datetime) -> date | None:
-    """วันถัดไปที่ยังจองได้และมีคิวว่าง (อย่างน้อยบริการ 1 ชั่วโมง)"""
-    for d in slots.bookable_days(at):
-        if d > after_day and free_starts(d, 1, counts):
-            return d
-    return None
+        return "ตรวจสอบคิวว่างได้จากปุ่มจองคิวที่ขึ้นบนหน้าจอเลยค่ะ เลือกบริการแล้วจะเห็นวันและเวลาที่ว่างทั้งหมดค่ะ"
+    return 'ตรวจสอบคิวว่างได้จากปุ่ม "จองคิว" ด้านล่างเลยค่ะ เลือกบริการแล้วจะเห็นวันและเวลาที่ว่างทั้งหมดค่ะ'
 
 
 async def reply(message: str, channel: str = "web", at: datetime | None = None) -> str | None:
-    """คำตอบคิวว่างของวันที่ลูกค้าถาม — None ถ้าข้อความนี้ไม่ได้ถามคิวว่างของวันใดวันหนึ่ง"""
+    """คำตอบเมื่อลูกค้าถามคิวว่าง — None ถ้าข้อความนี้ไม่ได้ถามคิวว่าง"""
     if not asks_availability(message):
         return None
     at = (at or slots.now()).astimezone(slots.TZ)
     today = at.date()
+    pointer = _see_booking_button(channel)
     day = requested_day(message, today)
     if day is None:
-        return None
+        return pointer
 
     cfg = slots.config()
     shop = pricing.load_catalog()["shop"]
@@ -216,39 +179,16 @@ async def reply(message: str, channel: str = "web", at: datetime | None = None) 
     sep = " " if channel == "voice" else "\n"
 
     if day < today:
-        return f"{label} ผ่านมาแล้วค่ะ รบกวนบอกวันที่ต้องการอีกครั้งนะคะ"
+        return f"{label} ผ่านมาแล้วค่ะ{sep}{pointer}"
     if bookable and day > bookable[-1]:
         return (f"ร้านเปิดให้จองล่วงหน้าได้ไม่เกิน {cfg['max_days_ahead']} วันค่ะ "
-                f"ตอนนี้จองได้ถึง{full_label(bookable[-1])} รบกวนเลือกวันในช่วงนี้นะคะ")
+                f"ตอนนี้จองได้ถึง{full_label(bookable[-1])}{sep}{pointer}")
     if not slots.day_slots(day):
-        return f"{label} ร้านหยุดค่ะ ({shop['hours']}) รบกวนเลือกวันอื่นนะคะ"
-
-    try:
-        keys = {slots.slot_key(s) for s in slots.work_hours(day)} | set(slots.all_keys(at))
-        counts = await get_store().slot_counts(sorted(keys))
-    except StoreError:
-        logger.warning("เช็คคิวว่างในแชทไม่ได้ (ระบบจองขัดข้อง)")
-        return f"ตอนนี้น้องหอมเช็คคิวว่างไม่ได้ชั่วคราวค่ะ รบกวนลองใหม่อีกครั้ง หรือโทร {shop['contacts']['phone']} นะคะ"
-
+        return f"{label} ร้านหยุดค่ะ ({shop['hours']}){sep}{pointer}"
     if day not in bookable:
-        # วันนี้ (หรือวันที่ใกล้กว่า min_days_ahead): จองผ่านเว็บไม่ได้ แต่ walk-in ได้ถ้ามีคิวว่าง
-        lines = _service_lines(day, counts, at if day == today else None, channel)
-        when = "วันนี้" if day == today else label + " "
-        if not lines:
-            head = f"{when}ไม่มีคิวว่างเหลือแล้วค่ะ"
-            nxt = _next_free_day(day, counts, at)
-            tail = f"วันที่ใกล้ที่สุดที่ยังว่างคือ{full_label(nxt)} ค่ะ {_how_to_book(channel)}" if nxt else ""
-            return sep.join(x for x in (head, tail) if x)
-        head = f"{when}ตามระบบจองยังมีคิวว่างค่ะ เวลาที่เริ่มได้สำหรับน้อง 1 ตัวตามนี้นะคะ"
-        tail = (f"การจองผ่านเว็บต้องจองล่วงหน้าอย่างน้อย {cfg['min_days_ahead']} วันค่ะ "
-                f"ถ้าจะมา{when} รบกวนโทร {shop['contacts']['phone']} เพื่อยืนยันคิวกับร้านก่อนนะคะ")
-        return sep.join([head, *lines, tail])
-
-    lines = _service_lines(day, counts, None, channel)
-    if not lines:
-        nxt = _next_free_day(day, counts, at)
-        tail = (f"วันที่ใกล้ที่สุดที่ยังว่างคือ{full_label(nxt)} ค่ะ {_how_to_book(channel)}" if nxt
-                else f"รบกวนโทร {shop['contacts']['phone']} สอบถามคิวกับร้านนะคะ")
-        return sep.join([f"{label} คิวเต็มแล้วค่ะ", tail])
-    head = f"{label} ยังมีคิวว่างค่ะ เวลาที่เริ่มได้สำหรับน้อง 1 ตัวตามนี้นะคะ"
-    return sep.join([head, *lines, _how_to_book(channel)])
+        # วันนี้ (หรือวันที่ใกล้กว่า min_days_ahead): ปุ่มจองไม่มีวันนี้ให้เลือก ต้องโทรถามร้าน
+        when = "วันนี้" if day == today else label
+        return (f"การจองผ่านเว็บต้องจองล่วงหน้าอย่างน้อย {cfg['min_days_ahead']} วันค่ะ "
+                f"ถ้าจะมา{when} รบกวนโทร {shop['contacts']['phone']} สอบถามคิวกับร้านก่อนนะคะ{sep}"
+                f"ส่วนคิววันถัดไป {pointer}")
+    return pointer

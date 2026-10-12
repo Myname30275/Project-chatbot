@@ -119,6 +119,14 @@ _DROP_RE = re.compile(r"ร้านอื่น|ร้านที่มีบ�
 
 _PRICE_MENTION_RE = re.compile(r"\d\s*(บาท|baht|THB)", re.IGNORECASE)
 _ESTIMATE_NOTE_RE = re.compile(r"ราคาประเมินเบื้องต้น|estimated price", re.IGNORECASE)
+# หมายเหตุ "ราคาประเมิน… ถ้าขนพันมาก" ใช้กับบริการที่เกี่ยวกับขน/ขนาดตัวเท่านั้น (เจ้าของร้านกำหนด 12 ต.ค. 2569:
+# ถาม "ตัดเล็บกี่บาท" แล้วบอทพ่วงเรื่องขนพัน ซึ่งไม่เกี่ยวกับเล็บ) → คำตอบต้องพูดถึงบริการกลุ่มนี้ก่อนจึงปล่อยหมายเหตุ
+_COAT_SERVICE_RE = re.compile(
+    r"อาบน้ำ|ตัดขน|เป่าขน|ตัดแต่ง|ขนพัน|สปา|ทรีทเมนต์|สุนัข(เล็ก|กลาง|ใหญ่)|bath|groom|haircut|trim|matt|spa",
+    re.IGNORECASE,
+)
+# หมายเหตุที่ติดมาท้ายประโยคเดียวกับราคา ("ตัดเล็บ 100 บาท เป็นราคาประเมินเบื้องต้น …ถ้าขนพันมากค่ะ")
+_NOTE_TAIL_RE = re.compile(r"\s*\(?\s*(ซึ่ง|โดย)?(เป็น)?ราคาประเมินเบื้องต้น.*?(?P<end>(ค่ะ|นะคะ|ครับ)?\s*)$", re.DOTALL)
 
 
 _LONE_PARTICLES = {"ค่ะ", "คะ", "นะคะ", "ครับ"}  # Typhoon บางรอบสตรีม "ค่ะ" ซ้ำท้ายคำตอบ ("…ได้ค่ะ ค่ะ")
@@ -135,7 +143,8 @@ def _contact_tail() -> str:
     return f"\nหากมีข้อสงสัยเพิ่มเติม สอบถามร้านได้ทาง LINE {c['line']} หรือโทร {c['phone']} นะคะ"
 
 
-# บอทยืนยันเองว่าเวลานั้นว่าง/เต็ม — แชทไม่เห็นตารางคิวจริง (prompt ต้องทำข้อ 5 ห้ามไว้ แต่หลุดเป็นบางรอบ:
+# LLM ยืนยันเองว่าเวลานั้นว่าง/เต็ม — LLM ไม่เห็นตารางคิวจริง คำถามคิวว่างของวันที่ระบุตอบด้วยโค้ดจาก
+# ระบบจองก่อนถึง LLM (chatbot/availability.py ไม่ผ่านด่านนี้) ด่านนี้กันกรณีที่เหลือ เช่น ถามโดยไม่บอกวัน (prompt ต้องทำข้อ 5 ห้ามไว้ แต่หลุดเป็นบางรอบ:
 # "พรุ่งนี้เวลา 10:00 น. มีคิวว่างค่ะ") · ไม่จับประโยคเงื่อนไข เช่น "walk-in ได้ถ้ามีคิวว่าง", "เลือกวันเวลาที่ว่าง"
 _AVAILABILITY_RE = re.compile(
     r"(?<!ถ้า)(?<!หาก)(?<!เมื่อ)(?<!ที่)มีคิวว่าง(ค่ะ|นะคะ|ครับ|อยู่)"
@@ -180,6 +189,7 @@ class OutputGuard:
         self.pending = ""
         self.blocked_reason: str | None = None
         self.said_price = False  # คำตอบมีตัวเลขราคา (… บาท / baht) แล้วหรือยัง
+        self.said_coat = False   # คำตอบพูดถึงบริการที่เกี่ยวกับขน/ขนาดตัวแล้วหรือยัง (อาบน้ำ ตัดขน ฯลฯ)
         self.released = 0        # จำนวนตัวอักษรเนื้อหาที่ปล่อยไปแล้ว
         self.held = ""           # "ขออภัยค่ะ" ที่รอดูว่าประโยคถัดไปเป็นข้อความไม่มีข้อมูลหรือไม่
 
@@ -196,11 +206,17 @@ class OutputGuard:
                 return out
             if droppable(sentence):
                 continue
+            note = _ESTIMATE_NOTE_RE.search(sentence)
+            if _COAT_SERVICE_RE.search(sentence[: note.start()] if note else sentence):
+                self.said_coat = True
             if _PRICE_MENTION_RE.search(sentence):
                 self.said_price = True
-            elif _ESTIMATE_NOTE_RE.search(sentence) and not self.said_price:
-                # prompt ให้พูดประโยคนี้เฉพาะคำตอบที่มีราคา แต่ Typhoon ติดพูดท้ายคำตอบที่ไม่มีราคาด้วย
-                # (ทดสอบ 4 ต.ค. 2569: คำถามเห็บหมัด/โรคประจำตัว) → ตัดทิ้งเฉพาะประโยค
+                if note and not self.said_coat:
+                    # ราคาบริการที่ไม่เกี่ยวกับขน (ตัดเล็บ ฯลฯ) พ่วงหมายเหตุขนพันมาในประโยคเดียวกัน → ตัดเฉพาะหมายเหตุ
+                    sentence = _NOTE_TAIL_RE.sub(lambda m: m.group("end") or "", sentence)
+            elif note and not (self.said_price and self.said_coat):
+                # prompt ให้พูดประโยคนี้เฉพาะคำตอบที่มีราคาบริการเกี่ยวกับขน แต่ Typhoon ติดพูดท้ายคำตอบอื่นด้วย
+                # (ทดสอบ 4 ต.ค. 2569: คำถามเห็บหมัด/โรคประจำตัว · 12 ต.ค. 2569: ตัดเล็บ) → ตัดทิ้งเฉพาะประโยค
                 continue
             self._emit(out, sentence)
         return out

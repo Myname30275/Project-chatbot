@@ -33,37 +33,59 @@
     </header>
 
     <main class="avatar">
-      <!-- เวทีอวตาร: พนักงานยืนหลังเคาน์เตอร์ตั้งแต่เปิดหน้า (voice-avatar.js ดู data-always-on) -->
-      <div class="avatar__stage">
-        <div class="voice__stage" id="voice-stage" data-always-on>
-          <!-- ฉากหลัง: ผนังร้านหลังเคาน์เตอร์ (ภาพลายเส้นแบบเดียวกับโลโก้ ไม่รับคลิก) -->
-          <svg class="counter-scene counter-scene--back" viewBox="0 0 800 640" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-            <rect width="800" height="640" fill="#fffaf1" />
-            <!-- ลายผนังจุดเล็ก ๆ -->
+      <!-- เวทีเต็มจอ: ฉากร้าน + น้องหอมหลังเคาน์เตอร์ (voice-avatar.js ดู data-always-on · data-frame-margin = ระยะกล้อง) -->
+      <div class="voice__stage" id="voice-stage" data-always-on data-frame-margin="1.8">
+          <!-- ฉากร้านเต็มจอ: ผนังหลังเคาน์เตอร์ (ลายเส้นแบบเดียวกับโลโก้ ไม่รับคลิก) · จอแคบเห็นเฉพาะช่วงกลาง -->
+          <svg class="counter-scene counter-scene--back" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
             <defs>
-              <pattern id="wall-dots" width="34" height="34" patternUnits="userSpaceOnUse">
-                <circle cx="6" cy="6" r="2" fill="#f7ead2" />
-                <circle cx="23" cy="23" r="2" fill="#f7ead2" />
+              <pattern id="wall-dots" width="40" height="40" patternUnits="userSpaceOnUse">
+                <circle cx="7" cy="7" r="2.4" fill="#fbeed6" />
+                <circle cx="27" cy="27" r="2.4" fill="#fbeed6" />
               </pattern>
             </defs>
-            <rect width="800" height="430" fill="url(#wall-dots)" />
-            <!-- ผนังไม้ด้านล่าง -->
-            <rect y="430" width="800" height="210" fill="#faebd0" />
-            <path d="M0 430H800" stroke="#5c3d2e" stroke-width="3" />
-            <path d="M60 434V640M140 434V640M220 434V640M300 434V640M380 434V640M460 434V640M540 434V640M620 434V640M700 434V640M780 434V640"
-              stroke="#efd9b2" stroke-width="2" />
-            <!-- ธงประดับ -->
-            <path d="M-10 34 Q200 82 400 46 T810 40" fill="none" stroke="#5c3d2e" stroke-width="2.5" />
+            <rect width="1600" height="900" fill="#fffcf5" />
+            <rect width="1600" height="562" fill="url(#wall-dots)" />
+            <!-- ผนังไม้ช่วงล่าง -->
+            <rect y="562" width="1600" height="338" fill="#fdefd3" />
+            <path d="M0 562H1600" stroke="#5c3d2e" stroke-width="3" />
+            <path d="M40 566V700M120 566V700M200 566V700M280 566V700M360 566V700M440 566V700M520 566V700M600 566V700M680 566V700M760 566V700M840 566V700M920 566V700M1000 566V700M1080 566V700M1160 566V700M1240 566V700M1320 566V700M1400 566V700M1480 566V700M1560 566V700" stroke="#f1dcb6" stroke-width="2" />
+            <polyline points="-10,59 30,62 70,67 110,72 150,77 190,81 230,85 270,88 310,90 350,91 390,92 430,92 470,91 510,89 550,86 590,83 630,79 670,75 710,70 750,65 790,59 830,68 870,73 910,78 950,83 990,87 1030,91 1070,94 1110,96 1150,97 1190,98 1230,98 1270,97 1310,95 1350,92 1390,89 1430,85 1470,81 1510,76 1550,71 1590,65" fill="none" stroke="#5c3d2e" stroke-width="2.5" />
             <g stroke="#5c3d2e" stroke-width="2" stroke-linejoin="round">
-              <path d="M30 44 l34 6 -20 30z" fill="#f5c6c6" />
-              <path d="M95 55 l34 5 -19 31z" fill="#87ceeb" />
-              <path d="M160 62 l34 2 -16 32z" fill="#e8a840" />
-              <path d="M225 63 l34 -1 -15 32z" fill="#f5c6c6" />
-              <path d="M560 47 l34 -2 -15 32z" fill="#87ceeb" />
-              <path d="M625 44 l34 0 -17 31z" fill="#e8a840" />
-              <path d="M690 42 l34 1 -18 31z" fill="#f5c6c6" />
-              <path d="M752 41 l34 1 -18 31z" fill="#87ceeb" />
+              <path d="M40 63L76 68L58 102z" fill="#f5c6c6" />
+              <path d="M126 74L162 78L144 112z" fill="#87ceeb" />
+              <path d="M212 83L248 86L230 120z" fill="#ffb52e" />
+              <path d="M298 89L334 91L316 125z" fill="#bcd8a6" />
+              <path d="M384 92L420 92L402 126z" fill="#f5c6c6" />
+              <path d="M470 91L506 89L488 125z" fill="#87ceeb" />
+              <path d="M556 86L592 83L574 120z" fill="#ffb52e" />
+              <path d="M1072 94L1108 96L1090 130z" fill="#f5c6c6" />
+              <path d="M1158 98L1194 98L1176 132z" fill="#87ceeb" />
+              <path d="M1244 97L1280 96L1262 131z" fill="#ffb52e" />
+              <path d="M1330 94L1366 91L1348 128z" fill="#bcd8a6" />
+              <path d="M1416 86L1452 83L1434 120z" fill="#f5c6c6" />
+              <path d="M1502 77L1538 72L1520 111z" fill="#87ceeb" />
+              <path d="M1588 66L1624 67L1606 101z" fill="#ffb52e" />
             </g>
+            <!-- ป้ายชื่อร้าน: แขวนจากเพดานกลางร้าน เหนือหัวน้องหอม -->
+            <g stroke="#5c3d2e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M690 0V92M910 0V92" stroke-width="2.5" />
+              <rect x="600" y="88" width="400" height="84" rx="22" fill="#ffe9b3" />
+              <rect x="610" y="98" width="380" height="64" rx="16" fill="#ffffff" stroke-width="2" />
+              <circle cx="690" cy="92" r="5" fill="#ffffff" /><circle cx="910" cy="92" r="5" fill="#ffffff" />
+            </g>
+            <image href="/static/img/logo-badge.png" x="620" y="103" width="54" height="54" />
+            <text x="838" y="140" text-anchor="middle" class="counter-scene__brand">Hom Hom Grooming</text>
+            <!-- หน้าต่าง (ซ้ายสุด) -->
+            <g stroke="#5c3d2e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+              <rect x="70" y="190" width="230" height="290" rx="18" fill="#d9f0fa" />
+              <path d="M110 300a26 26 0 0 1 50-8 22 22 0 0 1 40 12 18 18 0 0 1-4 36h-84a20 20 0 0 1-2-40z" fill="#ffffff" stroke-width="2" />
+              <circle cx="246" cy="246" r="20" fill="#ffe08a" stroke-width="2" />
+              <path d="M185 190V480M70 335H300" />
+              <path d="M62 190h246" stroke-width="6" />
+              <path d="M70 196c34 30 44 110 30 284H70zM300 196c-34 30-44 110-30 284h30z" fill="#f5c6c6" />
+              <rect x="54" y="480" width="262" height="16" rx="6" fill="#d59a55" />
+            </g>
+            <g class="scene-wide" transform="translate(896 100) scale(1.3)">
             <!-- ชั้นวางซ้าย: แชมพู + ผ้าขนหนู -->
             <g stroke="#5c3d2e" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
               <rect x="88" y="222" width="190" height="14" rx="4" fill="#c98a45" />
@@ -88,6 +110,8 @@
               <path d="M206 324h44l-6 28h-32z" fill="#e8a840" />
               <path d="M228 324c-2-22 -20-30 -26-24 c10 2 18 12 22 24M228 324c2-26 18-36 26-28 c-10 4-18 14-22 28" fill="#bcd8a6" />
             </g>
+            </g>
+            <g class="scene-wide" transform="translate(-333 57) scale(1.3)">
             <!-- นาฬิกา -->
             <g stroke="#5c3d2e" stroke-width="2.5" stroke-linecap="round">
               <circle cx="636" cy="140" r="38" fill="#ffffff" />
@@ -112,45 +136,65 @@
               <ellipse cx="637" cy="340" rx="6" ry="5" />
               <circle cx="629" cy="331" r="2.6" /><circle cx="635" cy="328" r="2.6" /><circle cx="641" cy="328" r="2.6" /><circle cx="646" cy="332" r="2.6" />
             </g>
-            <!-- ม่านขาวบาง ๆ ทับของบนผนัง ให้จางลงไม่แย่งสายตาจากตัวละคร (แทน CSS opacity ที่ทำให้บางเครื่องวาดฉากซ้อน) -->
-            <rect width="800" height="640" fill="#fffaf1" fill-opacity="0.18" />
+            </g>
+            <!-- กรอบรูปน้อง ๆ (ขวาสุด) -->
+            <g stroke="#5c3d2e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
+              <rect x="1290" y="200" width="130" height="150" rx="12" fill="#ffffff" />
+              <rect x="1304" y="214" width="102" height="96" rx="8" fill="#ffe9b3" stroke-width="2" />
+              <path d="M1338 286c-14-2-18-16-10-26l-6-22 18 10c8-3 22-3 30 0l18-10-6 22c8 10 4 24-10 26z" fill="#ffffff" stroke-width="2" />
+              <circle cx="1346" cy="262" r="2.5" fill="#5c3d2e" /><circle cx="1366" cy="262" r="2.5" fill="#5c3d2e" />
+              <path d="M1330 330h50" stroke-width="2" />
+              <rect x="1450" y="240" width="110" height="130" rx="12" fill="#ffffff" />
+              <rect x="1462" y="252" width="86" height="82" rx="8" fill="#d9f0fa" stroke-width="2" />
+              <path d="M1487 318c-12-4-12-26 0-36l-4-18 14 10h16l14-10-4 18c12 10 12 32 0 36z" fill="#ffd9a8" stroke-width="2" />
+              <circle cx="1497" cy="296" r="2.5" fill="#5c3d2e" /><circle cx="1513" cy="296" r="2.5" fill="#5c3d2e" />
+              <path d="M1482 352h46" stroke-width="2" />
+              <rect x="1330" y="400" width="150" height="120" rx="12" fill="#ffffff" />
+              <rect x="1344" y="414" width="122" height="70" rx="8" fill="#f5c6c6" stroke-width="2" />
+              <g fill="#ffffff" stroke-width="2"><ellipse cx="1405" cy="458" rx="14" ry="11" />
+                <circle cx="1386" cy="440" r="6" /><circle cx="1399" cy="432" r="6" /><circle cx="1412" cy="432" r="6" /><circle cx="1425" cy="440" r="6" /></g>
+              <path d="M1372 502h66" stroke-width="2" />
+            </g>
+            <!-- ม่านขาวบาง ๆ ทับของบนผนัง ให้จางลงไม่แย่งสายตาจากตัวละคร -->
+            <rect width="1600" height="900" fill="#fffcf5" fill-opacity="0.16" />
           </svg>
           <canvas id="voice-canvas" class="voice__canvas"></canvas>
           <p class="voice__loading"><span>กำลังพา{{ shop.assistant_name }}มาที่เคาน์เตอร์…</span></p>
           <p class="voice__failed"><span>โหลดตัวละครไม่สำเร็จ แต่ยังคุยด้วยเสียงได้ตามปกติ</span></p>
-          <p class="voice__waiting"><span>กด "เริ่มคุย" แล้ว{{ shop.assistant_name }}จะออกมาต้อนรับค่ะ</span></p>
-          <!-- เคาน์เตอร์ต้อนรับ (ด้านหน้าตัวละคร บังช่วงเอว) -->
-          <svg class="counter-scene counter-scene--front" viewBox="0 0 800 640" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
-            <g stroke="#5c3d2e" stroke-width="3" stroke-linejoin="round" stroke-linecap="round">
-              <!-- ตัวเคาน์เตอร์ไม้ -->
-              <rect x="-10" y="512" width="820" height="140" fill="#e8a840" />
-              <path d="M-10 552H810" stroke-width="2" stroke="#b86e1b" />
-              <path d="M90 556V640M200 556V640M600 556V640M710 556V640" stroke-width="2" stroke="#c98a45" />
-              <!-- ป้ายชื่อร้านหน้าเคาน์เตอร์ -->
-              <rect x="236" y="562" width="328" height="62" rx="31" fill="#fffbf3" />
-              <!-- ท็อปเคาน์เตอร์ -->
-              <rect x="-10" y="490" width="820" height="26" rx="6" fill="#c98a45" />
-              <path d="M30 503h90M180 499h60M560 506h110M700 500h50" stroke="#a96d33" stroke-width="2" />
+          <!-- เคาน์เตอร์ต้อนรับ (ด้านหน้าตัวละคร บังตั้งแต่ใต้เอวลงไป) · แผงเริ่มคุย/แถบควบคุมวางทับหน้าเคาน์เตอร์ -->
+          <svg class="counter-scene counter-scene--front" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+            <g stroke="#5c3d2e" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round">
+              <rect x="-10" y="666" width="1620" height="250" fill="#ffb52e" />
+              <path d="M-10 692H1610" stroke-width="2" stroke="#c9760a" />
+              <path d="M120 692V900M290 692V900M460 692V900M630 692V900M800 692V900M970 692V900M1140 692V900M1310 692V900M1480 692V900" stroke-width="2" stroke="#e39a2c" />
+              <rect x="-10" y="640" width="1620" height="30" rx="8" fill="#d59a55" />
+              <path d="M60 656h150M330 650h90M1130 658h170M1420 651h80" stroke="#b87a3a" stroke-width="2" />
               <!-- กระดิ่งเรียกพนักงาน -->
-              <path d="M136 488a30 30 0 0 1 60 0z" fill="#e8a840" />
-              <rect x="128" y="484" width="76" height="8" rx="4" fill="#fffbf3" />
-              <path d="M166 458v-6" />
-              <circle cx="166" cy="449" r="4" fill="#fffbf3" />
+              <path d="M600 638a40 40 0 0 1 80 0z" fill="#ffb52e" />
+              <rect x="590" y="633" width="100" height="10" rx="5" fill="#ffffff" />
+              <path d="M640 598v-8" />
+              <circle cx="640" cy="586" r="5" fill="#ffffff" />
               <!-- โหลขนมสัตว์ -->
-              <path d="M600 420h62v10c10 8 12 22 12 34v16a12 12 0 0 1-12 12h-62a12 12 0 0 1-12-12v-16c0-12 2-26 12-34z" fill="#ffffff" fill-opacity="0.85" />
-              <rect x="594" y="408" width="74" height="16" rx="6" fill="#f5c6c6" />
-              <path d="M612 462h38M615 476h32" stroke-width="2" />
-              <path d="M610 462a5 5 0 1 1 3-8M610 462a5 5 0 1 0 3 8M652 462a5 5 0 1 0-3-8M652 462a5 5 0 1 1-3 8" fill="#fffbf3" stroke-width="2" />
+              <path d="M920 550h80v12c12 10 16 28 16 44v20a16 16 0 0 1-16 16h-80a16 16 0 0 1-16-16v-20c0-16 4-34 16-44z" fill="#ffffff" fill-opacity="0.88" />
+              <rect x="912" y="534" width="96" height="20" rx="8" fill="#f5c6c6" />
+              <path d="M936 604h48M940 622h40" stroke-width="2.5" />
+              <path d="M934 604a6 6 0 1 1 4-10M934 604a6 6 0 1 0 4 10M986 604a6 6 0 1 0-4-10M986 604a6 6 0 1 1-4 10" fill="#ffffff" stroke-width="2.5" />
             </g>
-            <image href="/static/img/logo-badge.png" x="248" y="566" width="54" height="54" />
-            <text x="430" y="603" text-anchor="middle" class="counter-scene__brand">Hom Hom Grooming</text>
           </svg>
-
-        </div>
-        <p class="avatar__nametag"><b>{{ shop.assistant_name }}</b> พนักงานต้อนรับ {{ shop.name }}</p>
       </div>
 
-      <div class="avatar__side">
+      <!-- ก่อนเริ่ม: เบราว์เซอร์ต้องให้ผู้ใช้กดเองก่อนจึงเปิดไมค์/เล่นเสียงได้ -->
+      <section class="avatar__intro">
+        <h1>คุยกับ{{ shop.assistant_name }}ด้วยเสียง</h1>
+        <p>กดเริ่มคุย แล้ว{{ shop.assistant_name }}จะออกมาต้อนรับที่เคาน์เตอร์ ถามราคา เวลาเปิดร้าน หรือเรื่องจองคิวได้เลย</p>
+        <button id="voice-button" class="btn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
+          เริ่มคุย
+        </button>
+        <p class="avatar__fine">ใช้ได้บน Chrome และ Edge และต้องอนุญาตให้เว็บใช้ไมโครโฟน</p>
+        <p id="voice-note" class="avatar__note" role="status"></p>
+      </section>
+
       <!-- เด้งขึ้นเฉพาะตอนคุยเรื่องจองคิว / เช็คคิว / ยกเลิกคิว (voice.js → showCardFor) · พาไปหน้าที่ทำเรื่องนั้นได้ทันที -->
       <section id="voice-book" class="voice-book" role="status" aria-live="polite" hidden>
         <img src="/static/img/mascot.webp" alt="" width="56" height="56" />
@@ -161,44 +205,29 @@
         <a class="btn" href="/?book=1" data-card-link>จองคิว</a>
       </section>
 
-      <!-- ก่อนเริ่ม: เบราว์เซอร์ต้องให้ผู้ใช้กดเองก่อนจึงเปิดไมค์/เล่นเสียงได้ -->
-      <section class="avatar__intro">
-        <h1>คุยกับ{{ shop.assistant_name }}ด้วยเสียง</h1>
-        <p>
-          กดเริ่มคุย แล้วพูดคำถามได้เลย {{ shop.assistant_name }}จะตอบเป็นเสียงพร้อมคำบรรยาย
-          เหมาะกับตอนที่อุ้มน้องอยู่ มือไม่ว่างพิมพ์
-        </p>
-        <button id="voice-button" class="btn" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" /></svg>
-          เริ่มคุย
-        </button>
-        <p class="avatar__fine">ใช้ได้บน Chrome และ Edge และต้องอนุญาตให้เว็บใช้ไมโครโฟน</p>
-        <p id="voice-note" class="avatar__note" role="status"></p>
-      </section>
-
-      <!-- ระหว่างคุย (voice.js สลับ hidden เอง) -->
+      <!-- ระหว่างคุย (voice.js สลับ hidden เอง): ช่องคำพูดของน้องหอม + สิ่งที่ลูกค้าพูด + แถบควบคุมด้านล่าง -->
       <div
         id="voice-overlay"
         class="voice hidden"
         aria-hidden="true"
         data-greeting="สวัสดีค่ะ ยินดีต้อนรับสู่{{ shop.name_th }}ค่ะ {{ shop.assistant_name }}พร้อมช่วยแล้วนะคะ อยากรู้ราคาอาบน้ำตัดขน เวลาเปิดร้าน หรืออยากจองคิว สามารถสอบถามมาได้เลยค่ะ"
       >
-        <div class="voice__panel" role="region" aria-label="กำลังคุยด้วยเสียง">
-          <p id="voice-status" class="voice__status">กำลังเริ่ม…</p>
-
-          <div id="voice-cc-box" class="voice__captions">
-            <p id="voice-said" class="voice__said"></p>
+        <div id="voice-cc-box" class="voice__captions">
+          <!-- ช่องคำพูดแบบการ์ตูน: เด้งขึ้นตอนน้องหอมเริ่มตอบ (ตอนคิดเป็นจุดสามจุด) ค้างไว้ให้อ่านจนถามคำถามถัดไป -->
+          <div class="voice__bubble" role="status" aria-live="polite">
             <p id="voice-reply" class="voice__reply"></p>
           </div>
+          <p id="voice-said" class="voice__said"></p>
+        </div>
+        <div class="voice__bar" role="region" aria-label="กำลังคุยด้วยเสียง">
+          <p id="voice-status" class="voice__status">กำลังเริ่ม…</p>
           <div id="voice-error" class="alert" hidden></div>
-
           <div class="voice__controls">
             <button id="voice-cc" class="btn btn--ghost btn--small" type="button" aria-pressed="true">คำบรรยาย</button>
-            <button id="voice-exit" class="btn btn--small" type="button">จบการคุย</button>
+            <button id="voice-exit" class="btn btn--ghost btn--small" type="button">จบการคุย</button>
           </div>
           <p id="voice-hint" class="voice__hint">แตะที่ตัว{{ shop.assistant_name }}เพื่อพูดแทรก</p>
         </div>
-      </div>
       </div>
     </main>
 

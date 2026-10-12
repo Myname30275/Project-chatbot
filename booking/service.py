@@ -1,7 +1,7 @@
 """ขั้นตอนการจองคิว: ตรวจฟอร์ม → กันช่องเวลา (atomic) → ตรวจสลิป → ออกเลขจอง → บันทึก
 
 ข้อตกลงของร้าน (docs/booking-plan.md §1)
-- ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + ช่องเวลา + รูปน้อง + สลิป (+ จุดรับน้อง ถ้าติ๊กรับ-ส่ง)
+- ฟอร์มมีแค่ชื่อน้อง ชื่อเจ้าของ เบอร์โทร + ช่องเวลา + รูปน้อง (ไม่บังคับ) + สลิป (+ จุดรับน้อง ถ้าติ๊กรับ-ส่ง)
 - **ไม่มีราคา** ในข้อมูลการจอง — ราคาในแชทเป็นราคาประเมิน ร้านชั่งน้ำหนักจริงหน้าร้าน
   (ยอดที่ต้องโอน = มัดจำ + ค่ารับส่ง ถ้ามี — จ่ายล่วงหน้า ไม่ใช่ราคาบริการ)
 - บอทไม่ยืนยันการชำระเงินเอง: จองสำเร็จ = สถานะ "รอร้านยืนยัน" เจ้าของร้านเป็นคนยืนยัน
@@ -190,7 +190,8 @@ async def create(
     if dt is None:
         raise BookingError("ช่องเวลานี้จองไม่ได้แล้ว รบกวนเลือกช่องใหม่", status=409, field="slot")
     ride = _pickup(pickup, dt)
-    _check_image(pet_photo, "รูปน้อง", "pet_photo")
+    if pet_photo:  # รูปน้องไม่บังคับ (เจ้าของอาจไม่มีรูป) — ถ้าแนบมาก็ยังตรวจชนิด/ขนาดเหมือนเดิม
+        _check_image(pet_photo, "รูปน้อง", "pet_photo")
     slip_mime = _check_image(slip, "รูปสลิป", "slip")
 
     store = get_store()
@@ -232,6 +233,7 @@ async def create(
             "pets": pets,
             "service": chosen["id"],
             "slots_used": [list(x) for x in held],
+            "has_pet_photo": bool(pet_photo),
             "status": "pending",
             "slip": slip_info,
             "pickup": ride,
@@ -239,7 +241,8 @@ async def create(
             "created_at": created,
             "updated_at": created,
         }
-        await store.save_image(booking_id, "pet", pet_photo)
+        if pet_photo:
+            await store.save_image(booking_id, "pet", pet_photo)
         await store.save_image(booking_id, "slip", slip)
         await store.save(booking)
         await store.index(booking)
@@ -303,7 +306,8 @@ def public_view(b: dict) -> dict:
         "service_label": service_label(b),
         "status": b["status"],
         "status_label": STATUS_LABEL.get(b["status"], b["status"]),
-        "pet_image": f"/api/v1/booking/{b['id']}/image/pet",
+        # การจองที่ไม่ได้แนบรูปน้อง = None (หน้าเว็บใช้โลโก้ร้านแทน) · การจองรุ่นก่อนมีตัวเลือกนี้มีรูปทุกใบ
+        "pet_image": f"/api/v1/booking/{b['id']}/image/pet" if b.get("has_pet_photo", True) else None,
         # ใบจองบอกแค่ว่ามีรับ-ส่งกี่โมง — ที่อยู่/พิกัดอยู่เฉพาะหลังบ้าน
         "pickup_time": (b.get("pickup") or {}).get("time"),
         **cancel_view(b),

@@ -177,6 +177,27 @@ class OutputGuardTests(unittest.TestCase):
         out = "".join(with_price._release("อาบน้ำสุนัขเล็ก 250 บาทค่ะ\n" + note))
         self.assertIn("ราคาประเมินเบื้องต้น", out)
 
+    def test_estimate_note_is_dropped_for_services_unrelated_to_coat(self):
+        note = "เป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมาก"
+        for text in ["ตัดเล็บ 100 บาท ค่ะ " + note,                      # คำตอบจริงที่เจ้าของร้านเจอ 12 ต.ค. 2569
+                     "ตัดเล็บ 100 บาท ทำความสะอาดหู 100 บาท " + note + "ค่ะ",  # หมายเหตุอยู่ประโยคเดียวกับราคา
+                     "แปรงฟัน 150 บาทค่ะ\n" + note + "ค่ะ"]:
+            with self.subTest(text=text):
+                g = OutputGuard()
+                out = "".join([s for ch in text for s in g.feed(ch)] + g.flush())
+                self.assertFalse(g.blocked)
+                self.assertNotIn("ขนพัน", out)
+                self.assertNotIn("ราคาประเมิน", out)
+                self.assertIn("บาท", out)
+        # บริการเกี่ยวกับขน/ขนาดตัว ยังต้องมีหมายเหตุ (รวมกรณีถามคู่กับตัดเล็บ)
+        for text in ["ตัดขนทั้งตัวสำหรับสุนัขใหญ่ ราคา 750 บาท " + note + "ค่ะ",
+                     "อาบน้ำแมว 300 บาท ตัดเล็บ 100 บาทค่ะ\n" + note + "ค่ะ",
+                     "กำจัดขนพันกันเพิ่ม 150 บาท – 300 บาทค่ะ " + note + "ค่ะ"]:
+            with self.subTest(text=text):
+                g = OutputGuard()
+                out = "".join([s for ch in text for s in g.feed(ch)] + g.flush())
+                self.assertIn("ราคาประเมินเบื้องต้น", out)
+
     def test_doubled_polite_particle_is_cleaned(self):
         g = OutputGuard()
         out = "".join(g._release("สอบถามเรื่องการจองคิวได้เลยนะคะค่ะ\nอาบน้ำสุนัขเล็ก 250 บาทค่ะ ค่ะ"))

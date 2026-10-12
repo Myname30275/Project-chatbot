@@ -1,4 +1,4 @@
-"""เทสการตอบคิวว่างในแชท (chatbot/availability.py) — อ่านวันที่จากข้อความ + คำตอบจากคิวจริงในระบบจอง"""
+"""เทสการตอบคำถามคิวว่างในแชท (chatbot/availability.py) — อ่านวันที่จากข้อความ + ชี้ไปปุ่มจองคิว (ไม่ไล่เวลา)"""
 
 import asyncio
 import unittest
@@ -82,49 +82,29 @@ class ReplyTests(unittest.TestCase):
 
     def test_not_an_availability_question_returns_none(self):
         self.assertIsNone(self.ask("อาบน้ำหมาเล็กเท่าไหร่"))
-        self.assertIsNone(self.ask("ว่างไหมคะ"))               # ไม่ได้บอกวัน → ให้ LLM ตอบตามปกติ
+        self.assertIsNone(self.ask("พรุ่งนี้ร้านเปิดกี่โมง"))
 
-    def test_free_day_lists_start_times_per_service(self):
-        text = self.ask("พรุ่งนี้ว่างไหมคะ")
-        self.assertIn("วันเสาร์ที่ 10 ตุลาคม 2569 ยังมีคิวว่างค่ะ", text)
-        self.assertIn("- อาบน้ำ + เป่าขน (ใช้เวลา 2 ชม.): 09:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00, 16:00 น.", text)
-        # ตัดขน 3 ชม. ต้องเสร็จก่อนร้านปิด 18:00 → เริ่มช้าสุด 15:00
-        self.assertIn("- ตัดขนทั้งตัว (รวมอาบน้ำ) (ใช้เวลา 3 ชม.): 09:00, 10:00, 11:00, 12:00, 13:00, 14:00, 15:00 น.", text)
-        self.assertIn('กดปุ่ม "จองคิว"', text)
-        self.assertEqual(actions.suggest("พรุ่งนี้ว่างไหมคะ", text)[0], "book")
+    def test_points_to_the_booking_button_instead_of_listing_times(self):
+        # เจ้าของร้าน (12 ต.ค. 2569): ถามคิวว่าง → "ตรวจสอบคิวได้จากปุ่มจองคิว" ไม่ไล่เวลาในแชท
+        for q in ["มีคิวว่างวันไหนบ้างคะ", "ว่างไหมคะ", "พรุ่งนี้ว่างไหมคะ", "วันเสาร์ว่างช่วงไหนบ้าง", "15/10 ว่างไหม"]:
+            with self.subTest(q=q):
+                text = self.ask(q)
+                self.assertIn('ตรวจสอบคิวว่างได้จากปุ่ม "จองคิว"', text)
+                self.assertNotRegex(text, r"\d{2}:\d{2}")       # ไม่มีรายการเวลา
+                self.assertNotIn("เวลาที่เริ่มได้", text)
+                self.assertEqual(actions.suggest(q, text)[0], "book")
 
-    def test_booked_hours_are_left_out_for_every_service_that_needs_them(self):
-        self.book("2026-10-10", "11:00")                       # ช่างเต็มทั้ง 2 คนช่วง 11:00–12:00
-        text = self.ask("15/10 ว่างไหม")
-        self.assertIn("09:00, 10:00, 11:00", text)             # วันอื่นไม่กระทบ
-        text = self.ask("วันเสาร์ว่างช่วงไหนบ้าง")
-        self.assertIn("- อาบน้ำ + เป่าขน (ใช้เวลา 2 ชม.): 09:00, 12:00, 13:00, 14:00, 15:00, 16:00 น.", text)
-        self.assertIn("- ตัดขนทั้งตัว (รวมอาบน้ำ) (ใช้เวลา 3 ชม.): 12:00, 13:00, 14:00, 15:00 น.", text)
-        self.assertIn("- บริการอื่น (ใช้เวลา 1 ชม.): 09:00, 10:00, 12:00,", text)
-
-    def test_one_groomer_left_still_counts_as_free(self):
-        self.book("2026-10-10", "09:00", units=1)
-        self.assertIn("(ใช้เวลา 2 ชม.): 09:00,", self.ask("พรุ่งนี้ว่างไหม"))
-
-    def test_full_day_suggests_the_next_free_day(self):
+    def test_answer_does_not_depend_on_how_full_the_day_is(self):
+        before = self.ask("พรุ่งนี้ว่างไหม")
         self.book("2026-10-10", *[f"{h:02d}:00" for h in range(9, 18)])
-        text = self.ask("พรุ่งนี้ว่างไหม")
-        self.assertIn("วันเสาร์ที่ 10 ตุลาคม 2569 คิวเต็มแล้วค่ะ", text)
-        self.assertIn("วันที่ใกล้ที่สุดที่ยังว่างคือวันอาทิตย์ที่ 11 ตุลาคม 2569", text)
+        self.assertEqual(self.ask("พรุ่งนี้ว่างไหม"), before)
 
-    def test_today_shows_only_remaining_hours_and_says_to_call(self):
+    def test_today_says_to_call_the_shop(self):
         text = self.ask("วันนี้ว่างไหมคะ")
-        self.assertIn("วันนี้ตามระบบจองยังมีคิวว่างค่ะ", text)
-        self.assertIn("(ใช้เวลา 2 ชม.): 11:00, 12:00", text)   # 09:00 กับ 10:00 ผ่านไปแล้ว
-        self.assertNotIn("09:00", text)
         self.assertIn("ล่วงหน้าอย่างน้อย 1 วัน", text)
         self.assertIn("02-000-0000", text)
-
-    def test_today_after_last_queue_has_nothing_left(self):
-        late = datetime(2026, 10, 9, 16, 30, tzinfo=slots.TZ)
-        text = run(availability.reply("วันนี้ว่างไหม", "web", late))
-        self.assertIn("วันนี้ไม่มีคิวว่างเหลือแล้วค่ะ", text)
-        self.assertIn("วันเสาร์ที่ 10 ตุลาคม 2569", text)
+        self.assertIn('ปุ่ม "จองคิว"', text)
+        self.assertNotRegex(text, r"\d{2}:\d{2}")
 
     def test_closed_day_past_day_and_too_far_ahead(self):
         self.assertIn("ร้านหยุดค่ะ", self.ask("วันจันทร์ว่างไหม"))
@@ -132,30 +112,20 @@ class ReplyTests(unittest.TestCase):
         text = self.ask("15 พ.ย. ว่างไหม")
         self.assertIn("ไม่เกิน 14 วัน", text)
         self.assertIn("วันศุกร์ที่ 23 ตุลาคม 2569", text)
+        self.assertIn('ปุ่ม "จองคิว"', text)
 
     def test_voice_reply_has_no_list_markup(self):
         text = self.ask("พรุ่งนี้ว่างไหม", "voice")
         self.assertNotIn("\n", text)
-        self.assertNotIn("- ", text)
         self.assertNotIn('"', text)
-        self.assertIn("อาบน้ำเป่าขน เริ่มได้ 09:00 10:00", text)
-        self.assertIn("กดปุ่มจองคิวที่ขึ้นบนหน้าจอ", text)
+        self.assertIn("ปุ่มจองคิวที่ขึ้นบนหน้าจอ", text)
 
     def test_line_reply_links_to_the_site(self):
         self.assertIn("https://", self.ask("พรุ่งนี้ว่างไหม", "line"))
 
-    def test_store_failure_gives_a_safe_message(self):
-        async def boom(keys):
-            raise booking_store.StoreError("down")
-
-        with patch.object(self.store, "slot_counts", boom):
-            text = self.ask("พรุ่งนี้ว่างไหม")
-        self.assertIn("เช็คคิวว่างไม่ได้ชั่วคราว", text)
-        self.assertNotIn("09:00", text)
-
 
 class AssistantIntegrationTests(unittest.TestCase):
-    """คำถามคิวว่างตอบจากระบบจองโดยไม่เรียก LLM แต่ยังผ่าน guardrails และบันทึกประวัติเหมือนคำตอบปกติ"""
+    """คำถามคิวว่างตอบด้วยโค้ดโดยไม่เรียก LLM แต่ยังผ่าน guardrails และบันทึกประวัติเหมือนคำตอบปกติ"""
 
     def setUp(self):
         self.llm_calls = 0
@@ -194,7 +164,7 @@ class AssistantIntegrationTests(unittest.TestCase):
     def test_availability_question_is_answered_without_the_llm(self):
         events = self.events("พรุ่งนี้ว่างไหมคะ")
         text = "".join(e.get("delta", "") for e in events)
-        self.assertIn("วันเสาร์ที่ 10 ตุลาคม 2569 ยังมีคิวว่างค่ะ", text)
+        self.assertIn('ตรวจสอบคิวว่างได้จากปุ่ม "จองคิว"', text)
         self.assertEqual(self.llm_calls, 0)
         self.assertIn({"actions": ["book"]}, events)
         self.assertEqual(events[-1], {"done": True})
@@ -203,7 +173,7 @@ class AssistantIntegrationTests(unittest.TestCase):
         self.assertEqual(history[-1]["content"], text)
 
     def test_other_questions_still_go_to_the_llm(self):
-        for text in ["อาบน้ำหมาเล็กเท่าไหร่", "ว่างไหมคะ", "พรุ่งนี้ร้านเปิดกี่โมง"]:
+        for text in ["อาบน้ำหมาเล็กเท่าไหร่", "พรุ่งนี้ร้านเปิดกี่โมง"]:
             with self.subTest(text=text):
                 self.assertIn("ตอบจาก LLM ค่ะ", "".join(e.get("delta", "") for e in self.events(text)))
 

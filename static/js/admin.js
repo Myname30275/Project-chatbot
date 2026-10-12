@@ -416,7 +416,8 @@
 
     const photos = document.createElement("div");
     photos.className = "drawer__photos";
-    const kinds = [["pet", "รูปน้อง"], ["slip", "สลิปมัดจำ"]];
+    // ลูกค้าไม่ได้แนบรูปน้อง (ไม่บังคับ) → ไม่มีรูปให้เปิด แสดงเฉพาะสลิป
+    const kinds = [...(b.pet_image ? [["pet", "รูปน้อง"]] : []), ["slip", "สลิปมัดจำ"]];
     if (b.refund && b.refund.proof) kinds.push(["refund", "สลิปโอนคืน"]);
     for (const [kind, label] of kinds) {
       const a = document.createElement("a");

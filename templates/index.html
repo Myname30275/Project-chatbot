@@ -68,6 +68,8 @@
           <p class="hero__hours">{{ shop.hours }}<br />{{ shop.last_queue }}</p>
         </div>
         <figure class="hero__art">
+          <!-- อุปกรณ์อาบน้ำ-ตัดขน 3 มิติรอบน้อง ๆ (static/js/hero3d.js สลับภาพเป็นเฉพาะน้องหมาแมวเมื่อพร้อม) -->
+          <canvas class="hero__3d" aria-hidden="true"></canvas>
           <img src="/static/img/hero-pets.webp" alt="ภาพวาดลายเส้นสุนัขสามตัวกับแมวสองตัวนั่งเรียงกัน รอบ ๆ มีอ่างอาบน้ำ หวี กรรไกร และไดร์เป่าขน" width="1600" height="594" />
         </figure>
       </section>
@@ -281,28 +283,14 @@
           </button>
         </header>
         <ol class="stepper" aria-label="ขั้นตอนการจอง">
-          <li data-dot="1">ข้อมูลน้อง</li>
-          <li data-dot="2">วันเวลา</li>
+          <li data-dot="1">วันเวลา</li>
+          <li data-dot="2">ข้อมูลน้อง</li>
           <li data-dot="3">มัดจำ</li>
         </ol>
 
         <form id="booking-form" class="sheet__form" novalidate data-deposit="{{ catalog.payment.deposit }}">
+          <!-- ขั้น 1: บริการ + วันเวลา (เวลาที่ว่างขึ้นกับบริการและจำนวนน้อง จึงเลือกคู่กัน) -->
           <div class="sheet__body" data-step="1">
-            <div class="photo-pick">
-              <img id="bk-pet-preview" class="photo-pick__img" alt="รูปน้องที่จะอยู่บนใบจอง" hidden />
-              <div>
-                <p class="photo-pick__label">รูปน้อง</p>
-                <button type="button" class="btn btn--ghost btn--small" data-pick="pet">เลือกรูปน้อง</button>
-              </div>
-              <input type="file" id="bk-pet-file" accept="image/jpeg,image/png,image/webp" hidden />
-            </div>
-            <p class="field__error" data-error-for="pet_photo"></p>
-
-            <label class="field">
-              <span>ชื่อน้อง</span>
-              <input name="pet_name" maxlength="40" autocomplete="off" required />
-            </label>
-            <p class="field__error" data-error-for="pet_name"></p>
             <label class="field">
               <span>บริการที่ต้องการ</span>
               <select name="service" id="bk-service" required>
@@ -323,6 +311,31 @@
             </label>
             <p class="sheet__note">ระบบกันเวลาช่างให้ตามบริการที่เลือก (นับเป็นชั่วโมงเต็ม) · ช่าง {{ catalog.booking.capacity_per_slot }} คน ดูแลพร้อมกันได้ {{ catalog.booking.capacity_per_slot }} ตัว ตัวที่ 3–{{ catalog.booking.max_pets }} ทำต่อรอบถัดไป · มัดจำ {{ catalog.payment.deposit }} บาทต่อตัว · เกิน {{ catalog.booking.max_pets }} ตัวรบกวนจองแยกอีกคิว</p>
             <p class="field__error" data-error-for="pets"></p>
+
+            <p class="sheet__label" id="bk-day-label">เลือกวัน</p>
+            <div id="bk-days" class="day-row" role="radiogroup" aria-labelledby="bk-day-label"></div>
+            <p class="sheet__label" id="bk-time-label">เลือกเวลา</p>
+            <div id="bk-times" class="time-grid" role="radiogroup" aria-labelledby="bk-time-label"></div>
+            <p class="field__error" data-error-for="slot"></p>
+          </div>
+
+          <!-- ขั้น 2: ข้อมูลน้องและเจ้าของ (+ ให้ร้านไปรับ-ส่งที่บ้าน) -->
+          <div class="sheet__body" data-step="2" hidden>
+            <div class="photo-pick">
+              <img id="bk-pet-preview" class="photo-pick__img" alt="รูปน้องที่จะอยู่บนใบจอง" hidden />
+              <div>
+                <p class="photo-pick__label">รูปน้อง <span class="photo-pick__optional">(ไม่บังคับ)</span></p>
+                <button type="button" class="btn btn--ghost btn--small" data-pick="pet">เลือกรูปน้อง</button>
+              </div>
+              <input type="file" id="bk-pet-file" accept="image/jpeg,image/png,image/webp" hidden />
+            </div>
+            <p class="field__error" data-error-for="pet_photo"></p>
+
+            <label class="field">
+              <span>ชื่อน้อง</span>
+              <input name="pet_name" maxlength="40" autocomplete="off" required />
+            </label>
+            <p class="field__error" data-error-for="pet_name"></p>
             <label class="field">
               <span>ชื่อเจ้าของ</span>
               <input name="owner_name" maxlength="40" autocomplete="name" required />
@@ -333,14 +346,6 @@
               <input name="phone" inputmode="tel" maxlength="12" autocomplete="tel" placeholder="08xxxxxxxx" required />
             </label>
             <p class="field__error" data-error-for="phone"></p>
-          </div>
-
-          <div class="sheet__body" data-step="2" hidden>
-            <p class="sheet__label" id="bk-day-label">เลือกวัน</p>
-            <div id="bk-days" class="day-row" role="radiogroup" aria-labelledby="bk-day-label"></div>
-            <p class="sheet__label" id="bk-time-label">เลือกเวลา</p>
-            <div id="bk-times" class="time-grid" role="radiogroup" aria-labelledby="bk-time-label"></div>
-            <p class="field__error" data-error-for="slot"></p>
 
             <!-- รับ-ส่งน้อง: ปักหมุดบนแผนที่ → ระยะทางโดยประมาณ → ค่ารับส่ง (เซิร์ฟเวอร์คิดซ้ำตอนจอง) -->
             <div class="pickup">
@@ -411,5 +416,6 @@
 
     <script src="/static/js/booking.js?v={{ asset_v() }}"></script>
     <script src="/static/js/cancel.js?v={{ asset_v() }}"></script>
+    <script type="module" src="/static/js/hero3d.js?v={{ asset_v() }}"></script>
   </body>
 </html>
