@@ -21,6 +21,15 @@ def run(coro):
 
 
 class RequestedDayTests(unittest.TestCase):
+    def test_words_that_only_contain_the_syllable_are_not_availability_questions(self):
+        # "ระหว่าง" มี "ว่าง" อยู่ข้างใน · "free" ในเรื่องอื่นไม่ใช่การถามคิว
+        for text in ["มี wifi ให้ใช้ระหว่างรอไหม", "ระหว่างรอน้องอาบน้ำ นั่งรอที่ร้านได้ไหม", "is there free wifi"]:
+            with self.subTest(text=text):
+                self.assertFalse(availability.asks_availability(text))
+        for text in ["พรุ่งนี้ว่างไหมคะ", "มีคิวว่างวันไหนบ้าง", "any free slot tomorrow?", "are you available on saturday for a booking"]:
+            with self.subTest(text=text):
+                self.assertTrue(availability.asks_availability(text))
+
     def test_days_customers_say(self):
         cases = {
             "วันนี้ว่างไหมคะ": date(2026, 10, 9),
