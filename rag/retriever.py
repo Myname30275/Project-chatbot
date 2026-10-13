@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from config import settings
+from shop import pricing
 from rag import embedder
 from rag.chunker import Chunk, build_chunks, chunks_hash
 
@@ -128,7 +129,22 @@ def build_query(history: list[dict[str, str]], message: str) -> str:
 
 
 async def retrieve(history: list[dict[str, str]], message: str) -> list[Hit]:
-    return await get_retriever().search(build_query(history, message))
+    retriever = get_retriever()
+    hits = await retriever.search(build_query(history, message))
+    return _with_named_offers(hits, message, retriever.chunks)
+
+
+def _with_named_offers(hits: list[Hit], message: str, chunks: list[Chunk]) -> list[Hit]:
+    """ลูกค้าเอ่ยชื่อบริการ/สินค้าที่มีใน catalog → ชิ้นข้อมูลของรายการนั้นต้องอยู่ในผลค้นเสมอ (แทนชิ้นคะแนนต่ำสุด)
+    ทดสอบ 14 ต.ค. 2569: "สปาขนราคาเท่าไหร่" ค้นได้แต่ FAQ ไม่มีชิ้นบริการเสริม โมเดลจึงแต่งตารางราคาตามไซส์ขึ้นเอง
+    (คำสั้นอย่าง "สปา" คะแนนความคล้ายแพ้ชิ้น FAQ ที่ยาวกว่า) — ชื่อรายการตรงตัวเชื่อได้กว่าคะแนนความคล้าย"""
+    wanted = [i for i in pricing.offer_chunk_ids(message) if i not in {h.chunk.id for h in hits}]
+    if not wanted:
+        return hits
+    by_id = {c.id: c for c in chunks}
+    forced = [Hit(by_id[i], 1.0) for i in wanted if i in by_id][: max(len(hits), 1)]
+    keep = hits[: max(len(hits) - len(forced), 0)] if hits else []
+    return forced + keep
 
 
 def as_context_block(hits: list[Hit]) -> str:

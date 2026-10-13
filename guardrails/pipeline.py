@@ -15,6 +15,7 @@ from config import settings
 from guardrails import input_rules, judge
 from guardrails.categories import CATEGORIES
 from guardrails.output_guard import OutputGuard
+from shop import pricing
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,11 @@ async def check_judge(message: str, session_id: str) -> Decision:
             return _blocked("JUDGE_DOWN", "judge", session_id, message)
         return ALLOW  # fail-open โดยตั้งใจ: กฎในโค้ด + ตรวจขาออกยังคุมอยู่ (ดู config.py)
     if verdict.safe:
+        return ALLOW
+    if verdict.category == "OFF_TOPIC" and pricing.mentions_offer(message):
+        # ตัวตรวจเป็น LLM จึงพลาดได้: ข้อความพูดถึงบริการ/สินค้าที่มีใน catalog ของร้าน ไม่ถือว่านอกเรื่อง
+        # (ยกเว้นให้เฉพาะ OFF_TOPIC — INJECTION / PRIVACY / HARMFUL ยังบล็อกตามเดิม · LLM ตอบมี prompt + ด่าน 3 คุมต่อ)
+        logger.info("guard judge OFF_TOPIC overridden (shop offer mentioned) session=%s len=%d", session_id, len(message))
         return ALLOW
     return _blocked(verdict.category, "judge", session_id, message, verdict.reason)
 

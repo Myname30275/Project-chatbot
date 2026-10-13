@@ -9,6 +9,7 @@ catalog.json คือแหล่งข้อมูลราคาเพีย�
 """
 
 import json
+import re
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +24,66 @@ SIZES = ("small", "medium", "large", "cat")
 @lru_cache
 def load_catalog() -> dict[str, Any]:
     return json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+
+
+_OFFER_SECTIONS = ("services", "addons", "delivery", "packages", "products")
+_PAREN_RE = re.compile(r"\([^)]*\)")
+_TAIL_SIZE_RE = re.compile(r"\s*\d[\d.,–-]*\s*(มล\.?|กรัม|กก\.?|กม\.?|ชิ้น)?.*$")
+
+
+@lru_cache
+def offer_names() -> tuple[str, ...]:
+    """ชื่อบริการ บริการเสริม รับ-ส่ง แพ็กเกจ และสินค้าทุกรายการของร้าน ตามที่เขียนใน catalog"""
+    catalog = load_catalog()
+    return tuple(item["name"] for section in _OFFER_SECTIONS for item in catalog.get(section, []))
+
+
+def _name_words(name: str) -> list[str]:
+    """แตกชื่อรายการเป็นคำสำคัญ: ตัดวงเล็บและขนาดบรรจุออก แยกที่ + และ /
+    เช่น "อาบน้ำ + เป่าขน" → อาบน้ำ, เป่าขน · "แชมพูสูตรอ่อนโยน 250 มล." → แชมพูสูตรอ่อนโยน"""
+    words = []
+    for part in re.split(r"[+/]", _PAREN_RE.sub(" ", name)):
+        word = re.sub(r"\s*ระยะ.*$", "", _TAIL_SIZE_RE.sub("", part)).strip()
+        if len(word) >= 3:
+            words.append(word)
+    return words
+
+
+@lru_cache
+def offer_keyword_chunks() -> dict[str, str]:
+    """คำสำคัญของสิ่งที่ร้านมีให้บริการ/ขาย → id ของชิ้นข้อมูลใน RAG ที่มีราคาของรายการนั้น (ดู rag/chunker.py)
+    ร้านเพิ่มบริการใน catalog คำสำคัญเพิ่มตามเอง"""
+    catalog = load_catalog()
+    out: dict[str, str] = {}
+    for section in _OFFER_SECTIONS:
+        for item in catalog.get(section, []):
+            chunk_id = f"service:{item['id']}" if section == "services" else section
+            for word in _name_words(item["name"]):
+                out.setdefault(word, chunk_id)
+    return out
+
+
+def offer_keywords() -> tuple[str, ...]:
+    return tuple(offer_keyword_chunks())
+
+
+def _compact(text: str) -> str:
+    return re.sub(r"[\s-]+", "", text or "")  # "รับ ส่ง" / "รับ-ส่ง" / "รับส่ง" นับเป็นคำเดียวกัน
+
+
+def offer_chunk_ids(text: str) -> list[str]:
+    """id ของชิ้นข้อมูลที่ต้องอยู่ในผลค้น เพราะข้อความพูดถึงรายการนั้นตรง ๆ (เรียงตามลำดับใน catalog ไม่ซ้ำ)"""
+    compact = _compact(text)
+    ids: list[str] = []
+    for word, chunk_id in offer_keyword_chunks().items():
+        if _compact(word) in compact and chunk_id not in ids:
+            ids.append(chunk_id)
+    return ids
+
+
+def mentions_offer(text: str) -> bool:
+    """ข้อความพูดถึงของที่ร้านมีจริงไหม — ใช้กันตัวตรวจขาเข้าตีเป็นนอกเรื่อง (guardrails/pipeline.py)"""
+    return bool(offer_chunk_ids(text))
 
 
 def _baht(n: int) -> str:

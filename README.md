@@ -64,13 +64,13 @@ chatbot/         ② แกนกลางที่ทุกช่องทา�
   search.py                    ค้นเว็บอัตโนมัติ (Tavily) — ปิดไว้ บอทร้านตอบจากข้อมูลร้านเท่านั้น
 rag/             RAG: ค้นคืนข้อมูลร้านตามคำถาม
   chunker.py                   แบ่ง shop/ เป็น 48 ชิ้น (บริการละชิ้น, หัวข้อนโยบาย/FAQ ละชิ้น)
-  retriever.py                 hybrid: embedding (Gemini) 0.7 + TF-IDF character n-gram 0.3
+  retriever.py                 hybrid: embedding (Gemini) 0.7 + TF-IDF character n-gram 0.3 · ลูกค้าเอ่ยชื่อบริการ/สินค้าใน catalog → ชิ้นข้อมูลของรายการนั้นอยู่ในผลค้นเสมอ
   build_index.py               สร้าง index.json — รันใหม่ทุกครั้งที่แก้ shop/
   index.json                   embedding ที่สร้างไว้ล่วงหน้า (commit ขึ้น git)
 guardrails/      ③ ความปลอดภัย 3 ด่าน (ฟรี ไม่ต้องใช้ key เพิ่ม)
   input_rules.py               ด่าน 1: ความยาว, ความถี่, blocklist.txt, รูปแบบ prompt injection
-  judge.py                     ด่าน 2: ใช้ Typhoon จำแนกเจตนา (SAFE/OFF_TOPIC/INJECTION/PRIVACY/HARMFUL)
-  output_guard.py              ด่าน 3: ราคา/ส่วนลดต้องมีจริง, ห้ามหลุดข้อมูลส่วนตัวหรือกฎภายใน
+  judge.py                     ด่าน 2: ใช้ Typhoon จำแนกเจตนา (SAFE/OFF_TOPIC/INJECTION/PRIVACY/HARMFUL) · แนบรายการบริการ/สินค้า/สิ่งที่ร้านไม่มีจาก catalog ให้ตัวตรวจ
+  output_guard.py              ด่าน 3: ราคาต้องตรงกับราคาประกาศ (ยอดรวมหลายรายการผ่านเฉพาะประโยคที่บอกว่าเป็นยอดรวม), ส่วนลดต้องมีจริง, ห้ามหลุดข้อมูลส่วนตัวหรือกฎภายใน
   pipeline.py, categories.py   รวมด่าน + ข้อความปฏิเสธภาษาไทย
 vision/          ④ Vision: รูปสัตว์ → ประเมินราคา, รูปสลิป → ตรวจมัดจำ
   documents.py                 อ่านไฟล์แนบ (PDF: pymupdf + typhoon-ocr, รูป → image_analyzer)

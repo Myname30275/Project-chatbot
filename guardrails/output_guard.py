@@ -59,20 +59,41 @@ def _digits(s: str) -> str:
     return re.sub(r"\D", "", s)
 
 
-@lru_cache
-def allowed_baht() -> frozenset[float]:
+def _base_prices() -> set[int]:
     c = pricing.load_catalog()
     base: set[int] = {c["payment"]["deposit"]}
     for s in c["services"]:
         base |= set(s["prices"].values()) if "prices" in s else {s["price"]}
     for a in c["addons"]:
         base |= {a[k] for k in ("price", "price_min", "price_max") if k in a}
-    base |= {d["price"] for d in c["delivery"]} | {p["price"] for p in c["products"]}
+    return base | {d["price"] for d in c["delivery"]} | {p["price"] for p in c["products"]}
 
+
+@lru_cache
+def listed_baht() -> frozenset[float]:
+    """ราคาที่ร้านประกาศไว้ตรง ๆ: ราคาแต่ละรายการใน catalog, ราคาหลังลดตามแพ็กเกจสมาชิก, มัดจำตามจำนวนน้อง"""
+    c = pricing.load_catalog()
+    base = _base_prices()
+    discounted = {round(p * (100 - d["discount_percent"]) / 100, 2) for p in base for d in c["packages"]}
+    deposits = {c["payment"]["deposit"] * n for n in range(1, c["booking"]["max_pets"] + 1)}
+    return frozenset({float(x) for x in base | deposits} | discounted)
+
+
+@lru_cache
+def allowed_baht() -> frozenset[float]:
+    """ราคาที่ประกาศไว้ + ผลรวมของ 1–3 รายการ (และผลรวมหลังลด) — ผลรวมใช้ได้เฉพาะประโยคที่บอกว่าเป็นยอดรวม"""
+    c = pricing.load_catalog()
+    base = _base_prices()
     sums = {sum(combo) for r in (1, 2, 3) for combo in itertools.combinations_with_replacement(sorted(base), r)}
     discounts = [p["discount_percent"] for p in c["packages"]]
     discounted = {round(s * (100 - d) / 100, 2) for s in sums for d in discounts}
-    return frozenset({float(x) for x in sums} | discounted)
+    return frozenset({float(x) for x in sums} | discounted) | listed_baht()
+
+
+# ยอดที่ไม่ใช่ราคาประกาศ แต่เป็นผลรวมของหลายรายการ ("อาบน้ำ 250 + ตัดเล็บ 100 รวม 350 บาท") ต้องมีคำบอกว่าเป็นยอดรวม
+# ทดสอบ 14 ต.ค. 2569: ถาม "สปาขนราคาเท่าไหร่" โมเดลแต่งตาราง "สุนัขเล็ก 650 บาท · สุนัขใหญ่ 1,050 บาท" ขึ้นเอง
+# และผ่านด่านนี้ได้เพราะตัวเลขบังเอิญเท่ากับผลรวมของราคา 2–3 รายการ
+_TOTAL_RE = re.compile(r"รวม|ทั้งหมด|ทั้งสิ้น|ยอด|บวก|[+=]|total|sum|altogether", re.IGNORECASE)
 
 
 @lru_cache
@@ -96,8 +117,12 @@ def check_sentence(
     amounts = [
         float(f"{m.group(1).replace(',', '')}.{m.group(2) or 0}") for m in _BAHT_RE.finditer(text)
     ] + [float(m.group(1).replace(",", "")) for m in _BAHT_PREFIX_RE.finditer(text)]
-    if any(a not in allowed_baht() and a not in extra_amounts for a in amounts) and not negated:
-        return "PRICE"
+    is_total = bool(_TOTAL_RE.search(text))
+    for a in amounts:
+        if a in extra_amounts or a in listed_baht() or (is_total and a in allowed_baht()):
+            continue
+        if not negated:
+            return "PRICE"
 
     if any(float(m.group(1)) not in allowed_percent() for m in _PERCENT_RE.finditer(text)) and not negated:
         return "DISCOUNT"

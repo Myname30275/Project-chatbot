@@ -195,10 +195,10 @@
         และคุยด้วยเสียงผ่านอวตารพนักงาน
       </p>
       <ul class="meta">
-        <li>สถานะ ณ 5 ต.ค. 2569</li>
+        <li>สถานะ ณ 14 ต.ค. 2569</li>
         <li>branch <code>main</code> · hom-hom-grooming.vercel.app</li>
         <li>FastAPI บน Vercel</li>
-        <li>เทส 171 ตัวผ่าน</li>
+        <li>เทส 191 ตัวผ่าน</li>
         <li>ทดสอบกับระบบจริง: 10 คำถาม 10/10 · กฎและความปลอดภัย 35/35 · endpoint 41/41 · ภาพ 14/15</li>
       </ul>
     </header>
@@ -311,8 +311,8 @@
           <thead><tr><th>ด่าน</th><th>ตรวจอะไร</th><th>ถ้าไม่ผ่าน</th></tr></thead>
           <tbody>
             <tr><td>1 กฎ (<code>input_rules.py</code>)</td><td>≤ 1000 ตัวอักษร, ≤ 15 ข้อความ/นาที/session, <code>blocklist.txt</code> (แก้แล้วมีผลทันที), รูปแบบ prompt injection — ไม่เรียก API</td><td>ตอบปฏิเสธภาษาไทยตามหมวด ไม่บันทึกประวัติ</td></tr>
-            <tr><td>2 judge (<code>judge.py</code>)</td><td>Typhoon จำแนก SAFE / OFF_TOPIC / INJECTION / PRIVACY / HARMFUL ตาม <code>prompts/guard_judge.txt</code> — รันพร้อม RAG</td><td>ปฏิเสธโดยไม่เรียก LLM ตอบ · ตัวตรวจล่ม = ปล่อยผ่าน (ตั้ง <code>GUARD_JUDGE_FAIL_CLOSED=true</code> เพื่อปฏิเสธแทน)</td></tr>
-            <tr><td>3 ขาออก (<code>output_guard.py</code>)</td><td>ทีละประโยค: ยอดบาทต้องมีใน catalog (หรือผลรวม 1–3 รายการ, หรือหลังลด 10%), % ต้องมีจริง, ห้ามเบอร์/อีเมล/เลขบัตรที่ลูกค้าไม่ได้ให้เอง, ห้ามหลุดกฎภายใน · ประโยคที่ส่งลูกค้าไปร้านอื่น แต่งเหตุผลทางการแพทย์ หรือยืนยันเองว่าคิวว่าง/เต็ม</td><td>แทนคำตอบด้วย fallback ของร้าน · สองแบบหลังตัดทิ้งเฉพาะประโยคนั้น</td></tr>
+            <tr><td>2 judge (<code>judge.py</code>)</td><td>Typhoon จำแนก SAFE / OFF_TOPIC / INJECTION / PRIVACY / HARMFUL ตาม <code>prompts/guard_judge.txt</code> + รายการบริการ/สินค้า/สิ่งที่ร้านไม่มีจาก catalog — รันพร้อม RAG · ถูกตีเป็น OFF_TOPIC แต่ข้อความมีชื่อรายการของร้าน โค้ดปล่อยผ่าน</td><td>ปฏิเสธโดยไม่เรียก LLM ตอบ · ตัวตรวจล่ม = ปล่อยผ่าน (ตั้ง <code>GUARD_JUDGE_FAIL_CLOSED=true</code> เพื่อปฏิเสธแทน)</td></tr>
+            <tr><td>3 ขาออก (<code>output_guard.py</code>)</td><td>ทีละประโยค: ยอดบาทต้องตรงกับราคาประกาศใน catalog (หรือหลังลด 10%) · ผลรวม 1–3 รายการผ่านเฉพาะประโยคที่บอกว่าเป็นยอดรวม, % ต้องมีจริง, ห้ามเบอร์/อีเมล/เลขบัตรที่ลูกค้าไม่ได้ให้เอง, ห้ามหลุดกฎภายใน · ประโยคที่ส่งลูกค้าไปร้านอื่น แต่งเหตุผลทางการแพทย์ หรือยืนยันเองว่าคิวว่าง/เต็ม</td><td>แทนคำตอบด้วย fallback ของร้าน · สองแบบหลังตัดทิ้งเฉพาะประโยคนั้น</td></tr>
           </tbody>
         </table>
       </div>
@@ -348,7 +348,7 @@
       <ul class="plain">
         <li><strong>คลังความรู้:</strong> <code>shop/catalog.json</code> (บริการ 8, บริการเสริม 4, รับ-ส่ง 2, แพ็กเกจ, สินค้า 3), <code>policies.md</code>, <code>faq.md</code> (29 ข้อ) → แบ่งตามความหมายได้ 48 ชิ้น (บริการละชิ้น ราคาทุกไซส์จึงไม่ถูกหั่นกลางตาราง)</li>
         <li><strong>index:</strong> <code>python -m rag.build_index</code> สร้าง embedding ล่วงหน้า (Gemini <code>gemini-embedding-001</code>, 768 มิติ) เก็บใน <code>rag/index.json</code> — ไม่ต้องมี vector DB</li>
-        <li><strong>การค้น:</strong> 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram (2–3 ตัวอักษร ไม่ต้องตัดคำไทย) · คำค้น = คำถามก่อนหน้า 1 ข้อความ + คำถามใหม่ · เอา 4 ชิ้นบนสุด</li>
+        <li><strong>การค้น:</strong> 0.7 × cosine ของ embedding + 0.3 × TF-IDF character n-gram (2–3 ตัวอักษร ไม่ต้องตัดคำไทย) · คำค้น = คำถามก่อนหน้า 1 ข้อความ + คำถามใหม่ · เอา 4 ชิ้นบนสุด · ลูกค้าเอ่ยชื่อบริการ/สินค้าใน catalog ชิ้นข้อมูลของรายการนั้นถูกใส่ในผลค้นเสมอ</li>
         <li><strong>กันข้อมูลเก่า:</strong> index เก็บ hash ของข้อมูลร้าน ถ้าแก้ <code>shop/</code> แล้วลืม build ใหม่ ระบบจะไม่ใช้ index เก่า แต่ค้นแบบ TF-IDF จากข้อมูลล่าสุดแทน (Gemini ล่มก็ใช้ทางนี้)</li>
         <li><strong>ผลทดสอบ:</strong> hit@4 = 16/16 คำถาม (<code>docs/test-log.md</code>)</li>
       </ul>
@@ -360,10 +360,10 @@
       <div class="cards">
         <div class="card"><h3>หน้า /</h3><p>หัวเรื่อง + ภาพหมาแมว, ปุ่มหลัก “จองคิว” · ปุ่มรอง “ส่งรูปให้ประเมินราคาก่อน” · ลิงก์คุยด้วยเสียง, ป้ายราคาตามไซส์ (render จาก catalog.json), “ก่อนพาน้องมาร้าน” (นโยบาย 3 การ์ด + เช็คคิว/ยกเลิกคิว), บริการที่ร้านไม่มี, ติดต่อร้าน</p></div>
         <div class="card"><h3>หน้าต่างแชท</h3><p>ปุ่มลอยมุมขวาล่าง → แผงเลื่อนออกจากขวา (มือถือเต็มจอ) · ทักทาย + ปุ่มคำถามด่วน · ส่งรูปเห็นภาพย่อ · ชิป “ข้อมูลจากร้าน” · ปุ่มทางลัดใต้คำตอบ (เช็คคิว / ยกเลิกคิว / จองคิว)</p></div>
-        <div class="card"><h3>ป๊อปอัปจองคิว + ใบจอง</h3><p>3 ขั้น: ชื่อน้อง/เจ้าของ/เบอร์ + จำนวนน้อง 1–4 ตัว → เลือกช่องเวลาที่ว่าง (+ ติ๊กรับ-ส่งน้อง ปักหมุดบ้านบนแผนที่) → แนบสลิป (มัดจำ 50 บาท × จำนวนตัว + ค่ารับส่ง) · ได้ใบจองในแชท (ไม่มีราคา/สลิป/สถานะ) บันทึกเป็นรูปได้</p></div>
+        <div class="card"><h3>ป๊อปอัปจองคิว + ใบจอง</h3><p>3 ขั้น: บริการ + จำนวนน้อง 1–4 ตัว + วันเวลาที่ว่าง → ชื่อน้อง/เจ้าของ/เบอร์ รูปน้อง (ไม่บังคับ) (+ ติ๊กรับ-ส่งน้อง ปักหมุดบ้านบนแผนที่) → แนบสลิป (มัดจำ 50 บาท × จำนวนตัว + ค่ารับส่ง) · ได้ใบจองในแชท (ไม่มีราคา/สลิป/สถานะ) บันทึกเป็นรูปได้</p></div>
         <div class="card"><h3>หน้า /check + ป๊อปอัปยกเลิก</h3><p>กรอกเบอร์โทร → คิว สถานะ การคืนเงิน · ปุ่ม “ยกเลิกคิวนี้” → ยืนยันตัวตน → บัญชีรับเงินคืน · ดูสลิปโอนคืนหลังยืนยันชื่อเจ้าของ</p></div>
         <div class="card"><h3>หน้า /admin</h3><p>หลังบ้านเจ้าของร้าน: ตารางคิวรายสัปดาห์ ปฏิทินรายเดือน ค้นเลขจอง ดูรูปน้อง/สลิป/จุดรับ-ส่ง กดยืนยัน มาแล้ว ยกเลิก · แนบสลิปก่อนยืนยันโอนคืน</p></div>
-        <div class="card"><h3>หน้า /avatar</h3><p>พนักงาน VRM ยืนหลังเคาน์เตอร์ตั้งแต่เปิดหน้า · ท่า Idle · ปากขยับตามเสียงจริง · คำบรรยาย · เลือกเสียง Cartesia ได้ 6 เสียง</p></div>
+        <div class="card"><h3>หน้า /avatar</h3><p>ฉากร้านเต็มจอ · กดเริ่มคุยแล้วพนักงาน VRM เดินออกมายืนหลังเคาน์เตอร์ · ปากขยับตามเสียงจริง · สีหน้าและท่าทางตามบทสนทนา · คำตอบขึ้นเป็นช่องคำพูด · การ์ดจองคิว/เช็คคิวขึ้นเมื่อคุยเรื่องคิว</p></div>
       </div>
       <h3>สถานะที่ UI บอกลูกค้า</h3>
       <p>
@@ -442,7 +442,7 @@
           <tbody>
             <tr><td><code>main.py</code>, <code>config.py</code>, <code>api/index.py</code></td><td>สร้าง app, หน้า <code>/</code> · <code>/check</code> · <code>/admin</code> · <code>/avatar</code>, ต่อท้าย css/js ด้วย <code>?v=</code> กัน cache เก่า · อ่าน <code>.env</code> · จุดเข้าของ Vercel</td></tr>
             <tr><td><code>channels/</code></td><td><code>web_chat.py</code> (cookie, ประวัติ, ไฟล์แนบ, SSE) · <code>tts.py</code> (proxy Cartesia เก็บ key ฝั่งเซิร์ฟเวอร์) · <code>booking_api.py</code> (จอง · ค่ารับส่ง · เช็คคิว · ยกเลิก · สลิปโอนคืน) · <code>admin.py</code> (หลังบ้าน + ยืนยันโอนคืน) · <code>line_webhook.py</code> (LINE OA)</td></tr>
-            <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>actions.py</code> (ดักเบอร์/เลขจอง + เลือกปุ่มทางลัด) · <code>availability.py</code> (ถามคิวว่างของวันที่ระบุ → ตอบเวลาว่างจริงจากระบบจอง ไม่ผ่าน LLM) ·<code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
+            <tr><td><code>chatbot/</code></td><td><code>assistant.py</code> pipeline กลาง · <code>actions.py</code> (ดักเบอร์/เลขจอง + เลือกปุ่มทางลัด) · <code>availability.py</code> (ถามคิวว่าง → ตอบด้วยโค้ดให้ตรวจสอบจากปุ่มจองคิว ไม่ผ่าน LLM) ·<code>llm_client.py</code> · <code>prompt_builder.py</code> · <code>conversation_store.py</code> (memory หรือ Redis) · <code>search.py</code> (ปิดไว้)</td></tr>
             <tr><td><code>rag/</code></td><td><code>chunker.py</code>, <code>embedder.py</code>, <code>retriever.py</code>, <code>build_index.py</code>, <code>index.json</code></td></tr>
             <tr><td><code>guardrails/</code></td><td><code>input_rules.py</code> + <code>blocklist.txt</code>, <code>judge.py</code>, <code>output_guard.py</code>, <code>pipeline.py</code>, <code>categories.py</code></td></tr>
             <tr><td><code>booking/</code></td><td><code>slots.py</code> (ช่องเวลาว่าง), <code>pickup.py</code> (ระยะทาง → ค่ารับส่ง), <code>store.py</code> (in-memory / Redis), <code>service.py</code> (จอง · ยืนยันตัวตน · ยกเลิก · คืนเงิน · สถานะ) — ไม่ผ่าน LLM</td></tr>
@@ -450,7 +450,7 @@
             <tr><td><code>shop/</code></td><td><code>catalog.json</code> (แหล่งข้อมูลเดียว), <code>policies.md</code>, <code>faq.md</code>, <code>pricing.py</code></td></tr>
             <tr><td><code>prompts/</code></td><td><code>chat_system.txt</code>, <code>voice_hint.txt</code>, <code>line_hint.txt</code>, <code>guard_judge.txt</code>, <code>image_analyze.txt</code></td></tr>
             <tr><td><code>templates/</code>, <code>static/</code></td><td><code>index.html</code>, <code>check.html</code>, <code>_cancel_sheet.html</code>, <code>avatar.html</code>, <code>admin.html</code> · <code>chat.js</code>, <code>booking.js</code>, <code>cancel.js</code>, <code>check.js</code>, <code>admin.js</code>, <code>voice.js</code>, <code>voice-avatar.js</code> · <code>style.css</code> · <code>img/</code> (โลโก้, ภาพ hero, หน้าน้องหอม) · <code>avatar/</code> (VRM + Idle.fbx)</td></tr>
-            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 171 ตัว · สคริปต์ทดสอบกับระบบจริง <code>run_10_questions.py</code>, <code>run_prompt_safety.py</code>, <code>run_endpoint_check.py</code>, <code>run_images.py</code> · <code>report.html</code> (เอกสารส่งอาจารย์) · <code>system-architecture.md</code>, <code>test-log.md</code>, <code>booking-plan.md</code>, หน้านี้</td></tr>
+            <tr><td><code>tests/</code>, <code>docs/</code></td><td>unit test 191 ตัว · สคริปต์ทดสอบกับระบบจริง <code>run_10_questions.py</code>, <code>run_prompt_safety.py</code>, <code>run_endpoint_check.py</code>, <code>run_images.py</code> · <code>report.html</code> (เอกสารส่งอาจารย์) · <code>system-architecture.md</code>, <code>test-log.md</code>, <code>booking-plan.md</code>, หน้านี้</td></tr>
           </tbody>
         </table>
       </div>
