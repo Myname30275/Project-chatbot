@@ -521,7 +521,7 @@ def facts(cat, ten, ps, ep, img):
     must = prompt.split("# ต้องทำ")[1].split("# ห้ามทำ")[0]
     must_not = prompt.split("# ห้ามทำ")[1].split("# เมื่อลูกค้าถามนอกเรื่อง")[0]
     log = (ROOT / "docs" / "test-log.md").read_text(encoding="utf-8")
-    tests = sum(len(re.findall(r"^\s+def test_", p.read_text(encoding="utf-8"), re.M)) for p in (ROOT / "tests").glob("test_*.py"))
+    tests = sum(len(re.findall(r"^\s+(?:async\s+)?def test_",p.read_text(encoding="utf-8"), re.M)) for p in (ROOT / "tests").glob("test_*.py"))
 
     def score(rows, key="passed"):
         return f"{sum(bool(r[key]) for r in rows)}/{len(rows)}"
