@@ -157,7 +157,7 @@ flowchart TB
 | ③ | `guardrails/output_guard.py` | ด่าน 3: ราคาต้องตรงกับราคาประกาศใน catalog (ยอดที่เป็นผลรวม 1–3 รายการผ่านได้เฉพาะประโยคที่บอกว่าเป็นยอดรวม เช่น "รวม" "+" "="), ส่วนลดต้องมีใน catalog, ห้ามเบอร์/เลขบัตร/อีเมลของคนอื่น, ห้ามหลุดกฎภายใน — ตรวจทีละประโยค · หมายเหตุ "ราคาประเมิน… ถ้าขนพันมาก" ปล่อยเฉพาะคำตอบที่พูดถึงบริการเกี่ยวกับขน · ประโยคที่ส่งลูกค้าไปร้านอื่น/แต่งเหตุผลทางการแพทย์ ถูกตัดทิ้งเฉพาะประโยค | ✅ |
 | ③ | `guardrails/pipeline.py`, `categories.py` | รวมด่าน + ข้อความปฏิเสธภาษาไทยรายหมวด + log การบล็อก (ไม่ log เนื้อหา) | ✅ |
 | ④ | `vision/documents.py` | อ่านไฟล์แนบ: PDF (pymupdf + typhoon-ocr), รูป → image_analyzer (สำรอง: OCR) | ✅ |
-| ④ | `vision/image_analyzer.py` + `prompts/image_analyze.txt` | Gemini จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON 1 ครั้ง · ขอใหม่ถ้าไม่เป็น JSON · whitelist ทุกฟิลด์ · โมเดลสำรองเมื่อ 429/503 | ✅ |
+| ④ | `vision/image_analyzer.py` + `prompts/image_analyze.txt` | Gemini จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON 1 ครั้ง · ขอใหม่ถ้าไม่เป็น JSON · whitelist ทุกฟิลด์ · ลำดับสำรอง: `gemini-flash-latest` → `gemini-flash-lite-latest` → ผู้ให้บริการสำรอง Groq `qwen/qwen3.8-27b` (`VISION_BACKUP_*`, prompt และตัวตรวจ JSON ชุดเดียวกัน) | ✅ |
 | ④ | `vision/pet_estimate.py`, `slip_check.py` | รูปสัตว์ → ราคาจาก `pricing.quote()` · รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ · สร้างคำตอบถึงลูกค้าทันทีด้วยโค้ด (ไม่ยืนยันการชำระเงินเอง) | ✅ |
 | จอง | `booking/slots.py` | ช่องเวลาว่างจาก `catalog.json` → `booking` (ช่าง 2 คน/ช่อง, ช่องละ 1 ชม., 09:00–16:00, ปิดวันจันทร์, ล่วงหน้า 1–14 วัน) · เวลาไทย UTC+7 | ✅ |
 | จอง | `booking/pickup.py` | รับ-ส่งน้อง: ระยะเส้นตรง (haversine) จากร้านถึงหมุด × 1.3 ≈ ระยะถนน → ค่ารับส่งตามตาราง `delivery` ใน catalog (≤ 5 กม. 150 / ≤ 10 กม. 250 บาท) · คิดที่เซิร์ฟเวอร์เสมอ | ✅ |
@@ -365,6 +365,7 @@ sequenceDiagram
 |---|---|---|---|
 | **Typhoon** (opentyphoon.ai) | แชต (`typhoon-v2.5-30b-a3b-instruct`) + OCR (`typhoon-ocr`) | `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` | ✅ จำเป็น |
 | **Gemini** (Google AI Studio) | Vision (`gemini-flash-latest` + สำรอง `gemini-flash-lite-latest`) + embedding ของ RAG (`gemini-embedding-001`) | `VISION_BASE_URL`, `VISION_API_KEY`, `VISION_MODEL` (RAG ใช้ key เดียวกัน หรือแยกด้วย `EMBED_*`) | จำเป็นสำหรับ Vision · RAG ไม่มีก็ได้ (ใช้ lexical แทน) |
+| **Groq** | Vision สำรองเมื่อ Gemini ใช้ไม่ได้ทั้ง 2 โมเดล (`qwen/qwen3.8-27b`) · โควตาฟรีราว 7,000 input token/นาที (≈ 2 รูป/นาที) | `VISION_BACKUP_API_KEY` (`VISION_BACKUP_BASE_URL`, `VISION_BACKUP_MODEL` มีค่าเริ่มต้น) | ไม่บังคับ — ไม่ตั้ง = ไม่มีตัวสำรองนี้ |
 | **Cartesia** | เสียงโคลนของน้องหอมในหน้า `/avatar` (6 เสียงในรายการ ค่าเริ่มต้น ASN) | `CARTESIA_API_KEY`, `CARTESIA_VOICE_ID` | ✅ ตั้งแล้ว · ไม่ตั้ง = ใช้เสียงไทยของเบราว์เซอร์ (Chrome บน Windows อาจไม่มีเสียงไทย → ใช้ Edge) |
 | **Redis / Vercel KV** | เก็บประวัติแชตข้าม instance | `KV_REST_API_URL`, `KV_REST_API_TOKEN` | จำเป็นบน Vercel |
 | **LINE Messaging API** | ช่องทาง LINE OA @103fgxwt (reply ฟรีไม่จำกัด) | `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_ACCESS_TOKEN` | ✅ ตั้งแล้ว · ไม่ตั้ง = ปิดช่องทาง LINE |
@@ -467,7 +468,7 @@ python -m unittest discover -s tests
 | `tests/test_admin.py` | ต้อง login ทุก API, รหัสผิด + จำกัดครั้ง, cookie ปลอม/หมดอายุ, ปิดเมื่อไม่ตั้งรหัส, ข้อมูลเต็มแต่ไม่มีราคา, ยืนยันแล้วใบจองลูกค้าเปลี่ยน, เปลี่ยนสถานะผิดลำดับไม่ได้, ยกเลิกคืนช่อง, ค้นเลขจอง · ยกเลิกจากเครื่องอื่นหลังยืนยันตัวตน, ตัวตนผิด, ล็อกหลังผิด 5 ครั้ง, เทียบชื่อผู้โอน, ต้องแนบสลิปโอนคืน, ดูสลิปโอนคืน |
 | `tests/test_actions.py` | ปุ่มทางลัดตามคำถาม/คำตอบ, ดักเบอร์โทร/เลขจอง, LINE ได้ลิงก์แทนปุ่ม, ไม่เรียก LLM และไม่บันทึกเบอร์ |
 | `tests/test_availability.py` | อ่านวันที่จากข้อความ 22 แบบ (วันนี้/ชื่อวัน/วันที่/ปี พ.ศ.), ข้อความที่ไม่ใช่วันที่ ("3-5 กิโล" "9-10 โมง" "อาทิตย์หน้า"), คำตอบชี้ไปปุ่มจองคิวและไม่มีเวลาในคำตอบ, วันนี้ให้โทรหาร้าน, วันหยุด/วันที่ผ่านแล้ว/เกิน 14 วัน, ข้อความเว็บ/LINE/เสียง, ผ่าน guardrails และไม่เรียก LLM |
-| **รวม** | **192 เทส** (`python -m unittest discover -s tests`) + e2e ด้วย Playwright (จอง, ยกเลิก, หลังบ้าน) |
+| **รวม** | **194 เทส** (`python -m unittest discover -s tests`) + e2e ด้วย Playwright (จอง, ยกเลิก, หลังบ้าน) |
 | `tests/run_10_questions.py` | ทดสอบกับระบบจริง: 10 คำถาม + เวลาตอบ → 10/10 เฉลี่ย 3.5 วิ |
 | `tests/run_prompt_safety.py` | ทดสอบกับระบบจริง (แชทใหม่ทุกข้อ): กฎต้องทำ/ห้ามทำ + ข้อมูลร้าน + ความปลอดภัย 9 กรณี → 35/35 |
 | `tests/run_endpoint_check.py` | ทดสอบกับระบบจริง: ทุก endpoint → เว็บจริง 41/41 · เส้นทางเต็มบนเครื่อง 43/43 |
