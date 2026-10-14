@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     # โมเดลสำรองเมื่อโมเดลหลักตอบ 429 (โควตาฟรีเต็ม) / 5xx (ล้น) — ทดสอบจริงแล้ว flash-latest ล่มบ่อย
     # ช่วงโหลดสูง ส่วน flash-lite มีโควตาฟรีมากกว่าและเร็วกว่า (อ่านชนิดสัตว์ถูกในการทดสอบ)
     VISION_FALLBACK_MODEL: str | None = "gemini-flash-lite-latest"
+    # ผู้ให้บริการสำรองอีกเจ้า เมื่อ Gemini ใช้ไม่ได้ทั้ง 2 โมเดล (โควตารายวันหมด / Google ล้น)
+    # ค่าเริ่มต้นเล็งไว้ที่ Groq (OpenAI-compatible, ฟรี) — ทดสอบ 14 ต.ค. 2569: qwen3.8-27b อ่านรูปตามแบบฟอร์ม JSON
+    # ได้ใน 1–2 วินาที แต่โควตาฟรีจำกัดราว 7,000 input token/นาที (≈ 2 รูป/นาที) จึงใช้เป็นตัวสำรองเท่านั้น
+    # ไม่ตั้ง VISION_BACKUP_API_KEY = ไม่มีตัวสำรองนี้
+    VISION_BACKUP_BASE_URL: str | None = "https://api.groq.com/openai/v1"
+    VISION_BACKUP_API_KEY: str | None = None
+    VISION_BACKUP_MODEL: str = "qwen/qwen3.8-27b"
 
     # --- RAG: ค้นคืนข้อมูลร้านจาก shop/ (rag/) ---
     # embedding ผ่าน endpoint OpenAI-compatible — ไม่ตั้ง EMBED_BASE_URL/EMBED_API_KEY จะใช้ค่า

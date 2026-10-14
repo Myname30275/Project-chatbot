@@ -151,15 +151,15 @@ def parse(raw: str) -> ImageAnalysis | None:
     )
 
 
-async def _ask_model(model: str, messages: list[dict]) -> str:
+async def _ask_model(model: str, messages: list[dict], base_url: str | None = None, api_key: str | None = None) -> str:
     payload = {"model": model, "messages": messages, "temperature": 0, "max_tokens": 1024}
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await _post_with_retry(
                 client,
-                f"{settings.VISION_BASE_URL}/chat/completions",
+                f"{base_url or settings.VISION_BASE_URL}/chat/completions",
                 json=payload,
-                headers={"Authorization": f"Bearer {settings.VISION_API_KEY}"},
+                headers={"Authorization": f"Bearer {api_key or settings.VISION_API_KEY}"},
             )
             resp.raise_for_status()
     except httpx.HTTPError as exc:
@@ -170,15 +170,25 @@ async def _ask_model(model: str, messages: list[dict]) -> str:
 
 
 async def _ask(messages: list[dict]) -> str:
-    """เรียกโมเดลหลัก ถ้าล่ม/โควตาเต็มให้ลองโมเดลสำรอง (VISION_FALLBACK_MODEL) 1 ครั้ง"""
+    """ลองตามลำดับ: Gemini โมเดลหลัก → Gemini โมเดลสำรอง (VISION_FALLBACK_MODEL) → ผู้ให้บริการสำรอง (VISION_BACKUP_*)
+    ทดสอบ 13 ต.ค. 2569: โควตารายวันของ Gemini หมด (429) พร้อมกับโมเดลสำรองล้น (503) ทั้งคืน ระบบอ่านรูปไม่ได้เลย
+    จึงเพิ่มผู้ให้บริการเจ้าที่สอง — ใช้ prompt และตัวตรวจ JSON ชุดเดียวกัน ผลทุกช่องจึงผ่านการกรองเหมือนกัน"""
     try:
         return await _ask_model(settings.VISION_MODEL, messages)
-    except VisionError:
-        fallback = settings.VISION_FALLBACK_MODEL
-        if not fallback or fallback == settings.VISION_MODEL:
-            raise
+    except VisionError as exc:
+        error = exc
+    fallback = settings.VISION_FALLBACK_MODEL
+    if fallback and fallback != settings.VISION_MODEL:
         logger.warning("vision: สลับไปใช้โมเดลสำรอง %s", fallback)
-        return await _ask_model(fallback, messages)
+        try:
+            return await _ask_model(fallback, messages)
+        except VisionError as exc:
+            error = exc
+    if settings.VISION_BACKUP_BASE_URL and settings.VISION_BACKUP_API_KEY:
+        logger.warning("vision: สลับไปใช้ผู้ให้บริการสำรอง %s", settings.VISION_BACKUP_MODEL)
+        return await _ask_model(settings.VISION_BACKUP_MODEL, messages,
+                                settings.VISION_BACKUP_BASE_URL, settings.VISION_BACKUP_API_KEY)
+    raise error
 
 
 async def analyze(img_bytes: bytes, mime: str) -> ImageAnalysis:
