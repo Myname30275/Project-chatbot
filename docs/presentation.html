@@ -124,7 +124,7 @@
   .pic__meta { margin-top: auto; padding-top: .5rem; display: flex; justify-content: space-between; font-weight: 700; }
   td small { color: var(--muted); }
 
-  .shots { display: flex; gap: 1rem; height: 27rem; justify-content: center; margin-bottom: 1.1rem; }
+  .shots { display: flex; gap: 1rem; height: 25.5rem; justify-content: center; margin-bottom: 1.1rem; }
   .shot { position: relative; flex: none; display: block; margin: 0; height: 100%; }
   .shot img { height: 100%; width: auto; max-width: none; border: 2px solid var(--ink); border-radius: 1rem; background: var(--surface); display: block; }
   .shot figcaption {
@@ -133,6 +133,9 @@
   }
   .shots__stack { display: flex; flex-direction: column; gap: 1.6rem; height: 100%; }
   .shots__stack .shot { height: calc(50% - .8rem); }
+  .shot figcaption a { color: inherit; text-decoration: none; }
+  .shot figcaption:hover { background: var(--honey); }
+  .shot figcaption a::after { content: " ↗"; font-size: .85em; }
   .shot--crop img { aspect-ratio: 1.6; object-fit: cover; object-position: top; }
   .links { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; }
   .links a {
@@ -207,6 +210,71 @@
     .slide { height: 100vh; page-break-after: always; border: 0; }
     .hud, .bar { display: none; }
     @page { size: 1600px 900px; margin: 0; }
+  }
+
+  /* ---- polish v2 ---- */
+  html { font-size: clamp(12px, 1.26vw, 28px); }
+  .slide {
+    background:
+      radial-gradient(circle at 100% 0, rgba(248, 221, 168, .55), transparent 30rem),
+      radial-gradient(rgba(92, 61, 46, .07) 1.1px, transparent 1.4px) 0 0 / 1.6rem 1.6rem,
+      var(--ground);
+    padding-top: 2.2rem;
+  }
+  .slide__head { align-items: center; gap: .85rem; margin-bottom: .5rem; }
+  .slide__n {
+    display: inline-grid; place-items: center; min-width: 2.7rem; height: 2.7rem; padding: 0 .4rem;
+    border-radius: .85rem; background: var(--honey); color: #fff; border: 2px solid var(--ink);
+    box-shadow: .18rem .18rem 0 var(--ink); font-size: 1.05rem; font-weight: 600;
+  }
+  .slide h2 { font-size: 2.45rem; }
+  .slide__icon { width: 2.5rem; height: 2.5rem; color: var(--honey-deep); flex: none; }
+  .kicker {
+    margin-left: auto; font-family: "IBM Plex Mono", monospace; font-size: .8rem; color: var(--honey-deep);
+    background: var(--surface); border: 1.5px solid var(--honey); border-radius: 999px; padding: .15rem .8rem; white-space: nowrap;
+  }
+  .slide__lede { font-size: 1.2rem; }
+  .card { border-radius: 1.3rem; box-shadow: .3rem .3rem 0 var(--honey-soft); }
+  .card h3 { font-size: 1.28rem; }
+  .card p, .card li { font-size: 1.06rem; }
+  .tag { background: var(--honey-soft); border-color: var(--honey-deep); color: var(--ink); }
+  table { font-size: 1.04rem; }
+  th { background: var(--honey); color: var(--ink); }
+  tbody tr:nth-child(even) td, table tr:nth-child(odd):not(:first-child) td { background: var(--surface-2); }
+  .flow { counter-reset: flow; margin-top: .9rem; }
+  .flow__step { counter-increment: flow; padding-top: 1rem; font-size: 1.02rem; box-shadow: .2rem .2rem 0 var(--honey-soft); }
+  .flow__step::before {
+    content: counter(flow); position: absolute; top: -.8rem; left: 50%; transform: translateX(-50%);
+    width: 1.55rem; height: 1.55rem; border-radius: 50%; background: var(--ink); color: #fff;
+    font-family: "IBM Plex Mono", monospace; font-size: .76rem; display: grid; place-items: center;
+  }
+  .lane + .lane { margin-top: .4rem; }
+  .thanks { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+  .thanks img { width: 3.6rem; height: 3.6rem; border-radius: 50%; border: 2px solid var(--ink); background: #fff; }
+  /* สไลด์ที่เนื้อหาแน่น ย่อเนื้อหาลงเล็กน้อยให้พอดีจอ */
+  #s2 .slide__body, #s6 .slide__body, #s8 .slide__body { zoom: .9; }
+  .arch__list h3 { font-size: 1.08rem; }
+  .arch__list p { font-size: .92rem; }
+
+  /* แถบควบคุมหายเองเมื่อไม่ขยับเมาส์/กดปุ่ม 2.5 วินาที (หน้าจอสะอาดตอนอัดคลิป) */
+  .hud, .bar { transition: opacity .4s ease; }
+  body.idle .hud { opacity: 0; }
+  body.idle { cursor: none; }
+
+  /* เข้าสไลด์แล้วเนื้อหาค่อย ๆ ขึ้นมา (เปิดเฉพาะเมื่อสคริปต์ทำงาน และผู้ใช้ไม่ได้ปิดภาพเคลื่อนไหว) */
+  @media (prefers-reduced-motion: no-preference) {
+    .anim .slide__head, .anim .slide__lede, .anim .slide__body > * {
+      opacity: 0; transform: translateY(.9rem); transition: opacity .55s ease, transform .55s ease;
+    }
+    .anim .slide.is-active .slide__head, .anim .slide.is-active .slide__lede, .anim .slide.is-active .slide__body > * { opacity: 1; transform: none; }
+    .anim .slide.is-active .slide__lede { transition-delay: .06s; }
+    .anim .slide.is-active .slide__body > *:nth-child(1) { transition-delay: .12s; }
+    .anim .slide.is-active .slide__body > *:nth-child(2) { transition-delay: .22s; }
+    .anim .slide.is-active .slide__body > *:nth-child(3) { transition-delay: .32s; }
+    .anim .slide.is-active .slide__body > *:nth-child(n+4) { transition-delay: .42s; }
+  }
+  @media print {
+    .anim .slide__head, .anim .slide__lede, .anim .slide__body > * { opacity: 1 !important; transform: none !important; }
   }
 </style>
 </head>
@@ -303,7 +371,7 @@
 
 <!-- 5 -->
 <section class="slide" id="s5">
-  <div class="slide__head"><span class="slide__n"></span><h2>โมเดลที่ใช้ และการทำงานของแชทบอท</h2></div>
+  <div class="slide__head"><span class="slide__n"></span><svg class="slide__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9zM5 7h14v12H5z"/><path d="M9 11h.01M15 11h.01M9 15h6"/></svg><h2>โมเดลที่ใช้ และการทำงานของแชทบอท</h2><span class="kicker">หัวข้อหลัก 1 / 5</span></div>
   <p class="slide__lede">เลือกโมเดลตามงาน ไม่ใช้โมเดลเดียวทำทุกอย่าง</p>
   <div class="slide__body">
     <table>
@@ -330,7 +398,7 @@
 
 <!-- 6 -->
 <section class="slide" id="s6">
-  <div class="slide__head"><span class="slide__n"></span><h2>RAG &amp; Prompt</h2></div>
+  <div class="slide__head"><span class="slide__n"></span><svg class="slide__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/><path d="M8 10.5h5"/></svg><h2>RAG &amp; Prompt</h2><span class="kicker">หัวข้อหลัก 2 / 5</span></div>
   <p class="slide__lede">น้องหอมไม่ได้ตอบจากความจำของโมเดล แต่ตอบจากข้อมูลร้านที่ค้นมาให้ทุกครั้ง</p>
   <div class="slide__body">
     <div class="lane">
@@ -373,7 +441,7 @@
 
 <!-- 7 -->
 <section class="slide" id="s7">
-  <div class="slide__head"><span class="slide__n"></span><h2>Guardrail 3 ด่าน</h2></div>
+  <div class="slide__head"><span class="slide__n"></span><svg class="slide__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg><h2>Guardrail 3 ด่าน</h2><span class="kicker">หัวข้อหลัก 3 / 5</span></div>
   <p class="slide__lede">ตรวจทั้งขาเข้าและขาออก เพราะกันด้วย Prompt อย่างเดียวไม่พอ</p>
   <div class="slide__body">
     <div class="cols cols--3">
@@ -394,7 +462,7 @@
 
 <!-- 8 -->
 <section class="slide" id="s8">
-  <div class="slide__head"><span class="slide__n"></span><h2>Vision: ส่งรูปแล้วได้คำตอบ</h2></div>
+  <div class="slide__head"><span class="slide__n"></span><svg class="slide__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><h2>Vision: ส่งรูปแล้วได้คำตอบ</h2><span class="kicker">หัวข้อหลัก 4 / 5</span></div>
   <p class="slide__lede">รูปไม่ได้ส่งให้ LLM ตอบโดยตรง — Gemini แปลงรูปเป็นข้อมูล แล้วโค้ดเป็นคนคิดราคา</p>
   <div class="slide__body">
     <div class="flow">
@@ -434,7 +502,7 @@
 
 <!-- 9 -->
 <section class="slide" id="s9">
-  <div class="slide__head"><span class="slide__n"></span><h2>Voice: คุยกับน้องหอมด้วยเสียง</h2></div>
+  <div class="slide__head"><span class="slide__n"></span><svg class="slide__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><h2>Voice: คุยกับน้องหอมด้วยเสียง</h2><span class="kicker">หัวข้อหลัก 5 / 5</span></div>
   <p class="slide__lede">ใช้สมองชุดเดียวกับแชท เพิ่มแค่หูและปาก — คำตอบและความปลอดภัยจึงเหมือนกันทุกช่องทาง</p>
   <div class="slide__body">
     <div class="flow">
@@ -446,7 +514,7 @@
     </div>
     <div class="cols cols--3">
       <div class="card"><h3>เริ่มพูดเร็ว</h3><p>ตัดคำตอบเป็นท่อน ท่อนแรกสั้น แล้วขอเสียงล่วงหน้า 2 ท่อน เล่นต่อกันไม่มีช่องว่าง</p></div>
-      <div class="card"><h3>ตอบแบบภาษาพูด</h3><p>มีคำสั่งเสริมเฉพาะโหมดเสียง ให้ตอบสั้นและอ่านตัวเลขเป็นคำ</p></div>
+      <div class="card"><h3>ตอบแบบภาษาพูด</h3><p>มีคำสั่งเสริมเฉพาะโหมดเสียง ให้ตอบสั้น 2–3 ประโยค ไม่ใช้ลิสต์หรือตาราง</p></div>
       <div class="card"><h3>อวาตาร์มีชีวิต</h3><p>เดินเข้ามาทักทาย แสดงสีหน้าตามเนื้อหา เอียงหัวตอนฟัง และมีการ์ดจองคิวขึ้นเมื่อคุยเรื่องคิว</p></div>
     </div>
   </div>
@@ -519,26 +587,19 @@
   <div class="slide__body">
     <div class="shots">
       <div class="shots__stack">
-        <figure class="shot"><img src="img/demo/home.png" alt="หน้าหลักของเว็บ มีปุ่มจองคิวและปุ่มส่งรูปให้ประเมินราคา" /><figcaption>หน้าหลัก</figcaption></figure>
-        <figure class="shot"><img src="img/demo/voice-0.png" alt="หน้าคุยด้วยเสียง อวาตาร์ยืนหลังเคาน์เตอร์และมีช่องคำพูด" /><figcaption>คุยด้วยเสียง</figcaption></figure>
+        <figure class="shot"><img src="img/demo/home.png" alt="หน้าหลักของเว็บ มีปุ่มจองคิวและปุ่มส่งรูปให้ประเมินราคา" /><figcaption><a href="https://hom-hom-grooming.vercel.app" target="_blank" rel="noopener">หน้าหลัก</a></figcaption></figure>
+        <figure class="shot"><img src="img/demo/voice-0.png" alt="หน้าคุยด้วยเสียง อวาตาร์ยืนหลังเคาน์เตอร์และมีช่องคำพูด" /><figcaption><a href="https://hom-hom-grooming.vercel.app/avatar" target="_blank" rel="noopener">คุยด้วยเสียง</a></figcaption></figure>
       </div>
-      <figure class="shot"><img src="img/demo/chat-price.png" alt="หน้าต่างแชทตอบราคาอาบน้ำตามขนาด" /><figcaption>ช่องแชท</figcaption></figure>
+      <figure class="shot"><img src="img/demo/chat-price.png" alt="หน้าต่างแชทตอบราคาอาบน้ำตามขนาด" /><figcaption><a href="https://hom-hom-grooming.vercel.app" target="_blank" rel="noopener">ช่องแชท</a></figcaption></figure>
       <div class="shots__stack">
-        <figure class="shot shot--crop"><img src="img/demo/booking.png" alt="ฟอร์มจองคิว ขั้นเลือกบริการและวันเวลา" /><figcaption>จองคิว</figcaption></figure>
-        <figure class="shot"><img src="img/demo/admin.png" alt="หลังบ้านเจ้าของร้าน ตารางคิวรายสัปดาห์" /><figcaption>หลังบ้าน</figcaption></figure>
+        <figure class="shot shot--crop"><img src="img/demo/booking.png" alt="ฟอร์มจองคิว ขั้นเลือกบริการและวันเวลา" /><figcaption><a href="https://hom-hom-grooming.vercel.app/?book=1" target="_blank" rel="noopener">จองคิว</a></figcaption></figure>
+        <figure class="shot"><img src="img/demo/admin.png" alt="หลังบ้านเจ้าของร้าน ตารางคิวรายสัปดาห์" /><figcaption><a href="https://hom-hom-grooming.vercel.app/admin" target="_blank" rel="noopener">หลังบ้าน</a></figcaption></figure>
       </div>
-      <figure class="shot"><img src="img/demo/line-oa.jpg" alt="หน้า LINE Official Account ของร้าน Hom Hom Grooming" /><figcaption>LINE OA</figcaption></figure>
-    </div>
-    <div class="links">
-      <a href="https://hom-hom-grooming.vercel.app">เว็บแชทบอท · hom-hom-grooming.vercel.app</a>
-      <a href="https://hom-hom-grooming.vercel.app/avatar">คุยด้วยเสียง · /avatar</a>
-      <a href="https://hom-hom-grooming.vercel.app/?book=1">จองคิว · /?book=1</a>
-      <a href="https://hom-hom-grooming.vercel.app/admin">หลังบ้าน · /admin</a>
-      <a href="https://line.me/R/ti/p/@103fgxwt">LINE · @103fgxwt</a>
+      <figure class="shot"><img src="img/demo/line-oa.jpg" alt="หน้า LINE Official Account ของร้าน Hom Hom Grooming" /><figcaption><a href="https://line.me/R/ti/p/@103fgxwt" target="_blank" rel="noopener">LINE OA</a></figcaption></figure>
     </div>
   </div>
   <div class="slide__foot"><span><img src="../static/img/logo-badge.png" alt="" />Hom Hom Grooming</span><span class="pg"></span></div>
-  <aside class="note">ต่อไปขอสาธิตระบบจริงครับ เริ่มจากหน้าหลักของเว็บ เปิดช่องแชทแล้วถามราคาอาบน้ำ น้องหอมจะตอบราคาตามขนาดจากข้อมูลร้านแล้วถามน้ำหนัก จากนั้นส่งรูปน้องให้ประเมินราคา แล้วลองสั่งให้ลืมคำสั่งเดิม ซึ่งจะถูกปฏิเสธ ต่อด้วยหน้าคุยด้วยเสียงกับอวาตาร์ และ LINE ของร้าน สุดท้ายเป็นระบบเสริม คือการจองคิว และหลังบ้านของเจ้าของร้าน ลิงก์ทั้งหมดอยู่ด้านล่างของสไลด์ครับ</aside>
+  <aside class="note">ต่อไปขอสาธิตระบบจริงครับ เริ่มจากหน้าหลักของเว็บ เปิดช่องแชทแล้วถามราคาอาบน้ำ น้องหอมจะตอบราคาตามขนาดจากข้อมูลร้านแล้วถามน้ำหนัก จากนั้นส่งรูปน้องให้ประเมินราคา แล้วลองสั่งให้ลืมคำสั่งเดิม ซึ่งจะถูกปฏิเสธ ต่อด้วยหน้าคุยด้วยเสียงกับอวาตาร์ และ LINE ของร้าน สุดท้ายเป็นระบบเสริม คือการจองคิว และหลังบ้านของเจ้าของร้าน กดชื่อใต้ภาพแต่ละหน้าเพื่อเปิดหน้านั้นได้เลยครับ</aside>
 </section>
 
 <!-- 12 -->
@@ -569,7 +630,7 @@
       <tr><td><strong>ภาณุพงศ์ บุตรดี</strong> 68076052</td><td>Backend และ API · Vision · ความปลอดภัย · ระบบจองคิวและหลังบ้าน</td></tr>
       <tr><td>ทำร่วมกัน</td><td>UI/UX · การทดสอบ · เอกสาร</td></tr>
     </table>
-    <div class="card card--hl" style="text-align:center"><h3>ขอบคุณครับ/ค่ะ — ยินดีตอบคำถาม</h3></div>
+    <div class="card card--hl thanks"><img src="../static/img/mascot.webp" alt="" /><h3>ขอบคุณครับ/ค่ะ — ยินดีตอบคำถาม</h3></div>
   </div>
   <div class="slide__foot"><span><img src="../static/img/logo-badge.png" alt="" />Hom Hom Grooming</span><span class="pg"></span></div>
   <aside class="note">สรุปครับ ระบบยังมีข้อจำกัด คือ Prompt คุมโมเดลได้ไม่ทุกรอบจึงต้องมีโค้ดตรวจซ้ำ การอ่านรูปขึ้นกับโควตาฟรี และการฟังเสียงใช้ได้เฉพาะ Chrome กับ Edge ถ้าผู้ใช้เพิ่ม 10 เท่า ตัว serverless ขยายได้เอง และเราจะย้ายดัชนี RAG ไป vector database กับใช้โควตาแบบเสียเงิน ด้านการแบ่งงาน แพรวดูแลข้อมูลธุรกิจ Prompt และ RAG ส่วนภาณุพงศ์ดูแล Backend, Vision, ความปลอดภัย และระบบจองคิว ขอบคุณครับ ยินดีตอบคำถามครับ</aside>
@@ -590,7 +651,18 @@
     current = Math.max(0, Math.min(slides.length - 1, i));
     slides[current].scrollIntoView({ block: "start" });
   }
+  document.documentElement.classList.add("anim");
+  let idleTimer;
+  const wake = () => {
+    document.body.classList.remove("idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => document.body.classList.add("idle"), 2500);
+  };
+  ["mousemove", "keydown", "wheel", "touchstart"].forEach((ev) => window.addEventListener(ev, wake, { passive: true }));
+  wake();
+
   function update(i) {
+    slides.forEach((el, k) => el.classList.toggle("is-active", k === i));
     current = i;
     hud.textContent = `${i + 1} / ${slides.length} · ← → เปลี่ยนสไลด์ · N บทพูด`;
     bar.style.width = `${((i + 1) / slides.length) * 100}%`;

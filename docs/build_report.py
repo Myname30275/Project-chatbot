@@ -217,7 +217,7 @@ def section_architecture(f, endpoints):
 <h3>3.1 องค์ประกอบของระบบ</h3>
 {table(["ส่วน", "เทคโนโลยี", "หน้าที่"], [
     ["ช่องทางลูกค้า", "หน้าเว็บ (HTML/CSS/JS) · LINE OA", "แชทพิมพ์ + ส่งรูป, โหมดเสียงคุยกับอวตาร 3 มิติ, ฟอร์มจองคิว, หน้าเช็คคิว/ยกเลิกคิว"],
-    ["API / Backend", "FastAPI บน Vercel (serverless)", "รับข้อความ รูป และคำขอจองคิว ตอบแบบสตรีม (SSE) ให้เห็นคำตอบทีละประโยค"],
+    ["API / Backend", "ภาษา Python · FastAPI บน Vercel (serverless) · หน้าเว็บ HTML/CSS/JavaScript", "รับข้อความ รูป และคำขอจองคิว ตอบแบบสตรีม (SSE) ให้เห็นคำตอบทีละประโยค"],
     ["LLM", "Typhoon v2.5 (API แบบ OpenAI-compatible)", "เรียบเรียงคำตอบภาษาไทยจากข้อมูลร้านที่ค้นได้ และจำแนกเจตนาของข้อความ"],
     ["RAG", f"Gemini embedding + TF-IDF (hybrid) · {f['chunks']} ชิ้นข้อมูล", "ค้นข้อมูลร้านที่ตรงกับคำถามส่งให้ LLM บอทจึงตอบจากข้อมูลจริง ไม่แต่งเอง"],
     ["Vision", "Gemini Flash (มีโมเดลสำรอง)", "อ่านรูปสัตว์เลี้ยงและรูปสลิปเป็นข้อมูลมีโครงสร้าง แล้วโค้ดคิดราคา/ตรวจยอดจากตารางของร้าน"],
@@ -226,10 +226,20 @@ def section_architecture(f, endpoints):
     ["เสียง", "Cartesia TTS · Web Speech API", "แปลงคำตอบเป็นเสียงพูดในโหมดอวตาร ส่งทำเสียงทีละประโยคโดยตัดที่ท้ายประโยคหรือขอบคำไทย"],
 ])}
 
+<figure><img src="img/arch-4-models.png" alt="โมเดลที่ใช้และการทำงานของแชทบอท">
+<figcaption>ภาพที่ 2 โมเดลที่ใช้แต่ละงาน และลำดับการทำงานของแชทบอทโดยย่อ</figcaption></figure>
 <figure><img src="img/arch-2-message.png" alt="แผนภาพการไหลของข้อมูล 1 ข้อความ">
-<figcaption>ภาพที่ 2 การไหลของข้อมูลของ 1 ข้อความ (data flow): ด่านขาเข้า → ค้นข้อมูลร้าน → LLM → ด่านขาออก → ปุ่มทางลัด</figcaption></figure>
+<figcaption>ภาพที่ 3 การไหลของข้อมูลของ 1 ข้อความ (data flow): ด่านขาเข้า → ค้นข้อมูลร้าน → LLM → ด่านขาออก → ปุ่มทางลัด</figcaption></figure>
+<figure><img src="img/arch-5-rag.png" alt="ระบบ RAG และ Prompt">
+<figcaption>ภาพที่ 4 RAG และ Prompt: เตรียมคลังความรู้จากไฟล์ข้อมูลร้าน → ค้นแบบผสมเมื่อลูกค้าถาม → Typhoon ตอบตามกฎ</figcaption></figure>
+<figure><img src="img/arch-6-guard.png" alt="Guardrail 3 ด่าน">
+<figcaption>ภาพที่ 5 Guardrail 3 ด่าน: กฎในโค้ด → ตัวตรวจ LLM → ตรวจคำตอบทีละประโยค</figcaption></figure>
+<figure><img src="img/arch-7-vision.png" alt="ระบบอ่านรูป Vision">
+<figcaption>ภาพที่ 6 Vision: โมเดลอ่านรูปเป็นข้อมูล แล้วโค้ดคิดราคาหรือตรวจสลิปจากข้อมูลของร้าน</figcaption></figure>
+<figure><img src="img/arch-8-voice.png" alt="ระบบคุยด้วยเสียง Voice">
+<figcaption>ภาพที่ 7 Voice: เสียง → ข้อความ → แกนกลางแชทบอท → เสียงพูดของอวาตาร์</figcaption></figure>
 <figure><img src="img/arch-3-booking.png" alt="แผนภาพการจองคิว ยกเลิก และคืนเงิน">
-<figcaption>ภาพที่ 3 เส้นทางการจองคิว ยืนยันคิว ยกเลิก และคืนเงิน</figcaption></figure>
+<figcaption>ภาพที่ 8 ระบบจองคิวและยกเลิกคิว: จอง ยืนยันคิว ยกเลิก และคืนเงิน</figcaption></figure>
 
 <h3>3.2 API ทุก endpoint ในแผนภาพทำงานครบ</h3>
 <p>ทดสอบกับเว็บจริงเมื่อ {thai_date(endpoints['tested_at'])} ด้วย <code>tests/run_endpoint_check.py</code>:
