@@ -154,6 +154,18 @@ _COAT_SERVICE_RE = re.compile(
 _NOTE_TAIL_RE = re.compile(r"\s*\(?\s*(ซึ่ง|โดย)?(เป็น)?ราคาประเมินเบื้องต้น.*?(?P<end>(ค่ะ|นะคะ|ครับ)?\s*)$", re.DOTALL)
 
 
+# ราคาอาบน้ำ/ตัดขนขึ้นกับขนาดตัว — บอกราคาเดียวโดยไม่บอกว่าเป็นของขนาดไหน ทั้งที่ยังไม่รู้ขนาดน้อง = เดาให้ลูกค้า
+# ทดสอบ 14 ต.ค. 2569 (โหมดเสียงฟังผิดเป็น "ตั้งค่าอาบน้ำตัดขนเท่าไหร่"): บอทตอบ "ตั้งค่าอาบน้ำตัดขน 750 บาทค่ะ"
+# 750 คือราคาตัดขนสุนัขใหญ่ จึงผ่านการตรวจราคา แต่ลูกค้าไม่ได้บอกขนาดเลย → แทนประโยคนั้นด้วยตารางราคาตามขนาด
+_SIZED_SERVICE_RE = re.compile(r"อาบน้ำ|ตัดขน|เป่าขน|bath|groom", re.IGNORECASE)
+_SIZE_CUE_RE = re.compile(
+    r"สุนัข\s*(เล็ก|กลาง|ใหญ่)|หมา\s*(เล็ก|กลาง|ใหญ่)|ตัว(เล็ก|กลาง|ใหญ่)|ขนาด\s*(เล็ก|กลาง|ใหญ่)|ไซ(ส์|ซ์)|แมว|"
+    r"\d+(?:[.,]\d+)?\s*(กิโล|กก|kg)|small|medium|large|\bcats?\b",
+    re.IGNORECASE,
+)
+_OTHER_ITEM_RE = re.compile(r"ลูกสุนัข|ลูกแมว|แพ็กเกจ|รับ-?ส่ง|แปรง|สปา|มัดจำ|ขนพัน|เห็บ|ดูแลพิเศษ|ตัดเล็บ|ทำความสะอาดหู|ต่อมกลิ่น")
+
+
 _LONE_PARTICLES = {"ค่ะ", "คะ", "นะคะ", "ครับ"}  # Typhoon บางรอบสตรีม "ค่ะ" ซ้ำท้ายคำตอบ ("…ได้ค่ะ ค่ะ")
 
 
@@ -176,6 +188,11 @@ _AVAILABILITY_RE = re.compile(
     r"|(?<!มี)คิวว่าง(ค่ะ|นะคะ|ครับ|อยู่)"
     r"|(เวลา|โมง|น\.|วัน)[^\n]{0,25}(?<!ที่)(ยังว่าง|ว่างอยู่|ว่างค่ะ|ว่างนะคะ|เต็มแล้ว|คิวเต็ม)"
 )
+
+
+def _sized_ids(sentence: str) -> list[str]:
+    ids = [sid for sid, word in (("bath", "อาบน้ำ"), ("full_groom", "ตัดขน")) if word in sentence]
+    return ids or list(pricing.SIZED_SERVICES)
 
 
 def droppable(sentence: str) -> bool:
@@ -207,9 +224,14 @@ def split_sentences(text: str) -> list[str]:
 class OutputGuard:
     """ตรวจคำตอบทีละประโยค ใช้ได้ทั้งแบบสตรีม (feed/flush) และแบบข้อความเต็ม (check_text)"""
 
-    def __init__(self, user_texts: list[str] | None = None, extra_amounts: set[float] | None = None):
-        """extra_amounts = ยอดเงินที่ระบบอ่านได้จากสลิปของลูกค้าเอง (บอททวนได้ เช่น "โอนมา 500 บาท")"""
+    def __init__(self, user_texts: list[str] | None = None, extra_amounts: set[float] | None = None,
+                 size_known: bool = False):
+        """extra_amounts = ยอดเงินที่ระบบอ่านได้จากสลิปของลูกค้าเอง (บอททวนได้ เช่น "โอนมา 500 บาท")
+        size_known = รู้ขนาดน้องแล้วจากทางอื่น (เช่น ลูกค้าส่งรูปน้องให้วิเคราะห์ในแชทนี้)"""
         self.user_pii = pii_from_user(user_texts or [])
+        self.size_known = size_known or any(_SIZE_CUE_RE.search(t or "") for t in (user_texts or []))
+        self.size_table_sent = False
+        self.strip_next = False  # ประโยคถัดจากตารางราคา ตัดช่องว่างนำหน้าออก
         self.extra_amounts = set(extra_amounts or ())
         self.pending = ""
         self.blocked_reason: str | None = None
@@ -231,6 +253,16 @@ class OutputGuard:
                 return out
             if droppable(sentence):
                 continue
+            if _SIZE_CUE_RE.search(sentence):
+                self.size_known = True  # คำตอบบอกขนาดเองแล้ว เช่น "ปอมเป็นสุนัขเล็กค่ะ"
+            elif self._guesses_size(sentence):
+                if not self.size_table_sent:
+                    self.size_table_sent = self.said_price = self.said_coat = True
+                    self._emit(out, pricing.size_price_table(_sized_ids(sentence)) + "\n")
+                    self.strip_next = True
+                continue
+            if self.strip_next and sentence.strip():
+                sentence, self.strip_next = sentence.lstrip(), False
             note = _ESTIMATE_NOTE_RE.search(sentence)
             if _COAT_SERVICE_RE.search(sentence[: note.start()] if note else sentence):
                 self.said_coat = True
@@ -245,6 +277,14 @@ class OutputGuard:
                 continue
             self._emit(out, sentence)
         return out
+
+    def _guesses_size(self, sentence: str) -> bool:
+        """บอกราคาอาบน้ำ/ตัดขนราคาเดียว โดยที่ไม่มีใครรู้ขนาดน้อง"""
+        if self.size_known or not _SIZED_SERVICE_RE.search(sentence) or _OTHER_ITEM_RE.search(sentence):
+            return False
+        text = sentence.translate(_THAI_DIGITS)
+        amounts = {int(m.group(1).replace(",", "")) for m in _BAHT_RE.finditer(text)}
+        return bool(amounts & pricing.sized_prices())
 
     def _emit(self, out: list[str], sentence: str) -> None:
         """ปล่อยประโยคที่ผ่านแล้ว — ยกเว้น fallback "ยังไม่มีข้อมูล" ที่ Typhoon ติดต่อท้ายคำตอบที่ตอบได้แล้ว

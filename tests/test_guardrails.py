@@ -150,10 +150,10 @@ class OutputGuardTests(unittest.TestCase):
     def test_stream_releases_only_checked_sentences(self):
         g = OutputGuard()
         out = []
-        for ch in "อาบน้ำ 250 บาทค่ะ ได้เลย ลดให้ 50% ค่ะ แล้วเจอกันค่ะ":
+        for ch in "อาบน้ำสุนัขเล็ก 250 บาทค่ะ ได้เลย ลดให้ 50% ค่ะ แล้วเจอกันค่ะ":
             out += g.feed(ch)
         out += g.flush()
-        self.assertEqual("".join(out), "อาบน้ำ 250 บาทค่ะ")
+        self.assertEqual("".join(out), "อาบน้ำสุนัขเล็ก 250 บาทค่ะ")
         self.assertEqual(g.blocked_reason, "DISCOUNT")
 
     def test_unwanted_sentences_are_dropped_without_blocking_the_answer(self):
@@ -213,6 +213,27 @@ class OutputGuardTests(unittest.TestCase):
                      "กำจัดขนพันกัน 150–300 บาท"]:
             with self.subTest(fine=fine):
                 self.assertIsNone(check_sentence(fine))
+
+    def test_single_bath_or_groom_price_without_a_size_becomes_the_size_table(self):
+        def run(text, user="อาบน้ำตัดขนเท่าไหร่", **kw):
+            g = OutputGuard([user], **kw)
+            return "".join([s for ch in text for s in g.feed(ch)] + g.flush())
+
+        # เจอจริง 14 ต.ค. 2569 (โหมดเสียงฟังผิด) — ลูกค้าไม่ได้บอกขนาด บอทเดาราคาสุนัขใหญ่ให้
+        bad = "ตั้งค่าอาบน้ำตัดขน 750 บาทค่ะ เป็นราคาประเมินเบื้องต้น ราคาจริงอาจเปลี่ยนหน้างานถ้าขนพันมาก"
+        out = run(bad, "ตั้งค่าอาบน้ำตัดขนเท่าไหร่")
+        self.assertNotIn("ตั้งค่า", out)
+        for line in ["สุนัขเล็ก", "สุนัขกลาง", "สุนัขใหญ่", "แมว (ทุกขนาด): 600 บาท", "อาบน้ำ + เป่าขน"]:
+            self.assertIn(line, out)
+        # รู้ขนาดแล้ว (ลูกค้าบอกน้ำหนัก / คำตอบบอกขนาดเอง / ส่งรูปน้อง) → ไม่แตะ
+        self.assertIn("ตัดขนทั้งตัว 750 บาท", run("ตัดขนทั้งตัว 750 บาทค่ะ", "หมาหนัก 30 กิโล ตัดขนเท่าไหร่"))
+        self.assertIn("750 บาท", run("น้องปอมเป็นสุนัขเล็กค่ะ ตัดขนทั้งตัว 400 บาท ส่วนพันธุ์ใหญ่ 750 บาทค่ะ", "ปอมตัดขนเท่าไหร่"))
+        self.assertIn("อาบน้ำ 250 บาท", run("อาบน้ำ 250 บาทค่ะ", size_known=True))
+        # ราคาอื่นที่บังเอิญเท่ากัน หรือมีขนาดในประโยค → ไม่แตะ
+        self.assertIn("300 บาท", run("แพ็กเกจลูกสุนัข/ลูกแมว (อาบน้ำ + ตัดเล็บ + เช็ดหู) ราคา 300 บาทค่ะ"))
+        self.assertIn("อาบน้ำแมว 300 บาท", run("อาบน้ำแมว 300 บาท ตัดเล็บ 100 บาท รวม 400 บาทค่ะ"))
+        table = "อาบน้ำ + เป่าขน\n- สุนัขเล็ก (น้ำหนักน้อยกว่า 10 กก.): 250 บาท\n- สุนัขใหญ่ (มากกว่า 25 กก.): 500 บาท"
+        self.assertEqual(run(table), table)
 
     def test_doubled_polite_particle_is_cleaned(self):
         g = OutputGuard()

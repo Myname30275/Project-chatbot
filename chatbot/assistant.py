@@ -259,7 +259,7 @@ async def respond_stream(
         knowledge = weight_note + ("\n\n" + knowledge if knowledge else "")
 
     # ด่าน 3: ปล่อยคำตอบทีละประโยคที่ตรวจผ่านแล้วเท่านั้น
-    out_guard = guard.OutputGuard(_user_texts(history, message), _slip_amounts(attachments))
+    out_guard = guard.OutputGuard(_user_texts(history, message), _slip_amounts(attachments), size_known=has_pet_photo)
     shown = ""  # ข้อความที่ลูกค้าเห็นจริง — ใช้บันทึกประวัติ
     completed = False
     llm_stream = llm_client.chat_stream(history, message, blocks, knowledge=knowledge, **llm_overrides)

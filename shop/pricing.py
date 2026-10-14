@@ -86,6 +86,26 @@ def mentions_offer(text: str) -> bool:
     return bool(offer_chunk_ids(text))
 
 
+SIZED_SERVICES = ("bath", "full_groom")  # บริการที่ราคาขึ้นกับขนาดตัว
+
+
+def size_price_table(service_ids: list[str] | tuple[str, ...] = SIZED_SERVICES) -> str:
+    """ตารางราคาตามขนาดตัวของบริการที่ระบุ (ข้อความล้วน ใช้ตอบลูกค้าตรง ๆ)"""
+    catalog = load_catalog()
+    sizes = catalog["sizes"]
+    lines: list[str] = []
+    for service in catalog["services"]:
+        if service["id"] in service_ids and "prices" in service:
+            lines.append(service["name"])
+            lines += [f"- {sizes[k]}: {_baht(v)}" for k, v in service["prices"].items()]
+            lines.append("")
+    return "\n".join(lines).strip()
+
+
+def sized_prices() -> frozenset[int]:
+    return frozenset(v for s in load_catalog()["services"] if s["id"] in SIZED_SERVICES for v in s.get("prices", {}).values())
+
+
 def _baht(n: int) -> str:
     return f"{n:,} บาท"
 
