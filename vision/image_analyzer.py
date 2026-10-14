@@ -151,7 +151,8 @@ def parse(raw: str) -> ImageAnalysis | None:
     )
 
 
-async def _ask_model(model: str, messages: list[dict], base_url: str | None = None, api_key: str | None = None) -> str:
+async def _ask_model(model: str, messages: list[dict], base_url: str | None = None, api_key: str | None = None,
+                     attempts: int | None = None) -> str:
     payload = {"model": model, "messages": messages, "temperature": 0, "max_tokens": 1024}
     try:
         async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -160,6 +161,7 @@ async def _ask_model(model: str, messages: list[dict], base_url: str | None = No
                 f"{base_url or settings.VISION_BASE_URL}/chat/completions",
                 json=payload,
                 headers={"Authorization": f"Bearer {api_key or settings.VISION_API_KEY}"},
+                **({"attempts": attempts} if attempts else {}),
             )
             resp.raise_for_status()
     except httpx.HTTPError as exc:
@@ -169,30 +171,42 @@ async def _ask_model(model: str, messages: list[dict], base_url: str | None = No
     return choices[0].get("message", {}).get("content") or ""
 
 
+def _candidates() -> list[tuple[str, str | None, str | None]]:
+    """ลำดับโมเดลอ่านรูป: (โมเดล, base_url, api_key) — base_url/api_key None = ใช้ VISION_* (Gemini)"""
+    gemini = [(settings.VISION_MODEL, None, None)]
+    if settings.VISION_FALLBACK_MODEL and settings.VISION_FALLBACK_MODEL != settings.VISION_MODEL:
+        gemini.append((settings.VISION_FALLBACK_MODEL, None, None))
+    backup = []
+    if settings.VISION_BACKUP_BASE_URL and settings.VISION_BACKUP_API_KEY:
+        backup = [(settings.VISION_BACKUP_MODEL, settings.VISION_BACKUP_BASE_URL, settings.VISION_BACKUP_API_KEY)]
+    if not settings.vision_enabled:
+        gemini = []
+    return backup + gemini if settings.VISION_BACKUP_FIRST else gemini + backup
+
+
 async def _ask(messages: list[dict]) -> str:
-    """ลองตามลำดับ: Gemini โมเดลหลัก → Gemini โมเดลสำรอง (VISION_FALLBACK_MODEL) → ผู้ให้บริการสำรอง (VISION_BACKUP_*)
+    """ลองตามลำดับใน _candidates() — ค่าเริ่มต้น Groq → Gemini Flash → Gemini Flash Lite
     ทดสอบ 13 ต.ค. 2569: โควตารายวันของ Gemini หมด (429) พร้อมกับโมเดลสำรองล้น (503) ทั้งคืน ระบบอ่านรูปไม่ได้เลย
-    จึงเพิ่มผู้ให้บริการเจ้าที่สอง — ใช้ prompt และตัวตรวจ JSON ชุดเดียวกัน ผลทุกช่องจึงผ่านการกรองเหมือนกัน"""
-    try:
-        return await _ask_model(settings.VISION_MODEL, messages)
-    except VisionError as exc:
-        error = exc
-    fallback = settings.VISION_FALLBACK_MODEL
-    if fallback and fallback != settings.VISION_MODEL:
-        logger.warning("vision: สลับไปใช้โมเดลสำรอง %s", fallback)
+    14 ต.ค. 2569: ส่งรูปตอนอัดคลิปรอเกือบ 30 วินาที เพราะแต่ละโมเดลลองซ้ำ 3 รอบพร้อมหน่วงเวลาก่อนสลับ
+    → ตัวที่ยังมีตัวถัดไปลองครั้งเดียว ติด 429/5xx แล้วสลับทันที เฉพาะตัวสุดท้ายที่ลองซ้ำได้
+    ทุกตัวใช้ prompt และตัวตรวจ JSON ชุดเดียวกัน ผลทุกช่องจึงผ่านการกรองเหมือนกัน"""
+    chain = _candidates()
+    if not chain:
+        raise VisionError("ยังไม่ได้ตั้งค่าระบบอ่านรูป (VISION_*)")
+    error: VisionError | None = None
+    for i, (model, base_url, api_key) in enumerate(chain):
+        last = i == len(chain) - 1
+        if i:
+            logger.warning("vision: สลับไปใช้ %s", model)
         try:
-            return await _ask_model(fallback, messages)
+            return await _ask_model(model, messages, base_url, api_key, attempts=None if last else 1)
         except VisionError as exc:
             error = exc
-    if settings.VISION_BACKUP_BASE_URL and settings.VISION_BACKUP_API_KEY:
-        logger.warning("vision: สลับไปใช้ผู้ให้บริการสำรอง %s", settings.VISION_BACKUP_MODEL)
-        return await _ask_model(settings.VISION_BACKUP_MODEL, messages,
-                                settings.VISION_BACKUP_BASE_URL, settings.VISION_BACKUP_API_KEY)
     raise error
 
 
 async def analyze(img_bytes: bytes, mime: str) -> ImageAnalysis:
-    if not settings.vision_enabled:
+    if not settings.vision_enabled and not settings.VISION_BACKUP_API_KEY:
         raise VisionError("ยังไม่ได้ตั้งค่าระบบอ่านรูป (VISION_*)")
     data_uri = f"data:{mime};base64,{base64.b64encode(img_bytes).decode()}"
     messages = [

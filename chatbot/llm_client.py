@@ -173,12 +173,13 @@ async def _post_with_retry(
     *,
     json: dict[str, Any],
     headers: dict[str, str] | None = None,
+    attempts: int = MAX_ATTEMPTS,
 ) -> httpx.Response:
     """POST ที่ลองใหม่อัตโนมัติเมื่อโดน rate limit (429) หรือ 5xx หรือเชื่อมต่อสะดุด
     คืน response ดิบ ให้ผู้เรียกไปทำ raise_for_status() + _friendly_error_from_response() เอง
     headers=None = ใช้ Authorization ของ LLM_API_KEY (ปรับได้เผื่อเรียกผู้ให้บริการอื่น เช่น OCR/vision)"""
-    for attempt in range(MAX_ATTEMPTS):
-        last = attempt == MAX_ATTEMPTS - 1
+    for attempt in range(attempts):
+        last = attempt == attempts - 1
         try:
             response = await client.post(
                 url, headers=headers or _auth_headers(), json=json

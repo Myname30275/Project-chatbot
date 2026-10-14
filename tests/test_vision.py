@@ -265,24 +265,28 @@ if __name__ == "__main__":
 
 
 class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
-    """Gemini ใช้ไม่ได้ทั้ง 2 โมเดล → ใช้ผู้ให้บริการสำรอง (VISION_BACKUP_*) · ไม่ได้ตั้ง = แจ้งขัดข้องเหมือนเดิม"""
+    """ลำดับโมเดลอ่านรูป: Groq ก่อน (VISION_BACKUP_FIRST) หรือ Gemini ก่อน · ตัวที่ยังมีตัวถัดไปลองครั้งเดียว"""
 
     async def asyncSetUp(self):
         from unittest import mock
         from vision import image_analyzer
 
         self.calls = []
+        self.fail = set()
 
-        async def fake(model, messages, base_url=None, api_key=None):
-            self.calls.append((model, base_url))
-            if base_url is None:
+        async def fake(model, messages, base_url=None, api_key=None, attempts=None):
+            self.calls.append((model, attempts))
+            if model in self.fail:
                 raise image_analyzer.VisionError("ระบบอ่านรูปขัดข้องชั่วคราว")
-            return "ok"
+            return model
 
         self.patches = [mock.patch.object(image_analyzer, "_ask_model", fake),
+                        mock.patch.object(settings, "VISION_BASE_URL", "http://gemini"),
+                        mock.patch.object(settings, "VISION_API_KEY", "g"),
                         mock.patch.object(settings, "VISION_MODEL", "g-main"),
                         mock.patch.object(settings, "VISION_FALLBACK_MODEL", "g-lite"),
                         mock.patch.object(settings, "VISION_BACKUP_BASE_URL", "http://backup"),
+                        mock.patch.object(settings, "VISION_BACKUP_API_KEY", "k"),
                         mock.patch.object(settings, "VISION_BACKUP_MODEL", "b-model")]
         for p in self.patches:
             p.start()
@@ -292,18 +296,29 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
         for p in self.patches:
             p.stop()
 
-    async def test_backup_is_used_after_both_gemini_models_fail(self):
+    async def test_groq_first_then_gemini_and_only_the_last_retries(self):
         from unittest import mock
 
-        with mock.patch.object(settings, "VISION_BACKUP_API_KEY", "k"):
-            self.assertEqual(await self.analyzer._ask([]), "ok")
-        self.assertEqual(self.calls, [("g-main", None), ("g-lite", None), ("b-model", "http://backup")])
+        with mock.patch.object(settings, "VISION_BACKUP_FIRST", True):
+            self.assertEqual(await self.analyzer._ask([]), "b-model")
+            self.fail = {"b-model", "g-main"}
+            self.calls.clear()
+            self.assertEqual(await self.analyzer._ask([]), "g-lite")
+        self.assertEqual(self.calls, [("b-model", 1), ("g-main", 1), ("g-lite", None)])
 
-    async def test_without_backup_key_the_error_is_raised(self):
+    async def test_gemini_first_when_switched_off(self):
         from unittest import mock
 
+        self.fail = {"g-main", "g-lite"}
+        with mock.patch.object(settings, "VISION_BACKUP_FIRST", False):
+            self.assertEqual(await self.analyzer._ask([]), "b-model")
+        self.assertEqual([m for m, _ in self.calls], ["g-main", "g-lite", "b-model"])
+
+    async def test_without_backup_key_gemini_alone_is_used(self):
+        from unittest import mock
+
+        self.fail = {"g-main", "g-lite"}
         with mock.patch.object(settings, "VISION_BACKUP_API_KEY", None):
             with self.assertRaises(self.analyzer.VisionError):
                 await self.analyzer._ask([])
         self.assertEqual([m for m, _ in self.calls], ["g-main", "g-lite"])
-
