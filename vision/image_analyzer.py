@@ -173,9 +173,12 @@ async def _ask_model(model: str, messages: list[dict], base_url: str | None = No
 
 def _candidates() -> list[tuple[str, str | None, str | None]]:
     """ลำดับโมเดลอ่านรูป: (โมเดล, base_url, api_key) — base_url/api_key None = ใช้ VISION_* (Gemini)"""
-    gemini = [(settings.VISION_MODEL, None, None)]
+    models = [settings.VISION_MODEL]
     if settings.VISION_FALLBACK_MODEL and settings.VISION_FALLBACK_MODEL != settings.VISION_MODEL:
-        gemini.append((settings.VISION_FALLBACK_MODEL, None, None))
+        models.append(settings.VISION_FALLBACK_MODEL)
+    keys = [None] + ([settings.VISION_API_KEY_2] if settings.VISION_API_KEY_2 else [])
+    # โมเดลเดียวกันลองครบทุก key ก่อนลดไปโมเดลเล็ก (key คนละบัญชี = โควตาแยก)
+    gemini = [(model, None if key is None else settings.VISION_BASE_URL, key) for model in models for key in keys]
     backup = []
     if settings.VISION_BACKUP_BASE_URL and settings.VISION_BACKUP_API_KEY:
         backup = [(settings.VISION_BACKUP_MODEL, settings.VISION_BACKUP_BASE_URL, settings.VISION_BACKUP_API_KEY)]
@@ -185,7 +188,7 @@ def _candidates() -> list[tuple[str, str | None, str | None]]:
 
 
 async def _ask(messages: list[dict]) -> str:
-    """ลองตามลำดับใน _candidates() — ค่าเริ่มต้น Groq → Gemini Flash → Gemini Flash Lite
+    """ลองตามลำดับใน _candidates() — ค่าเริ่มต้น Groq → Gemini Flash (key 1 → key 2) → Gemini Flash Lite (key 1 → key 2)
     ทดสอบ 13 ต.ค. 2569: โควตารายวันของ Gemini หมด (429) พร้อมกับโมเดลสำรองล้น (503) ทั้งคืน ระบบอ่านรูปไม่ได้เลย
     14 ต.ค. 2569: ส่งรูปตอนอัดคลิปรอเกือบ 30 วินาที เพราะแต่ละโมเดลลองซ้ำ 3 รอบพร้อมหน่วงเวลาก่อนสลับ
     → ตัวที่ยังมีตัวถัดไปลองครั้งเดียว ติด 429/5xx แล้วสลับทันที เฉพาะตัวสุดท้ายที่ลองซ้ำได้

@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # ไม่ตั้ง VISION_API_KEY = ปิดฟีเจอร์นี้ (รูปจะอ่านได้แค่ "ข้อความในรูป" จาก OCR)
     VISION_BASE_URL: str | None = None
     VISION_API_KEY: str | None = None
+    # key ที่ 2 ของ Gemini จากอีกบัญชี (โควตาฟรีแยกกัน) — ใช้เมื่อ key แรกติดโควตา/ล่ม · ไม่ตั้ง = ใช้ key เดียว
+    VISION_API_KEY_2: str | None = None
     # gemini-flash-latest = alias ที่ Google ชี้ไปโมเดล flash ตัวล่าสุดเสมอ
     # (ตั้งชื่อเวอร์ชันตายตัวเช่น gemini-2.5-flash จะโดน 404 เมื่อ Google เลิกให้ผู้ใช้ใหม่)
     VISION_MODEL: str = "gemini-flash-latest"

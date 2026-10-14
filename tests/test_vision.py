@@ -283,6 +283,7 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
         self.patches = [mock.patch.object(image_analyzer, "_ask_model", fake),
                         mock.patch.object(settings, "VISION_BASE_URL", "http://gemini"),
                         mock.patch.object(settings, "VISION_API_KEY", "g"),
+                        mock.patch.object(settings, "VISION_API_KEY_2", None),
                         mock.patch.object(settings, "VISION_MODEL", "g-main"),
                         mock.patch.object(settings, "VISION_FALLBACK_MODEL", "g-lite"),
                         mock.patch.object(settings, "VISION_BACKUP_BASE_URL", "http://backup"),
@@ -313,6 +314,16 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(settings, "VISION_BACKUP_FIRST", False):
             self.assertEqual(await self.analyzer._ask([]), "b-model")
         self.assertEqual([m for m, _ in self.calls], ["g-main", "g-lite", "b-model"])
+
+    async def test_second_gemini_key_is_tried_for_each_model_before_the_smaller_model(self):
+        from unittest import mock
+
+        self.fail = {"b-model", "g-main"}
+        with mock.patch.object(settings, "VISION_API_KEY_2", "g2"), mock.patch.object(settings, "VISION_BACKUP_FIRST", True):
+            chain = [(m, k) for m, _, k in self.analyzer._candidates()]
+            self.assertEqual(chain, [("b-model", "k"), ("g-main", None), ("g-main", "g2"), ("g-lite", None), ("g-lite", "g2")])
+            self.assertEqual(await self.analyzer._ask([]), "g-lite")
+        self.assertEqual([a for _, a in self.calls], [1, 1, 1, 1])
 
     async def test_without_backup_key_gemini_alone_is_used(self):
         from unittest import mock
