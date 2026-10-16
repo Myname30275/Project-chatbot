@@ -40,6 +40,23 @@ class TTSTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(speakable(text), expected)
 
+    def test_range_dash_is_spoken_as_thueng(self):
+        from channels.tts import speakable
+        for text, expected in [
+            ("ร้านเปิด 09:00–18:00 น.", "ร้านเปิด 09:00 ถึง 18:00 น."),
+            ("เปิดวันอังคาร–อาทิตย์ค่ะ", "เปิดวันอังคาร ถึง อาทิตย์ค่ะ"),
+            ("สุนัขกลาง (10–25 กก.)", "สุนัขกลาง (10 ถึง 25 กก.)"),
+            ("เพิ่ม 150 - 300 บาท", "เพิ่ม 150 ถึง 300 บาท"),
+            ("ใช้เวลา 2-3 ชั่วโมง", "ใช้เวลา 2 ถึง 3 ชั่วโมง"),
+            ("เปิดถึง 18:00 น. —", "เปิดถึง 18:00 น. ถึง "),  # ท่อนเสียงถูกตัดหลังขีด ยังอ่านเป็น "ถึง"
+            # ไม่ใช่ช่วง: คำประสม และเบอร์โทร
+            ("อาบน้ำ-ตัดขน และรับ-ส่ง", "อาบน้ำ-ตัดขน และรับ-ส่ง"),
+            ("โทร 02-000-0000 นะคะ", "โทร 02 000 0000 นะคะ"),
+            ("โทร 081-234-5678", "โทร 081 234 5678"),
+        ]:
+            with self.subTest(text=text):
+                self.assertEqual(speakable(text), expected)
+
     def test_transcript_sent_to_cartesia_uses_thai_shop_name(self):
         import json
         real_client = httpx.AsyncClient

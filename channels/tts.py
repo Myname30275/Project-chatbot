@@ -26,10 +26,26 @@ class SpeechRequest(BaseModel):
 _SHOP_NAME_RE = re.compile(r"hom\s*-?\s*hom(\s*grooming)?", re.IGNORECASE)
 
 
+# ขีดแสดงช่วง Cartesia อ่านข้ามไป ("09:00–18:00" ฟังเป็น "เก้าโมง สิบแปดโมง") → อ่านเป็นคำว่า "ถึง"
+# - en dash / em dash / ~ ใช้แสดงช่วงเสมอ (ข้อมูลร้านเขียนช่วงด้วย – ทั้งหมด: เวลา น้ำหนัก ราคา วัน)
+# - ขีดธรรมดา (-) แปลงเฉพาะระหว่างตัวเลข เพราะ "อาบน้ำ-ตัดขน" "รับ-ส่ง" ไม่ใช่ช่วง และไม่แตะเบอร์โทร
+#   (เบอร์ 02-000-0000 อ่านเป็นตัวเลขเรียงกัน ตัดขีดเป็นเว้นวรรคแทน)
+_PHONE_RE = re.compile(r"(?<!\d)0\d{1,2}-\d{3}-\d{3,4}(?!\d)")
+_RANGE_DASH_RE = re.compile(r"\s*[–—~]\s*")
+_DIGIT_HYPHEN_RE = re.compile(r"(?<=\d)\s*-\s*(?=\d)")
+
+
+def _ranges_as_words(text: str) -> str:
+    text = _PHONE_RE.sub(lambda m: m.group(0).replace("-", " "), text)
+    text = _RANGE_DASH_RE.sub(" ถึง ", text)
+    return _DIGIT_HYPHEN_RE.sub(" ถึง ", text)
+
+
 def speakable(text: str) -> str:
     name_th = pricing.load_catalog()["shop"].get("name_th") or "หอมหอม กรูมมิ่ง"
     short = name_th.split()[0]
-    return _SHOP_NAME_RE.sub(lambda m: name_th if m.group(1) else short, text)
+    text = _SHOP_NAME_RE.sub(lambda m: name_th if m.group(1) else short, text)
+    return _ranges_as_words(text)
 
 
 @router.get("/config")

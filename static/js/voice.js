@@ -377,8 +377,17 @@
     }
   }
 
+  // ขีดแสดงช่วงอ่านเป็น "ถึง" — กติกาเดียวกับ channels/tts.py: speakable (ข้อความบนจอไม่เปลี่ยน)
+  function rangesAsWords(text) {
+    return text
+      .replace(/(^|[^\d])(0\d{1,2})-(\d{3})-(\d{3,4})(?!\d)/g, "$1$2 $3 $4")
+      .replace(/\s*[–—~]\s*/g, " ถึง ")
+      .replace(/(\d)\s*-\s*(?=\d)/g, "$1 ถึง ");
+  }
+
   function speakBrowserChunk(text, session) {
     if (state === "off" || session !== speakSession) return;
+    text = rangesAsWords(text);
     if (!synth) { console.warn("[voice] เบราว์เซอร์นี้ไม่มี speechSynthesis"); return; }
 
     const v = chosenVoice();
