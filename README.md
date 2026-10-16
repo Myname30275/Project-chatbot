@@ -74,7 +74,7 @@ guardrails/      ③ ความปลอดภัย 3 ด่าน (ฟรี
   pipeline.py, categories.py   รวมด่าน + ข้อความปฏิเสธภาษาไทย
 vision/          ④ Vision: รูปสัตว์ → ประเมินราคา, รูปสลิป → ตรวจมัดจำ
   documents.py                 อ่านไฟล์แนบ (PDF: pymupdf + typhoon-ocr, รูป → image_analyzer)
-  image_analyzer.py            Gemini จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON (สำรอง: Gemini Flash Lite → Groq qwen3.8-27b)
+  image_analyzer.py            จำแนกรูป สัตว์/สลิป/อื่น ๆ เป็น JSON: Groq qwen3.8-27b → Gemini Flash → Flash Lite (Gemini 2 key) สลับทันทีเมื่อ 429/5xx
   pet_estimate.py              รูปสัตว์ → ราคาจาก catalog + ข้อความตอบลูกค้าทันที
   slip_check.py                รูปสลิป → เทียบยอดมัดจำ/ชื่อผู้รับ (แอดมินเป็นผู้ยืนยัน)
 shop/            ⑤ ข้อมูลร้าน: catalog.json (ราคา), policies.md, faq.md + pricing.py
