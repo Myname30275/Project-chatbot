@@ -159,3 +159,22 @@ class AssistantActionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PhotoActionTests(unittest.TestCase):
+    def test_wanting_to_send_a_photo_shows_the_photo_button(self):
+        from chatbot import actions
+
+        for text in ["อยากส่งรูปให้ประเมินราคา", "ขอส่งรูปน้องหน่อยค่ะ", "ถ่ายรูปให้ดูได้ไหม", "อัพโหลดรูปตรงไหน",
+                     "ประเมินราคาจากรูปได้ไหม", "รูปน้องแบบนี้ประเมินให้หน่อย", "can I send a photo"]:
+            with self.subTest(text=text):
+                self.assertEqual(actions.suggest(text)[0], "photo")
+        for text in ["อาบน้ำหมาเท่าไหร่", "ร้านเปิดกี่โมง", "มีรูปทรงตัดขนให้เลือกไหม"]:
+            with self.subTest(text=text):
+                self.assertNotIn("photo", actions.suggest(text))
+
+    def test_photo_button_does_not_hide_booking_button_when_both_are_asked(self):
+        from chatbot import actions
+
+        self.assertEqual(actions.suggest("ส่งรูปน้องแล้วจองคิวต่อเลยได้ไหม"), ["photo", "book"])
+

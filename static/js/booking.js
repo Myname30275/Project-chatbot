@@ -921,6 +921,14 @@
       b.textContent = "ยกเลิกคิว";
       return b;
     },
+    photo: () => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "btn btn--small";
+      b.dataset.pickPhoto = ""; // chat.js เปิดตัวเลือกรูปของแชท
+      b.textContent = "ส่งรูปน้อง";
+      return b;
+    },
     book: () => {
       const b = document.createElement("button");
       b.type = "button";

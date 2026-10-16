@@ -611,6 +611,12 @@
   // ใช้รายการปุ่มที่เซิร์ฟเวอร์เลือกให้ (chatbot/actions.py ชุดเดียวกับปุ่มใต้คำตอบในแชทบนเว็บ ไม่ใช้ LLM)
   // คุยเรื่องอื่นต่อ (คำตอบไม่มีปุ่มเหล่านี้) = ซ่อนการ์ด ไม่ค้างจากเรื่องก่อนหน้า
   const CARDS = {
+    photo: {
+      title: "ส่งรูปน้องให้ประเมินราคา",
+      link: "#",
+      label: "ส่งรูปน้อง",
+      text: "เลือกรูปจากเครื่องหรือถ่ายรูปใหม่ น้องหอมจะบอกราคาตามขนาดตัวให้ทันที (ส่งรูปสลิปได้เหมือนกัน)",
+    },
     book: { title: "พร้อมจองคิวแล้ว", link: "/?book=1", label: "จองคิว", text: null },
     check: {
       title: "เช็คคิว",
@@ -625,7 +631,7 @@
       text: "ยืนยันตัวตนด้วยเลขจอง เบอร์โทร และชื่อเจ้าของ ยกเลิกได้ก่อนนัด 3 ชั่วโมง ร้านโอนมัดจำคืนให้",
     },
   };
-  const CARD_ORDER = ["cancel", "check", "book"]; // เรื่องเฉพาะเจาะจงกว่ามาก่อน
+  const CARD_ORDER = ["photo", "cancel", "check", "book"]; // เรื่องเฉพาะเจาะจงกว่ามาก่อน
   let bookText = null; // ข้อความเดิมของการ์ดจองคิว (มีค่ามัดจำจาก template)
 
   function showCardFor(actions) {
@@ -646,6 +652,82 @@
     link.textContent = c.label;
     card.dataset.kind = kind;
     card.hidden = false;
+  }
+
+  /* ---------------- ส่งรูปน้อง/สลิปจากการ์ด (หน้า /avatar) ---------------- */
+
+  // ใช้ endpoint เดียวกับปุ่มกล้องในแชท (/api/v1/attachments) และ session เดียวกัน — ถามต่อด้วยเสียงได้เลย
+  // เช่น "อาบน้ำตัวนี้เท่าไหร่" · ระบบตอบด้วยข้อความที่โค้ดสร้างจากผลอ่านรูป แล้วน้องหอมพูดออกมา
+  const photoInput = document.getElementById("voice-photo-file");
+  const bookCard = document.getElementById("voice-book");
+
+  async function shrinkPhoto(file, maxSide = 1600) {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+      if (scale === 1 && file.size < 1.5 * 1024 * 1024) return file;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bmp.width * scale);
+      canvas.height = Math.round(bmp.height * scale);
+      canvas.getContext("2d").drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+      return blob || file;
+    } catch {
+      return file; // ย่อไม่ได้ (เบราว์เซอร์เก่า) ส่งไฟล์เดิม
+    }
+  }
+
+  function speakWhole(text, session) {
+    const { out, rest } = popReadyChunks(text, false);
+    for (const piece of out) enqueueSpeech(piece, session);
+    if (rest.trim()) enqueueSpeech(rest.trim(), session);
+    finishSpeechQueue(session);
+  }
+
+  async function sendPhoto(file) {
+    if (!file || state === "off") return;
+    // หยุดฟัง/พูดที่ค้างอยู่ก่อน แล้วเข้าสถานะ "กำลังคิด" ระหว่างรออ่านรูป
+    speakSession++;
+    stopAllTts();
+    abortCtrl && abortCtrl.abort();
+    abortCtrl = null;
+    try { rec && rec.abort(); } catch {}
+    const session = ++speakSession;
+    resetSpeakQueue();
+    showCardFor(null);
+    setState("thinking");
+    statusEl.textContent = "กำลังดูรูปน้อง…";
+    saidEl.textContent = "📷 ส่งรูป";
+    replyEl.textContent = "";
+    let text;
+    try {
+      const blob = await shrinkPhoto(file);
+      const data = new FormData();
+      data.append("file", blob, blob === file ? file.name : "photo.jpg");
+      const res = await fetch("/api/v1/attachments", { method: "POST", body: data });
+      const body = await res.json();
+      text = body.error ? body.message : (body.reply || "ได้รับรูปแล้วค่ะ ถามต่อได้เลยนะคะ");
+    } catch (e) {
+      console.error("[voice] ส่งรูปไม่สำเร็จ:", e);
+      text = "ส่งรูปไม่สำเร็จค่ะ ลองกดส่งรูปอีกครั้งได้เลยนะคะ";
+    }
+    if (session !== speakSession || state === "off") return;
+    replyEl.textContent = text;
+    avatarMood(moodOf(text));
+    speakWhole(text, session);
+  }
+
+  if (bookCard && photoInput) {
+    bookCard.querySelector("[data-card-link]").addEventListener("click", (e) => {
+      if (bookCard.dataset.kind !== "photo") return;
+      e.preventDefault();
+      photoInput.click();
+    });
+    photoInput.addEventListener("change", () => {
+      const file = photoInput.files && photoInput.files[0];
+      photoInput.value = "";
+      sendPhoto(file);
+    });
   }
 
   /* ---------------- พูดแทรก (barge-in) ---------------- */
