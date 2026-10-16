@@ -30,6 +30,7 @@ SIZES = {"small", "medium", "large", "unknown"}
 COATS = {"short", "medium", "long", "unknown"}
 MATTING = {"none", "mild", "severe", "unknown"}
 IMAGE_TYPES = {"pet", "slip", "other"}
+LIFE_STAGES = {"young", "adult", "unknown"}
 
 
 class VisionError(Exception):
@@ -49,6 +50,7 @@ class Animal:
     coat_length: str = "unknown"
     matting: str = "unknown"
     wound: bool = False
+    life_stage: str = "unknown"  # young = ลูกสุนัข/ลูกแมว
 
 
 @dataclass
@@ -126,6 +128,7 @@ def parse(raw: str) -> ImageAnalysis | None:
             coat_length=_pick(a.get("coat_length"), COATS),
             matting=_pick(a.get("matting"), MATTING),
             wound=a.get("visible_wound_or_skin_issue") is True,
+            life_stage=_pick(a.get("life_stage"), LIFE_STAGES),
         ))
 
     s = data.get("slip") if isinstance(data.get("slip"), dict) else {}

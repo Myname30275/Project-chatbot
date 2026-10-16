@@ -12,6 +12,17 @@ _COAT_TH = {"short": "ขนสั้น", "medium": "ขนยาวปาน�
 _MATTING_TH = {"none": "ไม่พบขนพัน", "mild": "ขนพันบางจุด", "severe": "ขนพันมาก", "unknown": "มองไม่ชัดว่าขนพันไหม"}
 
 
+def _young(a: Animal) -> bool:
+    return a.species in ("dog", "cat") and not a.wound and a.life_stage == "young"
+
+
+def _young_package() -> str:
+    """บรรทัดแพ็กเกจลูกสุนัข/ลูกแมวจาก catalog (ราคา + เงื่อนไขวัคซีน)"""
+    pkg = next(s for s in pricing.load_catalog()["services"] if s["id"] == "puppy_kitten")
+    note = f" · {pkg['note']}" if pkg.get("note") else ""
+    return f"{pkg['name']} {pkg['price']:,} บาท{note}"
+
+
 MATTED_NOTE = "ขนน้องดูพันกัน ค่ากำจัดขนพันร้านขอประเมินตอนน้องมาถึงร้านนะคะ (ราคาด้านบนยังไม่รวมส่วนนี้)"
 
 
@@ -33,6 +44,18 @@ def _describe_animal(i: int, a: Animal) -> list[str]:
     if a.wound:
         return [f"{head} — เห็นร่องรอยแผลหรือปัญหาผิวหนังในรูป: ร้านงดรับบริการ ให้แนะนำพบสัตวแพทย์ก่อน (ไม่ต้องแจ้งราคา)"]
 
+    if _young(a):
+        # ลูกสัตว์: ขนาดตามพันธุ์ใช้ไม่ได้ (ลูกไซบีเรียนเคยถูกตีเป็นสุนัขใหญ่ — พบ 17 ต.ค. 2569)
+        lines = [f"{head} — ดูเป็น{'ลูกแมว' if a.species == 'cat' else 'ลูกสุนัข'} (ยังโตไม่เต็มวัย)",
+                 f"  - ถ้าอายุ 3–6 เดือน: {_young_package()}",
+                 "  - ร้านรับลูกสุนัข/ลูกแมวอายุ 3 เดือนขึ้นไปที่ได้รับวัคซีนเข็มแรกแล้ว"]
+        if a.species == "cat":
+            lines.append(f"  - อายุเกิน 6 เดือน: อาบน้ำ {_range(pricing.quote('bath', 'cat'))} · "
+                         f"ตัดขน {_range(pricing.quote('full_groom', 'cat'))} (แมวราคาเดียวทุกขนาด)")
+        else:
+            lines.append("  - อายุเกิน 6 เดือน: ราคาอาบน้ำ/ตัดขนคิดตามน้ำหนักจริงตอนนี้ ห้ามบอกราคาตามขนาดของสายพันธุ์ "
+                         "ให้ถามน้ำหนักและอายุก่อนแจ้งราคา")
+        return lines
     if a.species == "cat":
         size_key, size_text = "cat", "แมว (ราคาเดียวทุกขนาด)"
     elif a.size in _SIZE_TH:
@@ -89,6 +112,18 @@ def _animal_reply(a: Animal) -> str:
             f"จากรูป {name}ดูเหมือนจะมีแผลหรือปัญหาผิวหนัง แนะนำพาน้องไปพบสัตวแพทย์ก่อนนะคะ "
             "ร้านของดรับบริการจนกว่าน้องจะหายค่ะ"
         )
+    breed = f" ({a.breed_guess})" if a.breed_guess else ""
+    if _young(a):
+        kind = "ลูกแมว" if a.species == "cat" else "ลูกสุนัข"
+        lines = [f"น้อง{name}{breed} ดูจากรูปน่าจะเป็น{kind}ค่ะ",
+                 f"- ถ้าน้องอายุ 3–6 เดือน มี{_young_package()}",
+                 "- ร้านรับน้องอายุ 3 เดือนขึ้นไปนะคะ"]
+        if a.species == "cat":
+            lines.append(f"- ถ้าอายุเกิน 6 เดือน: อาบน้ำ + เป่าขน {_range(pricing.quote('bath', 'cat'))} · "
+                         f"ตัดขนทั้งตัว {_range(pricing.quote('full_groom', 'cat'))}")
+        else:
+            lines.append("- ถ้าอายุเกิน 6 เดือน ราคาอาบน้ำ-ตัดขนคิดตามน้ำหนักจริงตอนนี้ ไม่ได้คิดตามพันธุ์ค่ะ")
+        return "\n".join(lines)
     if a.species == "cat":
         size_key, size_text = "cat", "แมว"
     elif a.size in _SIZE_TH:
@@ -98,10 +133,9 @@ def _animal_reply(a: Animal) -> str:
 
     bath = pricing.quote("bath", size_key)
     groom = pricing.quote("full_groom", size_key)
-    breed =f" ({a.breed_guess})" if a.breed_guess else ""
     # แมวราคาเดียวทุกขนาด — ไม่ต้องบอก "ดูจากรูปเป็นแมว" ซ้ำกับชื่อชนิด
     head = (f"น้อง{name}{breed} ค่ะ ราคาแมวเท่ากันทุกขนาด" if a.species == "cat"
-            else f"น้อง{name}{breed} ดูจากรูปเป็น{size_text}ค่ะ")
+            else f"น้อง{name}{breed} ดูจากรูปน่าจะเป็น{size_text}ค่ะ")
     lines = [
         head,
         f"- อาบน้ำ + เป่าขน {_range(bath)}",
@@ -122,8 +156,10 @@ def customer_reply(analysis: ImageAnalysis) -> str:
     for i, a in enumerate(animals, 1):
         text = _animal_reply(a)
         parts.append(f"ตัวที่ {i}: {text}" if len(animals) > 1 else text)
-    if any(a.species in ("dog", "cat") and not a.wound and (a.species == "cat" or a.size in _SIZE_TH)
-           for a in animals):
+    if any(_young(a) and a.species == "dog" for a in animals):
+        parts.append("รบกวนแจ้งน้ำหนักและอายุของน้อง เพื่อแจ้งราคาที่ถูกต้องนะคะ")
+    elif any(a.species in ("dog", "cat") and not a.wound and (a.species == "cat" or a.size in _SIZE_TH)
+             for a in animals):
         # ขอน้ำหนักเฉพาะเมื่อมีสุนัข (ราคาขึ้นกับขนาด) — แมวราคาเดียว ไม่ต้องขอ
         needs_weight = any(a.species == "dog" and not a.wound and a.size in _SIZE_TH for a in animals)
         parts.append(

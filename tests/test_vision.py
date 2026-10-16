@@ -333,3 +333,39 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(self.analyzer.VisionError):
                 await self.analyzer._ask([])
         self.assertEqual([m for m, _ in self.calls], ["g-main", "g-lite"])
+
+
+class YoungAnimalTests(unittest.TestCase):
+    """ลูกสุนัข/ลูกแมว: ไม่ตีขนาดตามพันธุ์ (17 ต.ค. 2569: ลูกไซบีเรียนถูกตอบว่าเป็นสุนัขใหญ่ > 25 กก.)"""
+
+    def test_life_stage_is_read_and_whitelisted(self):
+        raw = ('{"image_type": "pet", "real_photo": true, "animals": [{"species": "dog", "breed_guess": "Siberian Husky", '
+               '"life_stage": "young", "size": "large"}, {"species": "dog", "life_stage": "baby"}]}')
+        a = image_analyzer.parse(raw)
+        self.assertEqual([x.life_stage for x in a.animals], ["young", "unknown"])
+
+    def test_puppy_gets_package_and_weight_question_not_breed_size_price(self):
+        pup = Animal(species="dog", species_name="สุนัข", breed_guess="ไซบีเรียน ฮัสกี้", size="large", life_stage="young")
+        r = pet_estimate.customer_reply(ImageAnalysis("pet", [pup]))
+        self.assertIn("ลูกสุนัข", r)
+        self.assertIn("300 บาท", r)                 # แพ็กเกจลูกสุนัข/ลูกแมว
+        self.assertIn("วัคซีน", r)
+        self.assertIn("น้ำหนักและอายุ", r)
+        for wrong in ("สุนัขใหญ่", "500 บาท", "750 บาท"):
+            self.assertNotIn(wrong, r)
+        text = pet_estimate.estimate_text(ImageAnalysis("pet", [pup]))
+        self.assertIn("ห้ามบอกราคาตามขนาดของสายพันธุ์", text)
+        self.assertNotIn("750", text)
+
+    def test_kitten_gets_package_and_cat_price(self):
+        kit = Animal(species="cat", species_name="แมว", life_stage="young")
+        r = pet_estimate.customer_reply(ImageAnalysis("pet", [kit]))
+        self.assertIn("ลูกแมว", r)
+        self.assertIn("300 บาท", r)
+        self.assertIn("600 บาท", r)
+
+    def test_adult_wording_is_hedged(self):
+        r = pet_estimate.customer_reply(ImageAnalysis("pet", [Animal(species="dog", species_name="สุนัข", size="large", life_stage="adult")]))
+        self.assertIn("ดูจากรูปน่าจะเป็นสุนัขใหญ่", r)
+        self.assertIn("750 บาท", r)
+
