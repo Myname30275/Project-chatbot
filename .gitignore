@@ -29,3 +29,8 @@ tests/Image/Slip Gum auction.jpg
 tests/Image/Slip credit.jpg
 docs/report.pdf
 docs/img/demo/test-10-new.jpg
+
+# รายงาน PDF ทุกฉบับมีรูปทดสอบ (รวมสลิปจริงของผู้พัฒนา) — เก็บในเครื่องเท่านั้น
+docs/*.pdf
+# รูปที่ใช้อัดคลิปเดโม (มีสลิปจริง)
+Demo/
