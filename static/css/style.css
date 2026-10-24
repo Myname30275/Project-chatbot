@@ -1152,6 +1152,12 @@ svg {
   border-style: dashed;
   color: var(--ink-soft);
 }
+#voice-mic.is-off {
+  background: var(--honey);
+}
+.voice[data-state="muted"] .voice__status {
+  color: var(--ink-soft);
+}
 /* ปุ่มจองคิวที่เด้งขึ้นในหน้าอวตาร หลังคุยเรื่องจอง */
 .voice-book {
   display: grid;
@@ -1510,16 +1516,22 @@ svg {
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  /* แถบควบคุมแถวเดียว: สถานะซ้าย ปุ่มขวา (คำแนะนำ "แตะเพื่อพูดแทรก" ซ่อนบนจอเล็ก) */
+  /* แถบควบคุม: สถานะบรรทัดบน ปุ่ม 3 ปุ่ม (ไมค์ · คำบรรยาย · จบการคุย) บรรทัดล่าง
+     (คำแนะนำ "แตะเพื่อพูดแทรก" ซ่อนบนจอเล็ก) */
   .voice__bar {
     bottom: 12px;
-    grid-template-columns: 1fr auto;
-    align-items: center;
-    justify-items: start;
-    padding: 10px 12px 10px 16px;
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 8px;
+    padding: 10px 12px;
   }
   .voice__bar .voice__status {
     font-size: 1rem;
+    max-width: 100%;
+  }
+  .voice__controls .btn {
+    white-space: nowrap;
+    padding-inline: 14px;
   }
   .voice__bar .alert {
     grid-column: 1 / -1;

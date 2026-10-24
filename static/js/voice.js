@@ -21,6 +21,7 @@
 
   const exitBtn = document.getElementById("voice-exit");
   const ccBtn = document.getElementById("voice-cc");
+  const micBtn = document.getElementById("voice-mic");
   const stageEl = document.getElementById("voice-stage");
   const statusEl = document.getElementById("voice-status");
   const ccBox = document.getElementById("voice-cc-box");
@@ -264,6 +265,7 @@
     listening: "กำลังฟัง…",
     thinking: "กำลังคิด…",
     speaking: "กำลังพูด แตะเพื่อพูดแทรกได้",
+    muted: "ปิดไมค์อยู่ กดเปิดไมค์เมื่อพร้อมพูด",
   };
   function setState(s) {
     state = s;
@@ -283,9 +285,41 @@
     if (state === "off") return;
     finalText = "";
     saidEl.textContent = "";
+    if (!micOn) {
+      setState("muted"); // ปิดไมค์อยู่: ไม่เริ่มฟัง รอจนกว่าลูกค้าจะกดเปิดไมค์
+      return;
+    }
     setState("listening");
     safeRecStart();
   }
+
+  /* ---------------- ปุ่มปิด/เปิดไมค์ ---------------- */
+
+  // ปิดไมค์: หยุดฟังทันที (สิ่งที่พูดค้างไว้ยังไม่ส่ง) และปิดเสียงเข้าของไมค์ ·
+  // ถ้าน้องหอมกำลังคิด/พูด ปล่อยให้ตอบจนจบ แล้วค้างอยู่ที่ "ปิดไมค์อยู่" แทนที่จะฟังต่อ
+  let micOn = true;
+  function applyMic() {
+    if (!micBtn) return;
+    micBtn.textContent = micOn ? "ปิดไมค์" : "เปิดไมค์";
+    micBtn.setAttribute("aria-pressed", String(micOn));
+    micBtn.classList.toggle("is-off", !micOn);
+    if (micStream) micStream.getAudioTracks().forEach((t) => { t.enabled = micOn; });
+  }
+  function setMic(on) {
+    micOn = on;
+    applyMic();
+    if (!on && state === "listening") {
+      try { rec && rec.abort(); } catch {}
+      recRunning = false;
+      finalText = "";
+      saidEl.textContent = "";
+      targetLevel = 0;
+      setState("muted");
+    } else if (on && state === "muted") {
+      startListening();
+    }
+  }
+  micBtn && micBtn.addEventListener("click", () => setMic(!micOn));
 
   function safeRecStart() {
     if (!rec || recRunning || state === "off") return;
@@ -896,8 +930,10 @@
       return;
     }
     rec = buildRec();
+    micOn = true; // เริ่มคุยใหม่ทุกครั้งเปิดไมค์ไว้ก่อน
     setState("listening");
     await startMeter();
+    applyMic();
     await cartesiaConfig;
     await entered;
     if (state !== "off" && !greet()) startListening();
