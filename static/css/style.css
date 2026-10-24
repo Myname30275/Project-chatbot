@@ -752,24 +752,6 @@ svg {
   }
 }
 
-.sources {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 5px;
-  margin-top: 6px;
-}
-.sources__label {
-  font-size: 0.78rem;
-  color: var(--ink-soft);
-}
-.sources__chip {
-  padding: 1px 9px;
-  background: var(--cream);
-  border: 1.5px solid var(--ink-line);
-  border-radius: 999px;
-  font-size: 0.78rem;
-}
 
 .attachments {
   display: flex;

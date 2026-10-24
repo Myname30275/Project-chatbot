@@ -158,26 +158,6 @@ window.hhChat = {
   },
 };
 
-// ชิ้นข้อมูลร้านที่ RAG ค้นมาใช้ตอบ — โชว์ใต้คำตอบให้ลูกค้าเห็นว่าอ้างอิงจากอะไร
-function renderKnowledge(bubble, items) {
-  const wrapper = bubble.parentElement;
-  if (!items || !items.length || wrapper.querySelector(".sources")) return;
-  const box = document.createElement("div");
-  box.className = "sources";
-  const label = document.createElement("span");
-  label.className = "sources__label";
-  label.textContent = "ข้อมูลจากร้าน";
-  box.appendChild(label);
-  for (const s of items) {
-    const chip = document.createElement("span");
-    chip.className = "sources__chip";
-    chip.textContent = s.title;
-    box.appendChild(chip);
-  }
-  wrapper.appendChild(box);
-  scrollToBottom();
-}
-
 // ============ แจ้งเตือน ============
 function showError(message, { retry = false } = {}) {
   errorBanner.classList.remove("alert--notice");
@@ -230,7 +210,6 @@ async function sendMessage(message) {
   const aiBubble = createAiBubble();
   let accumulatedText = "";
   let receivedDone = false;
-  let knowledge = null;
   let actions = null; // ปุ่มทางลัดใต้คำตอบ ("check" / "cancel" / "book") — เซิร์ฟเวอร์เลือกให้
 
   try {
@@ -270,7 +249,7 @@ async function sendMessage(message) {
         }
 
         if (payload.knowledge !== undefined) {
-          knowledge = payload.knowledge;
+          // ชิ้นข้อมูลร้านที่ RAG ใช้ตอบ — ไม่แสดงใต้คำตอบแล้ว (ร้านขอเอาออก 25 ต.ค. 2569)
         } else if (payload.actions) {
           actions = payload.actions;
         } else if (payload.blocked) {
@@ -284,7 +263,6 @@ async function sendMessage(message) {
           // output guard บล็อกคำตอบ — แทนข้อความทั้งหมดด้วยข้อความที่ปลอดภัยจากเซิร์ฟเวอร์
           accumulatedText = payload.replace;
           aiBubble.innerHTML = renderMarkdown(accumulatedText);
-          knowledge = null;
           scrollToBottom();
         } else if (payload.error) {
           showError(payload.message || "น้องหอมตอบไม่ได้ในตอนนี้ ลองส่งใหม่อีกครั้ง", { retry: true });
@@ -301,7 +279,6 @@ async function sendMessage(message) {
     if (!accumulatedText) {
       aiBubble.parentElement.remove();
     } else if (!aiBubble.classList.contains("bubble--refusal")) {
-      renderKnowledge(aiBubble, knowledge);
       if (actions) window.hhBooking?.addActions(aiBubble, actions);
       else window.hhBooking?.maybeAddCta(message, aiBubble);
     }
