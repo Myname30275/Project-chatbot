@@ -284,6 +284,7 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
                         mock.patch.object(settings, "VISION_BASE_URL", "http://gemini"),
                         mock.patch.object(settings, "VISION_API_KEY", "g"),
                         mock.patch.object(settings, "VISION_API_KEY_2", None),
+                        mock.patch.object(settings, "VISION_KEY2_FIRST", False),
                         mock.patch.object(settings, "VISION_MODEL", "g-main"),
                         mock.patch.object(settings, "VISION_FALLBACK_MODEL", "g-lite"),
                         mock.patch.object(settings, "VISION_BACKUP_BASE_URL", "http://backup"),
@@ -324,6 +325,13 @@ class VisionBackupProviderTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(chain, [("b-model", "k"), ("g-main", None), ("g-main", "g2"), ("g-lite", None), ("g-lite", "g2")])
             self.assertEqual(await self.analyzer._ask([]), "g-lite")
         self.assertEqual([a for _, a in self.calls], [1, 1, 1, 1])
+
+    async def test_default_order_is_gemini_account_2_then_account_1_then_groq(self):
+        from unittest import mock
+
+        with mock.patch.object(settings, "VISION_API_KEY_2", "g2"), mock.patch.object(settings, "VISION_KEY2_FIRST", True),                 mock.patch.object(settings, "VISION_BACKUP_FIRST", False):
+            chain = [(m, k) for m, _, k in self.analyzer._candidates()]
+        self.assertEqual(chain, [("g-main", "g2"), ("g-main", None), ("g-lite", "g2"), ("g-lite", None), ("b-model", "k")])
 
     async def test_without_backup_key_gemini_alone_is_used(self):
         from unittest import mock

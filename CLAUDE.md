@@ -43,7 +43,8 @@ python tests/run_10_questions.py              # ชุดทดสอบกั�
 - **ทุกช่องทาง** (แชทเว็บ, LINE, หน้าเสียง) เรียก `chatbot/assistant.py` ตัวเดียว: กฎขาเข้า → ตัวตรวจ LLM ∥ RAG → คำตอบจากโค้ด
   (คิวว่าง ราคาตามน้ำหนัก ดักเบอร์/เลขจอง) → Typhoon สตรีม → ตรวจคำตอบทีละประโยค (`guardrails/output_guard.py`) → ปุ่มทางลัด (`chatbot/actions.py`)
 - **ข้อมูลร้าน** อยู่ที่ `shop/catalog.json` (แหล่งราคาเดียว) + `policies.md` + `faq.md` · `shop/pricing.py` แตกชื่อรายการเป็นคำสำคัญให้ตัวตรวจ/การค้นใช้
-- **อ่านรูป** `vision/image_analyzer.py`: Groq `qwen/qwen3.8-27b` → Gemini Flash (key 1 → key 2) → Flash Lite (key 1 → key 2)
+- **อ่านรูป** `vision/image_analyzer.py`: Gemini Flash (บัญชี 2 → บัญชี 1) → Flash Lite (บัญชี 2 → บัญชี 1) → Groq `qwen/qwen3.8-27b`
+  (สลับลำดับได้ด้วย `VISION_KEY2_FIRST` / `VISION_BACKUP_FIRST`)
   ตัวที่ยังมีตัวถัดไปลองครั้งเดียว · โค้ดคิดราคาจาก catalog (`vision/pet_estimate.py`) · ลูกสัตว์ (`life_stage=young`) ได้แพ็กเกจลูกสุนัขแทนราคาตามพันธุ์
 - **จองคิว** `booking/` เป็นโค้ดล้วน ไม่ผ่าน LLM · ฟอร์ม 3 ขั้น: บริการ + วันเวลา → ข้อมูลน้อง (+ รับ-ส่ง) → สลิปมัดจำ · เจ้าของร้านยืนยันคิวเสมอ
 - **หน้าเสียง** `static/js/voice.js` + `voice-avatar.js` (VRM): Web Speech API → แกนกลางเดียวกับแชท → Cartesia · ขีดแสดงช่วงอ่านเป็น "ถึง" (`channels/tts.py`)

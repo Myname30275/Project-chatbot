@@ -42,8 +42,10 @@ class Settings(BaseSettings):
     # ไม่ตั้ง VISION_API_KEY = ปิดฟีเจอร์นี้ (รูปจะอ่านได้แค่ "ข้อความในรูป" จาก OCR)
     VISION_BASE_URL: str | None = None
     VISION_API_KEY: str | None = None
-    # key ที่ 2 ของ Gemini จากอีกบัญชี (โควตาฟรีแยกกัน) — ใช้เมื่อ key แรกติดโควตา/ล่ม · ไม่ตั้ง = ใช้ key เดียว
+    # key ที่ 2 ของ Gemini จากอีกบัญชี (โควตาฟรีแยกกัน) · ไม่ตั้ง = ใช้ key เดียว
     VISION_API_KEY_2: str | None = None
+    # true = ลอง key ที่ 2 ก่อน key แรก (ผู้ใช้กำหนด 25 ต.ค. 2569: บัญชีที่ 2 → บัญชีที่ 1 → Groq)
+    VISION_KEY2_FIRST: bool = True
     # gemini-flash-latest = alias ที่ Google ชี้ไปโมเดล flash ตัวล่าสุดเสมอ
     # (ตั้งชื่อเวอร์ชันตายตัวเช่น gemini-2.5-flash จะโดน 404 เมื่อ Google เลิกให้ผู้ใช้ใหม่)
     VISION_MODEL: str = "gemini-flash-latest"
@@ -60,7 +62,8 @@ class Settings(BaseSettings):
     # true = เรียก VISION_BACKUP_* (Groq) เป็นลำดับแรก แล้วค่อยใช้ Gemini เมื่อ Groq ใช้ไม่ได้
     # (14 ต.ค. 2569: ส่งรูปตอนอัดคลิปเดโมรอเกือบ 30 วินาที — Gemini ช้า/ล่มบ่อยช่วงโหลดสูง ส่วน Groq ตอบใน 1–2 วินาที
     #  แต่โควตาฟรีของ Groq ราว 2 รูป/นาที เกินแล้วระบบสลับไป Gemini เอง)
-    VISION_BACKUP_FIRST: bool = True
+    # 25 ต.ค. 2569: ผู้ใช้ให้ Gemini นำก่อน (อ่านชื่อไทยในสลิปแม่นกว่า Groq) → Groq เป็นตัวสำรองสุดท้าย
+    VISION_BACKUP_FIRST: bool = False
 
     # --- RAG: ค้นคืนข้อมูลร้านจาก shop/ (rag/) ---
     # embedding ผ่าน endpoint OpenAI-compatible — ไม่ตั้ง EMBED_BASE_URL/EMBED_API_KEY จะใช้ค่า
